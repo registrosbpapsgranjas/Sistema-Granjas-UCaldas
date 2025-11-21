@@ -1,25 +1,28 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
 import './index.css';
 
-// Renderizamos la app principal en el root del HTML
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-// ✅ Registro del Service Worker para habilitar modo offline e instalación PWA
+// Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
+    navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('✅ Service Worker registrado correctamente:', registration);
       })
       .catch((error) => {
-        console.error('❌ Error al registrar el Service Worker:', error);
+        console.log('❌ Error registrando Service Worker:', error);
       });
   });
 }
+
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <App />
+    </GoogleOAuthProvider>
+  </React.StrictMode>,
+);

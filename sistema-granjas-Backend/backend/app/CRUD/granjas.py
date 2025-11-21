@@ -1,18 +1,26 @@
 from sqlalchemy.orm import Session
-from app.db import models
-from app.schemas.granja_schema import GranjaCreate
+from app.db.models import Granja, Usuario
 
-def get_granjas(db: Session):
-    return db.query(models.Granja).all()
+def get_all(db: Session, skip: int = 0, limit: int = 50):
+    return db.query(Granja).offset(skip).limit(limit).all()
 
-def create_granja(db: Session, granja: GranjaCreate):
-    db_granja = models.Granja(
-        nombre=granja.nombre,
-        ubicacion=granja.ubicacion,
-        asesor_id=granja.asesor_id,
-        programa_id=granja.programa_id
-    )
-    db.add(db_granja)
+def get_by_id(db: Session, granja_id: int):
+    return db.query(Granja).filter(Granja.id == granja_id).first()
+
+def create(db: Session, granja_data):
+    nueva_granja = Granja(**granja_data.dict())
+    db.add(nueva_granja)
     db.commit()
-    db.refresh(db_granja)
-    return db_granja
+    db.refresh(nueva_granja)
+    return nueva_granja
+
+def update(db: Session, granja, data):
+    for field, value in data.dict(exclude_unset=True).items():
+        setattr(granja, field, value)
+    db.commit()
+    db.refresh(granja)
+    return granja
+
+def delete(db: Session, granja):
+    db.delete(granja)
+    db.commit()

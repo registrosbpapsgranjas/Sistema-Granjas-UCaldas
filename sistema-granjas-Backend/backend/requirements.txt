@@ -1,8 +1,25 @@
+# Dependencias principales del proyecto FastAPI
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
+
+# Gestión de Base de Datos (ORM y Migraciones)
 alembic==1.11.1
 SQLAlchemy==2.0.23
 psycopg2-binary==2.9.9
+
+# Configuración y Tipado
 python-dotenv==1.0.1
 pydantic==2.7.1
-psycopg2-binary==2.9.9
+pydantic-settings==2.3.4
+
+# Autenticación y Seguridad
+python-jose[cryptography]==3.3.0
+google-auth==2.29.0
+requests==2.32.3
+
+# ✅ Seguridad corregida
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1   # <-- Esta línea es la clave para evitar el error
+
+# Validación de email
+pydantic[email]==2.7.1

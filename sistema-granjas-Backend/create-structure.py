@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 # La ruta base de tu proyecto (donde estás ejecutando el script)
