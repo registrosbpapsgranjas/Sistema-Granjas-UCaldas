@@ -23,3 +23,5 @@ bcrypt==4.0.1   # <-- Esta línea es la clave para evitar el error
 
 # Validación de email
 pydantic[email]==2.7.1
+boto3
+python-multipart

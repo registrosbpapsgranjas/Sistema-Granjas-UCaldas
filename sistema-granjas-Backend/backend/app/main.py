@@ -17,7 +17,10 @@ from app.api import (
     diagnosticos,
     recomendaciones,
     labores,
-    evidencias  # ✅ AGREGADO: Importar evidencias
+    evidencias,  # ✅ AGREGADO: Importar evidencias
+    upload,
+    movimientos
+    
 )
 from app.db.database import engine, Base
 from app.db.models import Usuario, Granja, Programa, Lote, Labor, Rol  # Importar modelos existentes
@@ -68,6 +71,8 @@ app.include_router(diagnosticos.router, prefix="/api")
 app.include_router(recomendaciones.router, prefix="/api")
 app.include_router(labores.router, prefix="/api")
 app.include_router(evidencias.router, prefix="/api")  # ✅ AGREGADO: Incluir router de evidencias
+app.include_router(upload.router, prefix="/api")
+app.include_router(movimientos.router, prefix="/api")
 
 @app.get("/")
 def root():
