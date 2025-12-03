@@ -124,19 +124,29 @@ class GranjaResponse(GranjaBase):
     class Config:
         from_attributes = True
 
+# Schemas para asignaciones
+class AsignacionUsuarioGranja(BaseModel):
+    usuario_id: int
+
+class AsignacionProgramaGranja(BaseModel):
+    programa_id: int
+
 # Schema extendido para respuestas con relaciones
 class GranjaWithRelations(GranjaResponse):
-    cultivos: List['CultivoEspecieResponse'] = []
-    usuarios: List['UsuarioResponse'] = []
-    programas: List['ProgramaResponse'] = []
-    lotes: List['LoteResponse'] = []
+    cultivos: List[dict] = []
+    usuarios: List[dict] = []
+    programas: List[dict] = []
+    lotes: List[dict] = []
+
+    class Config:
+        from_attributes = True
 
     @model_validator(mode='after')
     def validar_estado_granja(cls, values):
         """Validaciones adicionales para granjas con relaciones"""
         # Si la granja está inactiva, no debería tener cultivos activos
         if not values.activo:
-            cultivos_activos = [c for c in values.cultivos if c.estado == 'activo']
+            cultivos_activos = [c for c in values.cultivos if c.get('estado') == 'activo']
             if cultivos_activos:
                 raise ValueError('No se puede desactivar una granja con cultivos activos')
         

@@ -19,7 +19,8 @@ from app.api import (
     labores,
     evidencias,  # ✅ AGREGADO: Importar evidencias
     upload,
-    movimientos
+    movimientos,
+    roles
     
 )
 from app.db.database import engine, Base
@@ -73,6 +74,7 @@ app.include_router(labores.router, prefix="/api")
 app.include_router(evidencias.router, prefix="/api")  # ✅ AGREGADO: Incluir router de evidencias
 app.include_router(upload.router, prefix="/api")
 app.include_router(movimientos.router, prefix="/api")
+app.include_router(roles.router, prefix="/api")
 
 @app.get("/")
 def root():

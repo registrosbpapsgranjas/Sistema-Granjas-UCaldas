@@ -1,5 +1,5 @@
 // src/hooks/useAuth.ts
-import { useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import {
   isAuthenticated as checkTokenAuth,
   getUserData,
@@ -14,7 +14,28 @@ export interface User {
   rol_id: number;
 }
 
+interface AuthContextType {
+  isAuthenticated: boolean;
+  user: User | null;
+  loading: boolean;
+  logout: () => Promise<void>;
+  token: string | null;
+}
+
+// Crear el contexto
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Hook personalizado
 export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth debe ser usado dentro de un AuthProvider");
+  }
+  return context;
+}
+
+// Función para crear el valor del contexto (sin JSX)
+export function useAuthValue(): AuthContextType {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => checkTokenAuth());
   const [user, setUser] = useState<User | null>(() => getUserData());
   const [loading, setLoading] = useState(true);
@@ -29,7 +50,7 @@ export function useAuth() {
   }, []);
 
   const logout = async () => {
-    await apiLogout(); // Limpia también en backend
+    await apiLogout();
     setIsAuthenticated(false);
     setUser(null);
   };

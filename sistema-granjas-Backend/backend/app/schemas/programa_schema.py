@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import re
 
@@ -119,6 +119,22 @@ class ProgramaResponse(ProgramaBase):
     id: int
     activo: bool
     fecha_creacion: datetime
+
+    class Config:
+        from_attributes = True
+
+# Schemas para asignaciones
+class AsignacionUsuarioPrograma(BaseModel):
+    usuario_id: int
+
+class AsignacionGranjaPrograma(BaseModel):
+    granja_id: int
+
+class ProgramaWithRelations(ProgramaResponse):
+    usuarios: List[dict] = []
+    granjas: List[dict] = []
+    lotes: List[dict] = []
+    insumos: List[dict] = []
 
     class Config:
         from_attributes = True
