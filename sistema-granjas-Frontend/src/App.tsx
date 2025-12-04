@@ -14,6 +14,7 @@ import GestionProgramasPage from './pages/GestionProgramas';
 import GestionLaboresPage from './pages/GestionLabores';
 import GestionUsuariosPage from './pages/GestionUsuarios';
 import GestionLotesPage from './pages/GestionLotes'; // NUEVO IMPORT
+import GestionCultivosPage from './pages/GestionCultivos';
 
 function App() {
   const authValue = useAuthValue();
@@ -150,6 +151,13 @@ function App() {
             <Route path="/gestion/lotes" element={
               <ProtectedRoute>
                 <GestionLotesPage />
+              </ProtectedRoute>
+            } />
+
+            // Agregar en las rutas:
+            <Route path="/gestion/cultivos" element={
+              <ProtectedRoute>
+                <GestionCultivosPage />
               </ProtectedRoute>
             } />
 

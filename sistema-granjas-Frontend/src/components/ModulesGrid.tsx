@@ -42,6 +42,15 @@ const ModulesGrid: React.FC<ModulesGridProps> = ({ navigate }) => {
             permission: 'admin'
         },
         {
+            id: 'cultivos',
+            title: 'Gestión de Cultivos',
+            description: 'Administra cultivos y especies',
+            icon: 'fas fa-leaf',
+            color: 'bg-green-500',
+            path: '/gestion/cultivos',
+            permission: 'admin'
+        },
+        {
             id: 'labores',
             title: 'Labores',
             description: 'Supervisa tareas y asignaciones',
