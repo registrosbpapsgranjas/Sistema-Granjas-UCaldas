@@ -1,7 +1,7 @@
 // src/pages/GestionProgramasPage.tsx
 import React from 'react';
-import DashboardHeader from '../components/DashboardHeader';
-import GestionProgramas from '../components/GestionPrograma';
+import DashboardHeader from '../components/Common/DashboardHeader';
+import GestionProgramas from '../components/Programas/GestionPrograma';
 
 const GestionProgramasPage: React.FC = () => (
     <div className="min-h-screen bg-gray-50">

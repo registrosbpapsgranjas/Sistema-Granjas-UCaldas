@@ -112,3 +112,5 @@ export const loteService = {
     if (!response.ok) throw new Error('Error al eliminar tipo de lote');
   }
 };
+
+export default loteService;

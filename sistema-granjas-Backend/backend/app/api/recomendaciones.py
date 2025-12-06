@@ -12,7 +12,7 @@ from app.schemas.recomendacion_schema import (
 
 router = APIRouter(prefix="/recomendaciones", tags=["Recomendaciones"])
 
-roles_recomendacion = ["admin", "docente", "asesor"]
+roles_recomendacion = ["admin", "docente", "asesor","estudiante"]
 
 @router.post("/", response_model=RecomendacionResponse)
 def crear(
@@ -81,7 +81,7 @@ def aprobar_recomendacion(
     data: AprobacionRecomendacionRequest,
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user),
-    _ = Depends(require_role(["admin"]))  # Solo admin puede aprobar
+    _ = Depends(require_role(["admin", "docente"]))  # Solo admin puede aprobar
 ):
     """Aprobar o rechazar una recomendación"""
     return aprobar_recomendacion_crud(db, id, data, usuario)

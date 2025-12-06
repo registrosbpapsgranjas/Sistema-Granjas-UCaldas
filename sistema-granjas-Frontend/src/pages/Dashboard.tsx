@@ -1,9 +1,9 @@
 // pages/Dashboard.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import DashboardHeader from '../components/DashboardHeader';
-import Sidebar from '../components/SideBar';
-import ModulesGrid from '../components/ModulesGrid';
+import DashboardHeader from '../components/Common/DashboardHeader';
+import Sidebar from '../components/Common/SideBar';
+import ModulesGrid from '../components/Common/ModulesGrid';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();

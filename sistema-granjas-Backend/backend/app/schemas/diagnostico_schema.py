@@ -28,11 +28,7 @@ class DiagnosticoBase(BaseModel):
             raise ValueError('La descripción debe tener al menos 10 caracteres')
         return v.strip()
 
-    @validator('observaciones')
-    def observaciones_no_vacias(cls, v):
-        if v is not None and not v.strip():
-            raise ValueError('Las observaciones no pueden estar vacías')
-        return v.strip() if v else v
+    # ❌ VALIDACIÓN DE OBSERVACIONES ELIMINADA
 
 # Schema para creación - con docente_id opcional
 class DiagnosticoCreate(BaseModel):
@@ -40,7 +36,7 @@ class DiagnosticoCreate(BaseModel):
     descripcion: str = Field(..., min_length=10, max_length=1000, description="Descripción detallada")
     estudiante_id: int = Field(..., gt=0, description="ID del estudiante que crea el diagnóstico")
     lote_id: int = Field(..., gt=0, description="ID del lote asociado")
-    docente_id: Optional[int] = Field(None, gt=0, description="ID del docente que revisa")  # OPCIONAL
+    docente_id: Optional[int] = Field(None, gt=0, description="ID del docente que revisa")
 
     @validator('descripcion')
     def descripcion_minima(cls, v):
@@ -48,7 +44,7 @@ class DiagnosticoCreate(BaseModel):
             raise ValueError('La descripción debe tener al menos 10 caracteres')
         return v.strip()
 
-# Schema para actualización - campos opcionales
+# Schema para actualización
 class DiagnosticoUpdate(BaseModel):
     tipo: Optional[TipoDiagnostico] = Field(None, description="Tipo de diagnóstico")
     descripcion: Optional[str] = Field(None, min_length=10, max_length=1000, description="Descripción detallada")
@@ -62,11 +58,7 @@ class DiagnosticoUpdate(BaseModel):
             raise ValueError('La descripción debe tener al menos 10 caracteres')
         return v.strip() if v else v
 
-    @validator('observaciones')
-    def observaciones_no_vacias(cls, v):
-        if v is not None and not v.strip():
-            raise ValueError('Las observaciones no pueden estar vacías')
-        return v.strip() if v else v
+    # ❌ VALIDACIÓN DE OBSERVACIONES ELIMINADA
 
 # Schema para respuesta
 class DiagnosticoResponse(DiagnosticoBase):
@@ -76,7 +68,6 @@ class DiagnosticoResponse(DiagnosticoBase):
     fecha_creacion: datetime
     fecha_revision: Optional[datetime] = None
     
-    # Información relacionada (no se almacenan en DB, se calculan)
     estudiante_nombre: Optional[str] = None
     docente_nombre: Optional[str] = None
     lote_nombre: Optional[str] = None
@@ -86,7 +77,7 @@ class DiagnosticoResponse(DiagnosticoBase):
     class Config:
         from_attributes = True
 
-# Schema para respuesta con recomendaciones
+# Schema con recomendaciones
 class RecomendacionBasicResponse(BaseModel):
     id: int
     titulo: str
@@ -103,7 +94,7 @@ class DiagnosticoWithRecomendacionesResponse(DiagnosticoResponse):
     class Config:
         from_attributes = True
 
-# Schema para listado paginado
+# Listado paginado
 class DiagnosticoListResponse(BaseModel):
     items: List[DiagnosticoResponse]
     total: int
@@ -112,21 +103,19 @@ class DiagnosticoListResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Schema específico para asignación de docente
+# Asignación docente
 class AsignacionDocenteRequest(BaseModel):
     docente_id: int = Field(..., gt=0, description="ID del docente a asignar")
 
-# Schema específico para cierre de diagnóstico
+# Cierre de diagnóstico (este sí tiene validación)
 class CierreDiagnosticoRequest(BaseModel):
-    observaciones: str = Field(..., min_length=1, max_length=1000, description="Observaciones de cierre")
-    
-    @validator('observaciones')
-    def observaciones_no_vacias(cls, v):
-        if not v.strip():
-            raise ValueError('Las observaciones no pueden estar vacías')
-        return v.strip()
+    observaciones: Optional[str] = Field(
+        None,
+        max_length=1000,
+        description="Observaciones de cierre"
+    )
 
-# Schema para estadísticas
+# Estadísticas
 class EstadisticasDiagnosticosResponse(BaseModel):
     total: int
     abiertos: int

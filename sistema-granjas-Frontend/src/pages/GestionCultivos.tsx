@@ -1,6 +1,6 @@
 import React from 'react';
-import DashboardHeader from '../components/DashboardHeader';
-import GestionCultivos from '../components/GestionCultivos';
+import DashboardHeader from '../components/Common/DashboardHeader';
+import GestionCultivos from '../components/Cultivos/GestionCultivos';
 
 const GestionCultivosPage: React.FC = () => (
     <div className="min-h-screen bg-gray-50">

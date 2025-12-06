@@ -1,7 +1,7 @@
 // src/pages/GestionUsuariosPage.tsx
 import React from 'react';
-import DashboardHeader from '../components/DashboardHeader';
-import GestionUsuarios from '../components/GestionUsuario';
+import DashboardHeader from '../components/Common/DashboardHeader';
+import GestionUsuarios from '../components/Usuarios/GestionUsuario';
 
 const GestionUsuariosPage: React.FC = () => (
     <div className="min-h-screen bg-gray-50">

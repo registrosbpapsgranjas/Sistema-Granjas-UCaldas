@@ -15,6 +15,8 @@ import GestionLaboresPage from './pages/GestionLabores';
 import GestionUsuariosPage from './pages/GestionUsuarios';
 import GestionLotesPage from './pages/GestionLotes'; // NUEVO IMPORT
 import GestionCultivosPage from './pages/GestionCultivos';
+import GestionInventarioPage from './pages/GestionInventarios';
+import GestionDiagnosticosPage from './pages/GestionDiagnosticos';
 
 function App() {
   const authValue = useAuthValue();
@@ -160,6 +162,13 @@ function App() {
                 <GestionCultivosPage />
               </ProtectedRoute>
             } />
+            <Route path="/gestion/inventario" element={
+              <ProtectedRoute>
+                <GestionInventarioPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/gestion/diagnosticos" element={<ProtectedRoute><GestionDiagnosticosPage /></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

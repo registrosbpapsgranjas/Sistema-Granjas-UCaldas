@@ -1,6 +1,6 @@
 // src/pages/GestionLaboresPage.tsx
 import React from 'react';
-import DashboardHeader from '../components/DashboardHeader';
+import DashboardHeader from '../components/Common/DashboardHeader';
 
 const GestionLaboresPage: React.FC = () => (
     <div className="min-h-screen bg-gray-50">

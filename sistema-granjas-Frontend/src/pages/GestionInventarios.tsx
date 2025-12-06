@@ -1,18 +1,18 @@
 import React from 'react';
 import DashboardHeader from '../components/Common/DashboardHeader';
-import GestionLotes from '../components/Lotes/GestionLote';
+import GestionInventario from '../components/Inventarios/GestionInventarios';
 
-const GestionLotesPage: React.FC = () => (
+const GestionInventarioPage: React.FC = () => (
     <div className="min-h-screen bg-gray-50">
         <DashboardHeader
-            title="Gestión de Lotes"
-            selectedModule="lotes"
+            title="Gestión de Inventario"
+            selectedModule="inventario"
             onBack={() => window.history.back()}
         />
         <div className="container mx-auto px-4 py-8">
-            <GestionLotes />
+            <GestionInventario />
         </div>
     </div>
 );
 
-export default GestionLotesPage;
+export default GestionInventarioPage;

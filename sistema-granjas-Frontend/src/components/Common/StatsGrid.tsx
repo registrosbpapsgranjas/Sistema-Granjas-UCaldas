@@ -1,6 +1,6 @@
 import React from "react";
 import StatsCard from "./StatsCard";
-import { type DashboardStats } from "../types/dashboardTypes";
+import { type DashboardStats } from "../../types/dashboardTypes";
 
 interface Props {
     stats: DashboardStats;

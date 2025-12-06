@@ -1,6 +1,6 @@
 // src/components/AsignarGranjaModal.tsx
 import React from "react";
-import Modal from "../components/Modal";
+import Modal from "../Common/Modal";
 
 interface AsignarGranjaModalProps {
     isOpen: boolean;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import Modal from '../components/Modal';
-import { loteService } from '../services/loteService';
+import Modal from '../Common/Modal';
+import { loteService } from '../../services/loteService';
 
 interface TiposLoteModalProps {
     isOpen: boolean;

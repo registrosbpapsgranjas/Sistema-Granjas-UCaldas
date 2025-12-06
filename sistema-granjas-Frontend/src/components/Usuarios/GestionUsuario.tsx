@@ -2,13 +2,13 @@
 import { useEffect, useState } from "react";
 
 // Services
-import usuarioService from "../services/usuarioService";
+import usuarioService from "../../services/usuarioService";
 
 // Components
-import { StatsCard } from "../components/StatsCard";
-import { EditarUsuarioModal } from "../components/EditarUsuario";
-import { CambiarRolModal } from "../components/CambiarRol";
-import UsuariosTable from "../components/UsuariosTable";
+import { StatsCard } from "../Common/StatsCard";
+import { EditarUsuarioModal } from "./EditarUsuario";
+import { CambiarRolModal } from "./CambiarRol";
+import UsuariosTable from "./UsuariosTable";
 
 export default function GestionUsuarios() {
     const [usuarios, setUsuarios] = useState<any[]>([]);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import cultivoService from "../services/cultivoService";
-import granjaService from "../services/granjaService";
-import { StatsCard } from "../components/StatsCard";
+import cultivoService from "../../services/cultivoService";
+import granjaService from "../../services/granjaService";
+import { StatsCard } from "../Common/StatsCard";
 import CultivosTable from "./CultivosTable";
 import CultivoForm from "./CultivosForm";
 

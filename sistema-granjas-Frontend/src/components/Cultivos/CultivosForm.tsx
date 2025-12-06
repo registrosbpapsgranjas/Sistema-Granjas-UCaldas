@@ -1,6 +1,6 @@
 import React from 'react';
-import Modal from '../components/Modal';
-import type { CultivoFormData } from '../types/cultivoTypes';
+import Modal from '../Common/Modal';
+import type { CultivoFormData } from '../../types/cultivoTypes';
 
 interface CultivoFormProps {
     isOpen: boolean;

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { CultivoEspecie } from '../types/cultivoTypes';
+import type { CultivoEspecie } from '../../types/cultivoTypes';
 
 interface CultivosTableProps {
     cultivos: CultivoEspecie[];

@@ -1,5 +1,5 @@
 // src/components/AsignarUsuarioModal.tsx (versión mejorada)
-import Modal from "./Modal";
+import Modal from "../Common/Modal";
 
 interface AsignarUsuarioModalProps {
     isOpen: boolean;
