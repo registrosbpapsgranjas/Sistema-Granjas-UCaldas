@@ -1,5 +1,5 @@
 import React from 'react';
-import Modal from '../components/Modal';
+import Modal from '../Common/Modal';
 
 interface LoteFormProps {
     isOpen: boolean;

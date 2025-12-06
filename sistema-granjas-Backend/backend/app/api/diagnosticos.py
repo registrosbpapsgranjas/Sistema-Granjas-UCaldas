@@ -90,8 +90,8 @@ def crear_diagnostico(
     # Validación del docente (si lo envían)
     if data.docente_id:
         docente = get_or_404(db, Usuario, data.docente_id, "Docente no encontrado")
-        if docente.rol.nombre != "docente":
-            raise HTTPException(400, "El usuario asignado no es docente")
+        if docente.rol.nombre not in ["docente", "asesor"]:
+            raise HTTPException(400, "El usuario asignado no es docente ó asesor")
 
     # Crear
     obj = Diagnostico(**data.dict())
@@ -134,7 +134,7 @@ def actualizar_diagnostico(
     # Validar docente si se está asignando
     if data.docente_id:
         docente = get_or_404(db, Usuario, data.docente_id)
-        if docente.rol.nombre != "docente":
+        if docente.rol.nombre not in ["docente", "asesor"]:
             raise HTTPException(400, "Usuario asignado no es docente")
 
     update_data = data.dict(exclude_unset=True)
@@ -181,12 +181,13 @@ def asignar_docente(
     obj = get_or_404(db, Diagnostico, id)
 
     docente = get_or_404(db, Usuario, data.docente_id)
-    if docente.rol.nombre != "docente":
-        raise HTTPException(400, "El usuario asignado no es docente")
+    if docente.rol.nombre not in ["docente", "asesor"]:
+        raise HTTPException(400, "El usuario asignado no es docente ó asesor")
 
     # Docente solo se asigna a si mismo
-    if user.rol.nombre == "docente" and docente.id != user.id:
+    if docente.rol.nombre not in ["docente", "asesor"] and docente.id != user.id:
         raise HTTPException(403, "Solo puede auto-asignarse diagnósticos")
+
 
     obj.docente_id = docente.id
     obj.estado = "en_revision"
@@ -211,7 +212,7 @@ def cerrar_diagnostico(
         raise HTTPException(400, "No se puede cerrar sin docente asignado")
 
     # Docente solo cierra si es el asignado
-    if user.rol.nombre == "docente" and obj.docente_id != user.id:
+    if docente.rol.nombre not in ["docente", "asesor"] and obj.docente_id != user.id:
         raise HTTPException(403, "Solo el docente asignado puede cerrar el diagnóstico")
 
     obj.estado = "cerrado"
@@ -232,7 +233,7 @@ def obtener_estadisticas(
 ):
     query = db.query(Diagnostico)
 
-    if user.rol.nombre == "docente":
+    if docente.rol.nombre not in ["docente", "asesor"]:
         query = query.filter(Diagnostico.docente_id == user.id)
 
     total = query.count()
@@ -270,13 +271,13 @@ def _check_view_permission(obj: Diagnostico, user: Usuario):
 def _check_edit_permission(obj: Diagnostico, user: Usuario, data: DiagnosticoUpdate):
     rol = user.rol.nombre
     fields = set(data.dict(exclude_unset=True).keys())
-    print("Marlon Rol", rol)
+    
     # ✅ admin tiene acceso completo a todo
     if rol == "admin":
         return
 
     # ✅ Docente solo puede editar diagnósticos asignados a él
-    if rol == "docente" and obj.docente_id == user.id:
+    if rol in  ["docente", "asesor"] and obj.docente_id == user.id:
         if not fields.issubset({"estado", "observaciones"}):
             raise HTTPException(403, "Docente solo puede editar estado u observaciones")
         return

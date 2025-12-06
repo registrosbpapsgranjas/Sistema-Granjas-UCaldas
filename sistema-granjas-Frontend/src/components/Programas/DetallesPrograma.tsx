@@ -1,6 +1,6 @@
 // src/components/DetallesPrograma.tsx
 import React from "react";
-import Modal from "../components/Modal";
+import Modal from "../Common/Modal";
 
 interface DetallesProgramaProps {
     isOpen: boolean;

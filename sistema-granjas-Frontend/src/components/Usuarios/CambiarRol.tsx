@@ -1,6 +1,6 @@
 // src/components/CambiarRolModal.tsx
 import React, { useState, useEffect } from "react";
-import Modal from "./Modal";
+import Modal from "../Common/Modal";
 
 interface CambiarRolModalProps {
     isOpen: boolean;

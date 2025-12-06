@@ -42,6 +42,34 @@ const ModulesGrid: React.FC<ModulesGridProps> = ({ navigate }) => {
             permission: 'admin'
         },
         {
+            id: 'cultivos',
+            title: 'Gestión de Cultivos',
+            description: 'Administra cultivos y especies',
+            icon: 'fas fa-leaf',
+            color: 'bg-green-500',
+            path: '/gestion/cultivos',
+            permission: 'admin'
+        },
+        {
+            id: 'inventario',
+            title: 'Gestión de Inventario',
+            description: 'Administra herramientas, insumos y categorías',
+            icon: 'fas fa-boxes',
+            color: 'bg-blue-500',
+            path: '/gestion/inventario',
+            permission: 'admin'
+        },
+        // Agregar al array de modules:
+        {
+            id: 'diagnosticos',
+            title: 'Gestión de Diagnósticos',
+            description: 'Crear, revisar y gestionar diagnósticos de cultivos',
+            icon: 'fas fa-stethoscope',
+            color: 'bg-teal-500',
+            path: '/gestion/diagnosticos',
+            permission: 'all' // O específico como 'admin,docente,estudiante'
+        },
+        {
             id: 'labores',
             title: 'Labores',
             description: 'Supervisa tareas y asignaciones',

@@ -19,14 +19,14 @@ export interface RolesResponse {
   roles: { id: number; nombre: string; descripcion: string }[];
 }
 
-// --- Helper genérico para llamadas al backend ---
+// --- Helper genérico ---
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   try {
     const response = await fetch(url, {
       headers: {
-        "Accept": "application/json",
+        Accept: "application/json",
         ...(options.body && { "Content-Type": "application/json" }),
-        ...(getToken() && { "Authorization": `Bearer ${getToken()}` }),
+        ...(getToken() && { Authorization: `Bearer ${getToken()}` }),
         ...options.headers,
       },
       ...options,
@@ -35,7 +35,9 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.detail || `Error ${response.status}: ${response.statusText}`);
+      throw new Error(
+        data.detail || `Error ${response.status}: ${response.statusText}`
+      );
     }
 
     return data;
@@ -49,7 +51,6 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 
 // ================== AUTHS ==================
 
-// Login tradicional
 export function login(email: string, password: string) {
   return request<LoginResponse>(`${AUTH_URL}/login`, {
     method: "POST",
@@ -57,15 +58,18 @@ export function login(email: string, password: string) {
   });
 }
 
-// Registro tradicional
-export function register(nombre: string, email: string, password: string, rol_id: number) {
+export function register(
+  nombre: string,
+  email: string,
+  password: string,
+  rol_id: number
+) {
   return request<LoginResponse>(`${AUTH_URL}/register`, {
     method: "POST",
     body: JSON.stringify({ nombre, email, password, rol_id }),
   });
 }
 
-// Login con Google
 export function loginWithGoogle(token: string) {
   return request<LoginResponse>(`${AUTH_URL}/google/login`, {
     method: "POST",
@@ -73,14 +77,12 @@ export function loginWithGoogle(token: string) {
   });
 }
 
-// Logout
 export async function logout() {
   await request(`${AUTH_URL}/logout`, { method: "POST" });
   clearAuthData();
   return { message: "Sesión cerrada correctamente" };
 }
 
-// Obtener roles
 export function getRolesDisponibles() {
   return request<RolesResponse>(`${AUTH_URL}/roles-disponibles`);
 }
@@ -107,8 +109,7 @@ export function isAuthenticated(): boolean {
 
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    const exp = payload.exp;
-    return Date.now() < exp * 1000;
+    return Date.now() < payload.exp * 1000;
   } catch {
     return false;
   }
@@ -120,6 +121,11 @@ export function getUserData() {
 
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
+
+    if (!payload.nombre || !payload.rol || !payload.sub) {
+      return null;
+    }
+
     return {
       nombre: payload.nombre,
       rol: payload.rol,
@@ -131,7 +137,7 @@ export function getUserData() {
   }
 }
 
-// === VERIFICAR CONEXIÓN CON BACKEND ===
+// === Verificación de conexión ===
 export async function checkBackendConnection(): Promise<boolean> {
   try {
     const controller = new AbortController();
@@ -145,10 +151,8 @@ export async function checkBackendConnection(): Promise<boolean> {
 
     clearTimeout(timeout);
 
-    if (!response.ok) return false;
-
-    return true;
-  } catch (error) {
-    return false; // ✅ Si falla → backend NO conectado
+    return response.ok;
+  } catch {
+    return false;
   }
 }

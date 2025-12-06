@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { loteService } from "../services/loteService";
-import granjaService from "../services/granjaService";
-import programaService from "../services/programaService";
-import { StatsCard } from "../components/StatsCard";
-import LotesTable from "./lotesTable";
-import LoteForm from "./lotesForm";
+import { loteService } from "../../services/loteService";
+import granjaService from "../../services/granjaService";
+import programaService from "../../services/programaService";
+import { StatsCard } from "../Common/StatsCard";
+import LotesTable from "./LotesTable";
+import LoteForm from "./LotesForm";
 import TiposLoteModal from "./TiposLote";
 
 export default function GestionLotes() {

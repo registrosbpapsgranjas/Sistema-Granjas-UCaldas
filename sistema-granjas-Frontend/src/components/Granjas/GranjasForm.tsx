@@ -1,5 +1,5 @@
 import React from "react";
-import Modal from "../components/Modal";
+import Modal from "../Common/Modal";
 
 export const GranjaForm = ({
     isOpen,

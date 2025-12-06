@@ -1,7 +1,7 @@
 // src/pages/GestionGranjasPage.tsx
 import React from 'react';
-import DashboardHeader from '../components/DashboardHeader';
-import GestionGranjas from '../components/GestionGranjas';
+import DashboardHeader from '../components/Common/DashboardHeader';
+import GestionGranjas from '../components/Granjas/GestionGranjas';
 
 const GestionGranjasPage: React.FC = () => (
     <div className="min-h-screen bg-gray-50">

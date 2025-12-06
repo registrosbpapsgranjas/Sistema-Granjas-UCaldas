@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 
 // --- SERVICES DE GRANJA (CRUD y asignaciones específicas de granja)
-import granjaService from "../services/granjaService";
-import usuarioService from "../services/usuarioService";
-import programaService from "../services/programaService";
+import granjaService from "../../services/granjaService";
+import usuarioService from "../../services/usuarioService";
+import programaService from "../../services/programaService";
 
-import { StatsCard } from "../components/StatsCard";
-import { GranjaForm } from "../components/GranjasForm";
-import { DetallesGranja } from "../components/DetallesGranja";
-import { AsignarUsuarioModal } from "../components/AsignarUsuario";
-import { AsignarProgramaModal } from "../components/AsignarPrograma";
-import GranjasTable from "../components/GranjasTable";
+import { StatsCard } from "../Common/StatsCard";
+import { GranjaForm } from "./GranjasForm";
+import { DetallesGranja } from "./DetallesGranja";
+import { AsignarUsuarioModal } from "../Usuarios/AsignarUsuario";
+import { AsignarProgramaModal } from "../Programas/AsignarPrograma";
+import GranjasTable from "./GranjasTable";
 
 export default function GestionGranjas() {
     const [granjas, setGranjas] = useState<any[]>([]);
