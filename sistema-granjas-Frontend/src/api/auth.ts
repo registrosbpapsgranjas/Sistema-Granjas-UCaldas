@@ -127,6 +127,7 @@ export function getUserData() {
     }
 
     return {
+      id: payload.id,
       nombre: payload.nombre,
       rol: payload.rol,
       email: payload.sub,

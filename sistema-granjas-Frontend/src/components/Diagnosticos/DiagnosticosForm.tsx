@@ -9,6 +9,7 @@ interface DiagnosticoFormProps {
     docentes: any[];
     estudiantes: any[];
     tipos: string[];
+    estados?: string[]; // 👈 AÑADE ESTE PROP
     currentUser: any;
     esEdicion?: boolean;
 }
@@ -21,6 +22,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     docentes,
     estudiantes,
     tipos,
+    estados = ['abierto', 'en_revision', 'cerrado'], // 👈 VALORES POR DEFECTO
     currentUser,
     esEdicion = false
 }) => {
@@ -28,7 +30,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [formData, setFormData] = useState({
         tipo: diagnostico?.tipo || '',
         descripcion: diagnostico?.descripcion || '',
-        observaciones: diagnostico?.observaciones || '', // 👈 AÑADE ESTA LINEA
+        observaciones: diagnostico?.observaciones || '',
+        estado: diagnostico?.estado || 'abierto', // 👈 AÑADE ESTE CAMPO
         lote_id: diagnostico?.lote_id || '',
         estudiante_id: diagnostico?.estudiante_id || '',
         docente_id: diagnostico?.docente_id || '',
@@ -57,6 +60,16 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             setFormData(prev => ({ ...prev, estudiante_id: currentUser.id }));
         }
     }, [currentUser, esEdicion]);
+
+    // Si es edición, cargar el estado actual del diagnóstico
+    useEffect(() => {
+        if (diagnostico && esEdicion) {
+            setFormData(prev => ({
+                ...prev,
+                estado: diagnostico.estado || 'abierto'
+            }));
+        }
+    }, [diagnostico, esEdicion]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -96,8 +109,31 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         setTiposEvidencia(copia);
     };
 
+    // Función para obtener el color del estado
+    const getEstadoColor = (estado: string) => {
+        const colores: Record<string, string> = {
+            abierto: 'bg-green-100 text-green-800 border-green-200',
+            en_revision: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+            cerrado: 'bg-red-100 text-red-800 border-red-200'
+        };
+        return colores[estado] || 'bg-gray-100 text-gray-800 border-gray-200';
+    };
+
+    // Función para obtener el icono del estado
+    const getEstadoIcon = (estado: string) => {
+        const iconos: Record<string, string> = {
+            abierto: 'fas fa-circle',
+            en_revision: 'fas fa-clock',
+            cerrado: 'fas fa-check-circle'
+        };
+        return iconos[estado] || 'fas fa-question-circle';
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Si es creación, el estado siempre inicia como 'abierto'
+        const estadoFinal = esEdicion ? formData.estado : 'abierto';
 
         const evidencias = archivos.map((file, index) => ({
             file,
@@ -107,6 +143,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
         const datosSubmit = {
             ...formData,
+            estado: estadoFinal, // 👈 INCLUYE EL ESTADO
             lote_id: parseInt(formData.lote_id as any),
             estudiante_id: formData.estudiante_id ? parseInt(formData.estudiante_id as any) : undefined,
             docente_id: formData.docente_id ? parseInt(formData.docente_id as any) : undefined,
@@ -125,6 +162,55 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
             <form onSubmit={handleSubmit}>
                 <div className="space-y-6">
+
+                    {/* 👇 AÑADE ESTA SECCIÓN - ESTADO (solo en edición) */}
+                    {esEdicion && (
+                        <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Estado del Diagnóstico
+                                </label>
+                                {diagnostico && (
+                                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${getEstadoColor(diagnostico.estado)}`}>
+                                        <i className={`${getEstadoIcon(diagnostico.estado)} mr-2`}></i>
+                                        {diagnostico.estado.charAt(0).toUpperCase() + diagnostico.estado.slice(1)}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                {estados.map(estado => (
+                                    <div key={estado} className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            id={`estado_${estado}`}
+                                            name="estado"
+                                            value={estado}
+                                            checked={formData.estado === estado}
+                                            onChange={handleChange}
+                                            className="mr-2"
+                                        />
+                                        <label
+                                            htmlFor={`estado_${estado}`}
+                                            className="flex items-center text-sm cursor-pointer"
+                                        >
+                                            <span className={`w-3 h-3 rounded-full mr-2 ${getEstadoColor(estado)}`}></span>
+                                            {estado === 'abierto' && 'Abierto'}
+                                            {estado === 'en_revision' && 'En Revisión'}
+                                            {estado === 'cerrado' && 'Cerrado'}
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <p className="text-xs text-gray-500 mt-2">
+                                <i className="fas fa-info-circle mr-1"></i>
+                                {formData.estado === 'abierto' && 'El diagnóstico está activo y puede recibir nuevas evidencias.'}
+                                {formData.estado === 'en_revision' && 'El diagnóstico está siendo revisado por el docente asignado.'}
+                                {formData.estado === 'cerrado' && 'El diagnóstico ha sido finalizado y no permite modificaciones.'}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Tipo */}
                     <div>
@@ -229,7 +315,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         />
                     </div>
 
-                    {/* 👇 AÑADE ESTA SECCIÓN - OBSERVACIONES */}
+                    {/* Observaciones */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Observaciones (Opcional)
@@ -247,7 +333,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </p>
                     </div>
 
-                    {/* Evidencias */}
+                    {/* Evidencias - MANTENIENDO LA VERSIÓN ORIGINAL */}
                     <div className="mt-4">
                         <div className="flex justify-between mb-2">
                             <label className="font-medium text-gray-700">Evidencias</label>

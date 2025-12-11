@@ -1,14 +1,10 @@
 import type { 
   DiagnosticoItem, 
-  Diagnostico,
   CrearDiagnosticoDTO, 
-  AsignarDocenteDTO, 
   ActualizarDiagnosticoDTO,
   EstadisticasDiagnostico,
   DiagnosticoFiltros,
-  ArchivoEvidencia,
   Evidencia,
-  CrearEvidenciaDTO,
   DiagnosticoDetalle
 } from '../types/diagnosticoTypes';
 
@@ -65,49 +61,180 @@ export const diagnosticoService = {
     return handleResponse(response);
   },
 
-  async crearDiagnostico(datos: CrearDiagnosticoDTO): Promise<DiagnosticoItem> {
-    // Si trae evidencias iniciales, subirlas primero
-    if (datos.evidencias?.length) {
-      const evidenciasSubidas = await Promise.all(
-        datos.evidencias.map(async (ev) => {
-          const formData = new FormData();
-          formData.append('file', ev.file);
-
-          const uploadRes = await fetch(`${API_BASE_URL}/files/upload`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-            body: formData
-          });
-
-          const fileData = await handleResponse(uploadRes);
-
-          return {
-            tipo: ev.tipo,
-            descripcion: ev.descripcion,
-            url_archivo: fileData.url
-          };
-        })
-      );
-
-      datos = { ...datos, evidencias: evidenciasSubidas as any };
-    }
-
+  async crearDiagnostico(datos: CrearDiagnosticoDTO, user: any): Promise<DiagnosticoItem> {
+    try {
+    
+    // 1. Primero crea el diagnóstico
     const response = await fetch(`${API_BASE_URL}/diagnosticos/`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(datos)
     });
 
-    return handleResponse(response);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Error ${response.status} creando diagnóstico`);
+    }
+
+    const diagnosticoCreado: DiagnosticoItem = await response.json();
+
+    // 2. Si hay evidencias iniciales, subirlas y crear registros de evidencias
+    if (datos.evidencias?.length) {
+      await Promise.all(
+        datos.evidencias.map(async (ev) => {
+          try {
+            // Subir archivo
+            const formData = new FormData();
+            formData.append('file', ev.file);
+
+            const uploadRes = await fetch(`${API_BASE_URL}/files/upload`, {
+              method: 'POST',
+              headers: { 
+                'Authorization': `Bearer ${localStorage.getItem('token')}` 
+              },
+              body: formData
+            });
+
+            if (!uploadRes.ok) {
+              const errorText = await uploadRes.text();
+              console.error(`❌ Error subiendo archivo ${ev.file.name}:`, errorText);
+              throw new Error(`Error subiendo archivo ${ev.file.name}`);
+            }
+
+            const fileData = await uploadRes.json();
+
+            // Crear registro de evidencia
+            const evidenciaPayload = {
+              tipo: ev.tipo || 'imagen',
+              descripcion: ev.descripcion || `Evidencia para diagnóstico ${diagnosticoCreado.id}`,
+              url_archivo: fileData.url || fileData.filename || fileData.file_url,
+              tipo_entidad: 'diagnostico',
+              entidad_id: diagnosticoCreado.id,
+              usuario_id: user.id || 1 // Usar ID del usuario autenticado
+            };
+
+            const evidenciaRes = await fetch(`${API_BASE_URL}/evidencias/`, {
+              method: 'POST',
+              headers: getHeaders(),
+              body: JSON.stringify(evidenciaPayload)
+            });
+
+            if (!evidenciaRes.ok) {
+              const errorData = await evidenciaRes.json().catch(() => ({}));
+              console.error(`❌ Error creando evidencia:`, errorData);
+              throw new Error(`Error creando registro de evidencia`);
+            }
+
+            const evidenciaCreada = await evidenciaRes.json();
+            console.log('✅ Evidencia creada:', evidenciaCreada);
+
+            return evidenciaCreada;
+          } catch (error) {
+            console.error(`❌ Error procesando evidencia:`, error);
+            // Continuar con las demás evidencias aunque falle una
+            return null;
+          }
+        })
+      );
+      
+      console.log('✅ Todas las evidencias procesadas');
+    }
+
+    return diagnosticoCreado;
+
+  } catch (error) {
+    console.error('❌ Error en crearDiagnostico:', error);
+    throw error;
+  }
   },
 
-  async actualizarDiagnostico(id: number, datos: ActualizarDiagnosticoDTO): Promise<DiagnosticoItem> {
+  async actualizarDiagnostico(id: number, datos: ActualizarDiagnosticoDTO, user: any): Promise<DiagnosticoItem> {
+    try {
+    // 1. Actualizar diagnóstico
     const response = await fetch(`${API_BASE_URL}/diagnosticos/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       headers: getHeaders(),
-      body: JSON.stringify(datos)
+      body: JSON.stringify(datos),
     });
-    return handleResponse(response);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.detail || `Error ${response.status} actualizando diagnóstico`
+      );
+    }
+
+    const diagnosticoActualizado: DiagnosticoItem = await response.json();
+
+    // 2. Procesar evidencias nuevas si vienen
+    if (datos.evidencias?.length) {
+      await Promise.all(
+        datos.evidencias.map(async (ev) => {
+          try {
+            // Subir archivo
+            const formData = new FormData();
+            formData.append("file", ev.file);
+
+            const uploadRes = await fetch(`${API_BASE_URL}/files/upload`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+              body: formData,
+            });
+
+            if (!uploadRes.ok) {
+              const errorText = await uploadRes.text();
+              console.error(`ACTUALIZACION Error subiendo archivo ${ev.file.name}:`, errorText);
+              throw new Error(`Error subiendo archivo ${ev.file.name}`);
+            }
+
+            const fileData = await uploadRes.json();
+
+            // Crear registro de evidencia
+            const evidenciaPayload = {
+              tipo: ev.tipo || "imagen",
+              descripcion:
+                ev.descripcion ||
+                `Evidencia actualizada para diagnóstico ${diagnosticoActualizado.id}`,
+              url_archivo:
+                fileData.url || fileData.filename || fileData.file_url,
+              tipo_entidad: "diagnostico",
+              entidad_id: diagnosticoActualizado.id,
+              usuario_id: user.id || 1,
+            };
+            console.log("📄 Payload de evidencia (actualización):", evidenciaPayload);
+            const evidenciaRes = await fetch(`${API_BASE_URL}/evidencias/`, {
+              method: "POST",
+              headers: getHeaders(),
+              body: JSON.stringify(evidenciaPayload),
+            });
+
+            if (!evidenciaRes.ok) {
+              const errorData = await evidenciaRes.json().catch(() => ({}));
+              console.error(`❌ Error creando evidencia:`, errorData);
+              throw new Error("Error creando registro de evidencia");
+            }
+
+            const evidenciaCreada = await evidenciaRes.json();
+            console.log("✅ Evidencia creada (actualización):", evidenciaCreada);
+
+            return evidenciaCreada;
+          } catch (error) {
+            console.error("❌ Error procesando evidencia:", error);
+            return null;
+          }
+        })
+      );
+
+      console.log("✅ Todas las evidencias procesadas en actualización");
+    }
+
+    return diagnosticoActualizado;
+  } catch (error) {
+    console.error("❌ Error en actualizarDiagnostico:", error);
+    throw error;
+  }
   },
 
   async eliminarDiagnostico(id: number): Promise<void> {
@@ -146,60 +273,6 @@ export const diagnosticoService = {
       headers: getHeaders()
     });
     return handleResponse(response);
-  },
-
-  // ===================== EVIDENCIAS =====================
-
-  async agregarEvidencia(
-    diagnosticoId: number, 
-    file: File, 
-    descripcion: string,
-    tipo: string = 'imagen'
-  ): Promise<Evidencia> {
-    try {
-      // 1. Subir archivo
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const uploadResponse = await fetch(`${API_BASE_URL}/files/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      if (!uploadResponse.ok) {
-        const err = await uploadResponse.json();
-        throw new Error(err.detail || 'Error subiendo archivo');
-      }
-
-      const uploadResult = await uploadResponse.json();
-
-      // 2. Crear evidencia
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-      const evidenciaData: CrearEvidenciaDTO = {
-        tipo,
-        descripcion,
-        url_archivo: uploadResult.url || uploadResult.filename || uploadResult.file_url,
-        tipo_entidad: 'diagnostico',
-        entidad_id: diagnosticoId,
-        usuario_id: user.id
-      };
-
-      const evidenciaResponse = await fetch(`${API_BASE_URL}/evidencias/`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(evidenciaData)
-      });
-
-      return handleResponse(evidenciaResponse);
-
-    } catch (e) {
-      console.error("❌ Error en agregarEvidencia:", e);
-      throw e;
-    }
   },
 
   // En el servicio, modifica el método obtenerEvidencias:

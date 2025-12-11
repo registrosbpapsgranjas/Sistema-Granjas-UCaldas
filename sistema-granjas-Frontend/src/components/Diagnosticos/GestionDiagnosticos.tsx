@@ -170,11 +170,11 @@ const GestionDiagnosticos: React.FC = () => {
             }
 
             // Si el usuario es docente/admin y no especifica docente, asignarse a sí mismo
-            if ((user?.rol_id === 1 || user?.rol_id === 2 || user?.rol_id === 3) && !data.docente_id) {
+            if ((user?.rol_id === 1 || user?.rol_id === 2 || user?.rol_id === 5) && !data.docente_id) {
                 data.docente_id = user.id;
             }
 
-            const nuevo = await diagnosticoService.crearDiagnostico(data);
+            const nuevo = await diagnosticoService.crearDiagnostico(data, user);
             console.log('✅ Diagnóstico creado:', nuevo);
 
             setDiagnosticos(prev => [...prev, nuevo]);
@@ -189,12 +189,45 @@ const GestionDiagnosticos: React.FC = () => {
 
     const handleActualizarDiagnostico = async (id: number, data: any) => {
         try {
-            const actualizado = await diagnosticoService.actualizarDiagnostico(id, data);
+            console.log('📝 Actualizando diagnóstico #', id, 'con datos:', data);
+
+            // Preparar los datos para actualización
+            const datosActualizacion = {
+                tipo: data.tipo,
+                descripcion: data.descripcion,
+                observaciones: data.observaciones || null,
+                estado: data.estado || 'abierto', // Asegurar que siempre tenga estado
+                lote_id: data.lote_id,
+                estudiante_id: data.estudiante_id,
+                docente_id: data.docente_id || null // Si no hay docente, enviar null
+            };
+
+            // Filtrar solo los campos que han cambiado si lo necesitas
+            const datosParaEnviar: any = {};
+
+            // Solo incluir campos que no estén vacíos o hayan cambiado
+            Object.keys(datosActualizacion).forEach(key => {
+                const valor = datosActualizacion[key as keyof typeof datosActualizacion];
+                if (valor !== undefined && valor !== null) {
+                    datosParaEnviar[key] = valor;
+                }
+            });
+
+            console.log('📤 Enviando datos de actualización:', datosParaEnviar);
+
+            const actualizado = await diagnosticoService.actualizarDiagnostico(id, datosParaEnviar, user);
+
+            console.log('✅ Diagnóstico actualizado:', actualizado);
+
+            // Actualizar en la lista
             setDiagnosticos(prev => prev.map(d => d.id === id ? actualizado : d));
-            toast.success('Diagnóstico actualizado exitosamente');
+
+            toast.success(`Diagnóstico #${id} actualizado exitosamente`);
             setShowEditarModal(false);
+
         } catch (err: any) {
-            toast.error(`Error al actualizar: ${err.message}`);
+            console.error('❌ Error al actualizar diagnóstico:', err);
+            toast.error(`Error al actualizar diagnóstico: ${err.message || 'Error desconocido'}`);
         }
     };
 
@@ -241,7 +274,7 @@ const GestionDiagnosticos: React.FC = () => {
         }
 
         try {
-            await diagnosticoService.agregarEvidencia(selectedDiagnostico.id, file, descripcion, tipo);
+            await diagnosticoService.agregarEvidencia(selectedDiagnostico.id, file, descripcion, tipo, user);
             toast.success('Evidencia agregada exitosamente');
             setShowEvidenciaModal(false);
 
@@ -414,6 +447,7 @@ const GestionDiagnosticos: React.FC = () => {
                     docentes={docentes} // Solo estudiantes ven docentes para asignar
                     estudiantes={estudiantes} // 👈 PASAR ESTUDIANTES
                     tipos={tiposDiagnostico}
+                    estados={['abierto', 'en_revision', 'cerrado']}
                     currentUser={user}
                 />
             </Modal>

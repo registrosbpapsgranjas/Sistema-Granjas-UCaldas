@@ -8,6 +8,7 @@ import {
 } from "../api/auth";
 
 export interface User {
+  id: number;
   nombre: string;
   rol: string;
   email: string;
