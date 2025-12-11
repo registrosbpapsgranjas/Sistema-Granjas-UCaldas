@@ -207,7 +207,7 @@ def cerrar_diagnostico(
     user: Usuario = Depends(require_role(["docente", "admin"]))
 ):
     obj = get_or_404(db, Diagnostico, id)
-
+    docente = get_or_404(db, Usuario, data.docente_id)
     if not obj.docente_id:
         raise HTTPException(400, "No se puede cerrar sin docente asignado")
 
@@ -232,8 +232,7 @@ def obtener_estadisticas(
     user: Usuario = Depends(require_role(["docente", "admin"]))
 ):
     query = db.query(Diagnostico)
-
-    if docente.rol.nombre not in ["docente", "asesor"]:
+    if user.rol.nombre not in ["docente", "asesor"]:
         query = query.filter(Diagnostico.docente_id == user.id)
 
     total = query.count()

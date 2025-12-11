@@ -19,12 +19,14 @@ class AuthService:
     def _create_token_response(usuario) -> TokenResponse:
         """Helper para generar el JWT y la respuesta estándar."""
         access_token = create_access_token({
+            "id": usuario.id,
             "sub": usuario.email,
             "rol": usuario.rol.nombre,
             "rol_id": usuario.rol_id,
             "nombre": usuario.nombre
         })
         return TokenResponse(
+            id=usuario.id,
             access_token=access_token,
             nombre=usuario.nombre,
             rol=usuario.rol.nombre,
@@ -173,6 +175,7 @@ class AuthService:
 
         # Paso 4: Generar token
         access_token = create_access_token({
+            "id": usuario.id,
             "sub": usuario.email,
             "rol": usuario.rol.nombre,
             "rol_id": usuario.rol_id,

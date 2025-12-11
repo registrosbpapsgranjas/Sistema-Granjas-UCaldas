@@ -3,6 +3,7 @@ from typing import Optional, List
 import re
 
 class TokenResponse(BaseModel):
+    id: int
     access_token: str
     token_type: str = "bearer"
     nombre: str
