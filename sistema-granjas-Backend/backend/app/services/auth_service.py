@@ -16,7 +16,7 @@ class AuthService:
     """Clase que encapsula la lógica de negocio para la autenticación."""
 
     @staticmethod
-    def _create_token_response(usuario) -> TokenResponse:
+    def _create_token_response(usuario, message: str = None) -> TokenResponse:
         """Helper para generar el JWT y la respuesta estándar."""
         access_token = create_access_token({
             "id": usuario.id,
@@ -25,13 +25,19 @@ class AuthService:
             "rol_id": usuario.rol_id,
             "nombre": usuario.nombre
         })
+        
+        # Verificar si el usuario tiene rol y obtener su nombre
+        rol_nombre = usuario.rol.nombre if hasattr(usuario, 'rol') and usuario.rol else "usuario"
+        
         return TokenResponse(
             id=usuario.id,
             access_token=access_token,
+            token_type="bearer",
             nombre=usuario.nombre,
-            rol=usuario.rol.nombre,
+            rol=rol_nombre,
             rol_id=usuario.rol_id,
-            email=usuario.email
+            email=usuario.email,
+            message=message
         )
 
     # --- LÓGICA DE AUTENTICACIÓN TRADICIONAL ---
@@ -39,6 +45,8 @@ class AuthService:
     @staticmethod
     def login_user(db: Session, data: LoginRequest) -> TokenResponse:
         """Procesa el login tradicional de un usuario."""
+        logger.info(f"Procesando login tradicional para: {data.email}")
+        
         usuario = get_usuario_by_email(db, data.email)
 
         # 1. Validación de existencia
@@ -71,11 +79,12 @@ class AuthService:
             )
         
         logger.info(f"Login tradicional exitoso para: {data.email}")
-        return AuthService._create_token_response(usuario)
+        return AuthService._create_token_response(usuario, "Login exitoso")
 
     @staticmethod
     def register_user(db: Session, data: RegisterRequest) -> TokenResponse:
         """Procesa el registro tradicional de un nuevo usuario."""
+        logger.info(f"Procesando registro tradicional para: {data.email}")
         
         # 1. Verificar si el usuario ya existe
         usuario_existente = get_usuario_by_email(db, data.email)
@@ -106,9 +115,8 @@ class AuthService:
 
         logger.info(f"Registro tradicional exitoso para: {data.email}")
         
-        # 5. Generar token de respuesta (automático)
-        return AuthService._create_token_response(usuario)
-
+        # 5. Generar token de respuesta
+        return AuthService._create_token_response(usuario, "Registro exitoso")
 
     # --- LÓGICA DE AUTENTICACIÓN CON GOOGLE ---
 
@@ -118,6 +126,8 @@ class AuthService:
         Verifica el token de Google ID y devuelve la información del usuario.
         """
         try:
+            logger.debug("Verificando token de Google")
+            
             # Revisa la audiencia y firma del token
             idinfo = id_token.verify_oauth2_token(
                 token, 
@@ -128,15 +138,26 @@ class AuthService:
             # Verificación de que el token es para nuestra aplicación
             if idinfo['aud'] != settings.GOOGLE_CLIENT_ID:
                 logger.error(f"Audience mismatch: {idinfo['aud']} != {settings.GOOGLE_CLIENT_ID}")
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de Google inválido: Audience mismatch")
-                
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, 
+                    detail="Token de Google inválido: Audience mismatch"
+                )
+            
+            logger.debug(f"Token Google verificado para email: {idinfo.get('email')}")
             return idinfo
+            
         except ValueError as e:
             logger.error(f"Error verificando token Google (ValueError): {str(e)}")
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de Google inválido o expirado")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Token de Google inválido o expirado"
+            )
         except Exception as e:
             logger.error(f"Error inesperado verificando token Google: {str(e)}")
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno al verificar el token")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="Error interno al verificar el token"
+            )
 
     @staticmethod
     def login_with_google(db: Session, data: GoogleLoginRequest) -> TokenResponse:
@@ -150,12 +171,15 @@ class AuthService:
 
         email = user_info.get("email")
         if not email:
+            logger.error("Token de Google no contiene email")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email no disponible en el token de Google"
             )
 
         email_normalizado = email.lower().strip()
+        logger.info(f"Buscando usuario con email: {email_normalizado}")
+        
         usuario = get_usuario_by_email(db, email_normalizado)
 
         # Paso 2: Validar que el usuario exista
@@ -168,29 +192,12 @@ class AuthService:
 
         # Paso 3: Actualizar proveedor si aplica
         if usuario.auth_provider == "traditional":
+            logger.info(f"Actualizando usuario {email_normalizado} para login mixto")
             usuario.auth_provider = "both"
             db.commit()
             db.refresh(usuario)
-            logger.info(f"Usuario {email_normalizado} actualizado para login mixto (Google y Traditional)")
-
-        # Paso 4: Generar token
-        access_token = create_access_token({
-            "id": usuario.id,
-            "sub": usuario.email,
-            "rol": usuario.rol.nombre,
-            "rol_id": usuario.rol_id,
-            "nombre": usuario.nombre
-        })
 
         logger.info(f"Login con Google exitoso para: {email_normalizado}")
 
-        # ✅ DEVOLVER SIEMPRE los mismos datos que login tradicional
-        return TokenResponse(
-            access_token=access_token,
-            token_type="bearer",
-            nombre=usuario.nombre,
-            rol=usuario.rol.nombre,
-            rol_id=usuario.rol_id,
-            email=usuario.email,
-            message="Login con Google exitoso"
-        )
+        # Paso 4: Generar respuesta con token
+        return AuthService._create_token_response(usuario, "Login con Google exitoso")

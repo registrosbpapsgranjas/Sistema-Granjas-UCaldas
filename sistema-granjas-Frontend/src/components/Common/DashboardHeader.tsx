@@ -11,7 +11,7 @@ interface DashboardHeaderProps {
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-    title = "AgroTech UCaldas",
+    title = "Sistema de granjas",
     selectedModule,
     onBack
 }) => {
@@ -103,11 +103,15 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 <div className="flex justify-between items-center">
                     {/* Logo */}
                     <div className="flex items-center space-x-4 cursor-pointer" onClick={() => navigate('/dashboard')}>
-                        <div className="w-12 h-12 bg-green-700 rounded-full flex items-center justify-center">
-                            <i className="fas fa-seedling text-white text-xl"></i>
+                        <div className="flex h-22 w-22 items-center justify-center rounded-full bg-white text-green-700 text-2xl">
+                            <img
+                                src="/icons/icon-512.png" // Ruta a tu icono en la carpeta public/icons
+                                alt="Sistema de granjas"
+                                className="h-22 w-22" // Ajusta el tamaño según necesites
+                            />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-green-700">AgroTech UCaldas</h1>
+                            <h1 className="text-2xl font-bold text-green-700">Sistema de granjas</h1>
                             <p className="text-gray-500 text-sm">Sistema de Gestión Agrícola Integral</p>
                         </div>
                     </div>

@@ -20,12 +20,16 @@ export default function Login() {
                 {/* Panel izquierdo */}
                 <div className="flex w-1/2 flex-col justify-center bg-green-700 p-10 text-white max-md:hidden relative">
                     <div className="mb-8 flex items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-green-700 text-2xl">
-                            <i className="fas fa-seedling"></i>
+                        <div className="flex h-22 w-22 items-center justify-center rounded-full bg-white text-green-700 text-2xl">
+                            <img
+                                src="/icons/icon-512.png" // Ruta a tu icono en la carpeta public/icons
+                                alt="Sistema de granjas"
+                                className="h-22 w-22" // Ajusta el tamaño según necesites
+                            />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold">AgroTech UCaldas</h1>
-                            <p className="text-sm opacity-90">Sistema de Gestión Agrícola</p>
+                            <h1 className="text-2xl font-bold">Sistema de granjas</h1>
+                            <p className="text-sm opacity-90">Sistema de Gestión Agrícola y Pecuario</p>
                         </div>
                     </div>
                     <h2 className="text-3xl font-semibold mb-4">

@@ -82,6 +82,33 @@ export default function GestionInventario() {
         descripcion: ""
     });
 
+    // Función para calcular estadísticas desde las listas
+    const calcularEstadisticasDesdeListas = (
+        herramientasList: Herramienta[],
+        insumosList: Insumo[]
+    ) => {
+        // Calcular para herramientas
+        const total_herramientas = herramientasList.length;
+        const herramientas_disponibles = herramientasList.reduce(
+            (total, herramienta) => total + (herramienta.cantidad_disponible || 0),
+            0
+        );
+
+        // Calcular para insumos
+        const total_insumos = insumosList.length;
+        const insumos_disponibles = insumosList.reduce(
+            (total, insumo) => total + (insumo.cantidad_disponible || 0),
+            0
+        );
+
+        return {
+            total_herramientas,
+            total_insumos,
+            herramientas_disponibles,
+            insumos_disponibles
+        };
+    };
+
     useEffect(() => {
         cargarDatos();
     }, []);
@@ -115,7 +142,19 @@ export default function GestionInventario() {
             setInsumos(datosInsumos);
             setCategorias(datosCategorias);
             setProgramas(datosProgramas);
-            setEstadisticas(datosEstadisticas);
+
+            // Calcular estadísticas basadas en las listas
+            const estadisticasCalculadas = calcularEstadisticasDesdeListas(
+                datosHerramientas,
+                datosInsumos
+            );
+
+            // Actualizar las estadísticas con los valores calculados
+            // Mantenemos las otras estadísticas del servidor si las necesitas
+            setEstadisticas(prev => ({
+                ...prev,
+                ...estadisticasCalculadas
+            }));
 
         } catch (error: any) {
             console.error('❌ Error cargando inventario:', error);
@@ -128,6 +167,17 @@ export default function GestionInventario() {
             setCargando(false);
         }
     };
+
+    // Actualizar estadísticas cuando cambian las listas
+    useEffect(() => {
+        if (herramientas.length > 0 || insumos.length > 0) {
+            const nuevasEstadisticas = calcularEstadisticasDesdeListas(herramientas, insumos);
+            setEstadisticas(prev => ({
+                ...prev,
+                ...nuevasEstadisticas
+            }));
+        }
+    }, [herramientas, insumos]);
 
     // ========== HANDLERS DE EXPORTACIÓN ==========
     const handleExportInventario = async () => {
@@ -507,6 +557,10 @@ export default function GestionInventario() {
         );
     }
 
+    console.log("Estadisticas calculadas: ", estadisticas);
+    console.log("Total herramientas:", estadisticas.total_herramientas, "Disponibles:", estadisticas.herramientas_disponibles);
+    console.log("Total insumos:", estadisticas.total_insumos, "Disponibles:", estadisticas.insumos_disponibles);
+
     return (
         <div className="p-6">
             {/* Encabezado con tabs y botones */}
@@ -546,7 +600,7 @@ export default function GestionInventario() {
                                 }`}
                         >
                             <i className="fas fa-boxes mr-2"></i>
-                            Inventario
+                            Inventarioo
                         </button>
 
                         <button
@@ -582,32 +636,53 @@ export default function GestionInventario() {
             {/* Contenido según la pestaña activa */}
             {tabActiva === 'inventario' ? (
                 <>
-                    {/* Estadísticas del inventario */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <StatsCard
-                            icon="fas fa-tools"
-                            color="bg-blue-600"
-                            value={estadisticas.total_herramientas}
-                            label="Herramientas"
-                        />
-                        <StatsCard
-                            icon="fas fa-flask"
-                            color="bg-purple-600"
-                            value={estadisticas.total_insumos}
-                            label="Insumos"
-                        />
-                        <StatsCard
-                            icon="fas fa-check-circle"
-                            color="bg-green-600"
-                            value={estadisticas.herramientas_disponibles + estadisticas.insumos_disponibles}
-                            label="Disponibles"
-                        />
-                        <StatsCard
-                            icon="fas fa-exclamation-triangle"
-                            color="bg-yellow-600"
-                            value={estadisticas.herramientas_agotadas + estadisticas.insumos_agotados + estadisticas.bajo_stock_insumos}
-                            label="Alertas"
-                        />
+                    {/* Estadísticas del inventario - SOLO 2 CARDS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        {/* Card de Herramientas */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                            <div className="flex items-center mb-3">
+                                <div className="p-3 rounded-lg bg-blue-100 text-blue-600 mr-4">
+                                    <i className="fas fa-tools text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800">Herramientas</h3>
+                                    <p className="text-sm text-gray-600">Gestión de herramientas del inventario</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-blue-600">{estadisticas.total_herramientas}</div>
+                                    <div className="text-sm text-gray-600">Total</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-green-600">{estadisticas.herramientas_disponibles}</div>
+                                    <div className="text-sm text-gray-600">Disponibles</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Card de Insumos */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                            <div className="flex items-center mb-3">
+                                <div className="p-3 rounded-lg bg-purple-100 text-purple-600 mr-4">
+                                    <i className="fas fa-flask text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-800">Insumos</h3>
+                                    <p className="text-sm text-gray-600">Gestión de insumos del inventario</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-purple-600">{estadisticas.total_insumos}</div>
+                                    <div className="text-sm text-gray-600">Total</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-bold text-green-600">{estadisticas.insumos_disponibles}</div>
+                                    <div className="text-sm text-gray-600">Disponibles</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Botones de acción */}

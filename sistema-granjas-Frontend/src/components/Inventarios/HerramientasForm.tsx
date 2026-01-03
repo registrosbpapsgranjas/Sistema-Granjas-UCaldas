@@ -68,7 +68,7 @@ const HerramientaForm: React.FC<HerramientaFormProps> = ({
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Descripción
+                            Descripciónes
                         </label>
                         <textarea
                             name="descripcion"

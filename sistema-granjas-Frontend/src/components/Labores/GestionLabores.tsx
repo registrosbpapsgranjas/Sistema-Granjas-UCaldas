@@ -177,7 +177,7 @@ const GestionLaboresPage: React.FC = () => {
 
     const handleActualizarLabor = async (id: number, data: any) => {
         try {
-            const actualizado = await laborService.actualizarLabor(id, data);
+            const actualizado = await laborService.actualizarLabor(id, data, user);
             setLabores(prev => prev.map(l => l.id === id ? actualizado : l));
             toast.success(`Labor #${id} actualizada exitosamente`);
             setShowEditarModal(false);

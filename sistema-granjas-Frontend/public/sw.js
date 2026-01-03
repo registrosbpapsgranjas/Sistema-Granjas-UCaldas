@@ -1,68 +1,27 @@
-// sw.js - Service Worker con soporte offline mejorado
-const CACHE_VERSION = "agrotech-cache-v1";
-const OFFLINE_URL = "/offline.html";
+// sw.js - MÍNIMO para PWA instalable
+const CACHE_NAME = "agrotech-v1";
 
-const ASSETS_TO_CACHE = ["/", "/index.html", OFFLINE_URL];
-
-// ✅ Instalar y guardar archivos necesarios
+// Instalación básica
 self.addEventListener("install", (event) => {
-  console.log("✅ Instalando Service Worker...");
-
-  event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
-
   self.skipWaiting();
 });
 
-// ✅ Activación y limpieza de caches viejos
+// Activación básica
 self.addEventListener("activate", (event) => {
-  console.log("⚡ Activando nuevo Service Worker...");
-
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_VERSION) {
-            console.log("🗑️ Eliminando cache viejo:", key);
-            return caches.delete(key);
-          }
-        })
-      )
-    )
-  );
-
-  self.clients.claim();
+  event.waitUntil(self.clients.claim());
 });
 
-// ✅ Intercepción de requests
+// Fetch MUY simple
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
+  const { request } = event;
 
-  // Evitar cachear peticiones de API de login
-  if (request.url.includes("/auth")) return;
+  // NO hacer NADA con peticiones de API
+  if (request.url.includes("/api") || request.url.includes("/auth")) {
+    return;
+  }
 
-  event.respondWith(
-    caches.match(request).then((response) => {
-      if (response) return response; // ✅ Responder desde cache si existe
-
-      return fetch(request)
-        .then((networkResponse) => {
-          // ✅ Guardar en cache para uso futuro
-          const cloned = networkResponse.clone();
-          caches.open(CACHE_VERSION).then((cache) => {
-            cache.put(request, cloned);
-          });
-          return networkResponse;
-        })
-        .catch(() => {
-          // ❌ Sin cache + sin red → mostrar offline page
-          return caches.match(OFFLINE_URL);
-        });
-    })
-  );
+  // Para el resto, intentar red primero
+  event.respondWith(fetch(request));
 });
 
-console.log("✅ Service Worker listo");
+console.log("✅ Service Worker mínimo activo");

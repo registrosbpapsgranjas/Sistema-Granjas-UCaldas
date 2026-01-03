@@ -31,7 +31,7 @@ const HerramientasTable: React.FC<HerramientasTableProps> = ({
     return (
         <div>
             <div className="mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Herramientas</h3>
+                <h3 className="text-lg font-medium text-gray-900">Herramientasss</h3>
                 <p className="text-sm text-gray-500">
                     Mostrando {herramientas.length} herramientas
                 </p>
@@ -45,7 +45,7 @@ const HerramientasTable: React.FC<HerramientasTableProps> = ({
                                 Nombre
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Categoría
+                                Categoríaa
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Inventario
@@ -74,16 +74,15 @@ const HerramientasTable: React.FC<HerramientasTableProps> = ({
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {herramienta.categoria_nombre || `Categoría ${herramienta.categoria_id}`}
                                 </td>
+
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center">
                                         <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                                            <div
-                                                className="bg-green-600 h-2.5 rounded-full"
-                                                style={{ width: `${calcularPorcentaje(herramienta.cantidad_total, herramienta.cantidad_disponible)}%` }}
-                                            ></div>
-                                        </div>
-                                        <div className="text-sm text-gray-600">
-                                            {herramienta.cantidad_disponible}/{herramienta.cantidad_total}
+                                            <div className="text-sm text-gray-600">
+                                                {`${calcularPorcentaje(herramienta.cantidad_total, herramienta.cantidad_disponible)}%`}
+                                                {herramienta.cantidad_disponible}X{herramienta.cantidad_total}
+                                                {"ESTA ES LA CAN"}
+                                            </div>
                                         </div>
                                     </div>
                                 </td>

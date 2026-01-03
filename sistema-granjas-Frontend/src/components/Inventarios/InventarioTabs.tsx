@@ -25,6 +25,11 @@ const InventarioTabs: React.FC<InventarioTabsProps> = ({
     onEliminarCategoria
 }) => {
     const [activeTab, setActiveTab] = useState('herramientas');
+    // Calcular porcentaje disponible
+    const calcularPorcentaje = (total: number, disponible: number) => {
+        if (total === 0) return 0;
+        return Math.round((disponible / total) * 100);
+    };
 
     const tabs = [
         { id: 'herramientas', label: 'Herramientas', icon: 'fas fa-tools' },
@@ -104,7 +109,10 @@ const InventarioTabs: React.FC<InventarioTabsProps> = ({
                                                 {herramienta.categoria_nombre || `Categoría ${herramienta.categoria_id}`}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {herramienta.cantidad_disponible}/{herramienta.cantidad_total}
+                                                <div className="text-sm text-gray-600">
+                                                    {`${calcularPorcentaje(herramienta.cantidad_total, herramienta.cantidad_disponible)}%\n`}
+                                                    {herramienta.cantidad_disponible}/{herramienta.cantidad_total}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${herramienta.estado === 'disponible' ? 'bg-green-100 text-green-800' :

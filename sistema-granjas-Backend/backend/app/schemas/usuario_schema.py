@@ -72,7 +72,7 @@ class UsuarioCreateWithPassword(UsuarioBase):
     def validar_email_dominio(cls, values):
         email = values.email
         # Validar que el email sea del dominio de la universidad
-        dominios_permitidos = ['ucaldas.edu.co', 'estudiantes.ucaldas.edu.co']
+        dominios_permitidos = ['ucaldas.edu.co', 'estudiantes.ucaldas.edu.co', 'gmail.com']
         dominio = email.split('@')[-1]
         
         if dominio not in dominios_permitidos:

@@ -114,7 +114,8 @@ export const laborService = {
                                 tipo: ev.tipo || 'imagen',
                                 descripcion: ev.descripcion || `Evidencia para labor ${laborCreada.id}`,
                                 url_archivo: fileData.url || fileData.filename || fileData.file_url,
-                                labor_id: laborCreada.id,
+                                tipo_entidad: 'labor',
+                                entidad_id: laborCreada.id,
                                 usuario_id: user.id || 1
                             };
 
@@ -149,13 +150,91 @@ export const laborService = {
         }
     },
 
-    async actualizarLabor(id: number, datos: UpdateLaborDto): Promise<Labor> {
-        const response = await fetch(`${API_BASE_URL}/labores/${id}`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify(datos)
-        });
-        return handleResponse(response);
+    async actualizarLabor(id: number, datos: UpdateLaborDto, user?: any): Promise<Labor> {
+        try {
+            // 1. Actualizar la labor
+            const response = await fetch(`${API_BASE_URL}/labores/${id}`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify(datos)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Error ${response.status} actualizando labor`);
+            }
+
+            const laborActualizada: Labor = await response.json();
+
+            // 2. Si hay evidencias para subir, procesarlas
+            if (datos.evidencias?.length && user) {
+                const evidenciasParaSubir = datos.evidencias;
+                console.log(`🔄 Procesando ${evidenciasParaSubir.length} evidencias para labor ${id}`);
+
+                await Promise.all(
+                    evidenciasParaSubir.map(async (ev: any) => {
+                        try {
+                            // Subir archivo
+                            const formData = new FormData();
+                            formData.append('file', ev.file);
+
+                            const uploadRes = await fetch(`${API_BASE_URL}/files/upload`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                },
+                                body: formData
+                            });
+
+                            if (!uploadRes.ok) {
+                                const errorText = await uploadRes.text();
+                                console.error(`❌ Error subiendo archivo ${ev.file.name}:`, errorText);
+                                throw new Error(`Error subiendo archivo ${ev.file.name}`);
+                            }
+
+                            const fileData = await uploadRes.json();
+
+                            // Crear registro de evidencia
+                            const evidenciaPayload = {
+                                tipo: ev.tipo || 'imagen',
+                                descripcion: ev.descripcion || `Evidencia para labor ${id}`,
+                                url_archivo: fileData.url || fileData.filename || fileData.file_url,
+                                tipo_entidad: 'labor',
+                                entidad_id: id,
+                                usuario_id: user.id || parseInt(localStorage.getItem('userId') || '1')
+                            };
+
+                            const evidenciaRes = await fetch(`${API_BASE_URL}/evidencias/`, {
+                                method: 'POST',
+                                headers: getHeaders(),
+                                body: JSON.stringify(evidenciaPayload)
+                            });
+
+                            if (!evidenciaRes.ok) {
+                                const errorData = await evidenciaRes.json().catch(() => ({}));
+                                console.error(`❌ Error creando evidencia:`, errorData);
+                                throw new Error(`Error creando registro de evidencia`);
+                            }
+
+                            const evidenciaCreada = await evidenciaRes.json();
+                            console.log(`✅ Evidencia creada: ${evidenciaCreada.id}`);
+                            return evidenciaCreada;
+                        } catch (error) {
+                            console.error(`❌ Error procesando evidencia:`, error);
+                            return null;
+                        }
+                    })
+                );
+
+                console.log('✅ Todas las evidencias procesadas para labor actualizada');
+            }
+
+            return laborActualizada;
+
+        } catch (error) {
+            console.error('❌ Error en actualizarLabor:', error);
+            throw error;
+        }
     },
 
     async eliminarLabor(id: number): Promise<void> {
@@ -369,53 +448,6 @@ export const laborService = {
     },
 
     // ===================== FUNCIONES ADICIONALES =====================
-
-    async subirEvidencia(laborId: number, file: File, tipo: string = 'imagen', descripcion?: string): Promise<Evidencia> {
-        try {
-            // 1. Subir archivo
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const uploadRes = await fetch(`${API_BASE_URL}/files/upload`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: formData
-            });
-
-            if (!uploadRes.ok) {
-                throw new Error(`Error subiendo archivo: ${uploadRes.statusText}`);
-            }
-
-            const fileData = await uploadRes.json();
-
-            // 2. Crear registro de evidencia
-            const evidenciaPayload = {
-                tipo: tipo,
-                descripcion: descripcion || `Evidencia para labor ${laborId}`,
-                url_archivo: fileData.url || fileData.filename || fileData.file_url,
-                labor_id: laborId,
-                usuario_id: parseInt(localStorage.getItem('userId') || '1')
-            };
-
-            const evidenciaRes = await fetch(`${API_BASE_URL}/evidencias/`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify(evidenciaPayload)
-            });
-
-            if (!evidenciaRes.ok) {
-                throw new Error(`Error creando evidencia: ${evidenciaRes.statusText}`);
-            }
-
-            return await evidenciaRes.json();
-
-        } catch (error) {
-            console.error('Error subiendo evidencia:', error);
-            throw error;
-        }
-    },
 
     async cambiarEstadoLabor(id: number, estado: string, comentario?: string): Promise<Labor> {
         const payload = { estado, comentario };

@@ -7,6 +7,7 @@ import insumoService from '../../services/insumoService';
 import laborService from '../../services/laboresService';
 import loteService from '../../services/loteService';
 import { toast } from 'react-hot-toast';
+import programaService from '../../services/programaService';
 
 interface AsignarRecursosModalProps {
     isOpen: boolean;
@@ -72,10 +73,12 @@ const AsignarRecursosModal: React.FC<AsignarRecursosModalProps> = ({
             if (labor?.lote_id) {
                 try {
                     const loteInfo = await loteService.obtenerLote(labor.lote_id);
-                    if (loteInfo?.programa) {
-                        setProgramaLote(loteInfo.programa);
-                    } else if (loteInfo?.programa_id) {
-                        // Si solo tenemos el ID, crear objeto básico
+                    console.log('Lote info:', loteInfo);
+                    if (loteInfo?.programa_id) {
+                        const ProgramaInfo = await programaService.obtenerProgramaPorId(loteInfo.programa_id);
+                        console.log('Programa info:', ProgramaInfo);
+                        setProgramaLote({ id: ProgramaInfo.id, nombre: ProgramaInfo.nombre });
+                    } else {
                         setProgramaLote({ id: loteInfo.programa_id, nombre: 'Programa cargando...' });
                     }
                 } catch (error) {
@@ -371,6 +374,7 @@ const AsignarRecursosModal: React.FC<AsignarRecursosModalProps> = ({
     };
 
     if (!isOpen || !labor) return null;
+    console.log("Programas del lote", programaLote);
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} width="max-w-4xl" maxHeight="85vh">

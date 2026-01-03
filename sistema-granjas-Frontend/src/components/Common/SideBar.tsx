@@ -1,8 +1,13 @@
 // components/Sidebar.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import exportService from '../../services/exportService';
+// Importa los servicios que necesites
+import granjaService from '../../services/granjaService';
+import programaService from '../../services/programaService';
+import loteService from '../../services/loteService';
+import usuarioService from '../../services/usuarioService';
 
 interface SidebarProps {
     isOpen?: boolean;
@@ -12,6 +17,42 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
     const { user } = useAuth();
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
+    const [stats, setStats] = useState({
+        granjasCount: 0,
+        programasCount: 0,
+        lotesCount: 0,
+        usuariosCount: 0,
+        loading: true
+    });
+
+    useEffect(() => {
+        cargarEstadisticas();
+    }, []);
+
+    const cargarEstadisticas = async () => {
+        try {
+            // Ejecutar todas las llamadas en paralelo
+            const [granjas, programas, lotes, usuarios] = await Promise.all([
+                granjaService.obtenerGranjas(),
+                programaService.obtenerProgramas(),
+                loteService.obtenerLotes(),
+                usuarioService.obtenerUsuarios()
+            ]);
+            console.log(granjas, programas, lotes, usuarios, "Marlon");
+
+            setStats({
+                granjasCount: Array.isArray(granjas) ? granjas.length : 0,
+                programasCount: Array.isArray(programas) ? programas.length : 0,
+                lotesCount: Array.isArray(lotes) ? lotes.length : 0,
+                usuariosCount: Array.isArray(usuarios) ? usuarios.length : 0,
+                loading: false
+            });
+        } catch (error) {
+            console.error('Error cargando estadísticas:', error);
+            // Si hay error, mantener los valores por defecto
+            setStats(prev => ({ ...prev, loading: false }));
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -19,17 +60,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
     const canSee = (requiredRoles: string[]) => {
         if (!user || !user.rol) return false;
         return requiredRoles.includes(user.rol);
-    };
-
-    // Obtener estadísticas rápidas (esto sería dinámico en producción)
-    const getStats = () => {
-        // Esto sería reemplazado por datos reales de tu API
-        return {
-            granjasCount: 3,
-            programasCount: 8,
-            lotesCount: 15,
-            usuariosCount: 24
-        };
     };
 
     // Función para exportar backup
@@ -43,7 +73,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
             const result = await exportService.exportarBackupCompleto();
             setExportMessage(`¡Exportación completada! (${result.filename})`);
 
-            // Limpiar mensaje después de 5 segundos
             setTimeout(() => {
                 setExportMessage('');
             }, 5000);
@@ -51,7 +80,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
             console.error('❌ Error en exportación:', error);
             setExportMessage('Error al exportar. Verifica tu conexión.');
 
-            // Limpiar mensaje después de 5 segundos
             setTimeout(() => {
                 setExportMessage('');
             }, 5000);
@@ -59,8 +87,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
             setExporting(false);
         }
     };
-
-    const stats = getStats();
 
     return (
         <aside className="w-64 bg-white shadow-lg h-[calc(100vh-4rem)] fixed left-0 top-16 overflow-y-auto border-r border-gray-200">
@@ -90,24 +116,35 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                         <i className="fas fa-chart-pie mr-2"></i>
                         Estadísticas Rápidas
                     </h3>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-blue-50 p-2 rounded text-center">
-                            <div className="text-lg font-bold text-blue-700">{stats.granjasCount}</div>
-                            <div className="text-xs text-blue-600">Granjas</div>
+                    {stats.loading ? (
+                        <div className="grid grid-cols-2 gap-2">
+                            {[1, 2, 3, 4].map((i) => (
+                                <div key={i} className="bg-gray-100 p-2 rounded text-center">
+                                    <div className="h-6 bg-gray-200 rounded animate-pulse mb-1"></div>
+                                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="bg-green-50 p-2 rounded text-center">
-                            <div className="text-lg font-bold text-green-700">{stats.programasCount}</div>
-                            <div className="text-xs text-green-600">Programas</div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-blue-50 p-2 rounded text-center">
+                                <div className="text-lg font-bold text-blue-700">{stats.granjasCount}</div>
+                                <div className="text-xs text-blue-600">Granjas</div>
+                            </div>
+                            <div className="bg-green-50 p-2 rounded text-center">
+                                <div className="text-lg font-bold text-green-700">{stats.programasCount}</div>
+                                <div className="text-xs text-green-600">Programas</div>
+                            </div>
+                            <div className="bg-amber-50 p-2 rounded text-center">
+                                <div className="text-lg font-bold text-amber-700">{stats.lotesCount}</div>
+                                <div className="text-xs text-amber-600">Lotes</div>
+                            </div>
+                            <div className="bg-purple-50 p-2 rounded text-center">
+                                <div className="text-lg font-bold text-purple-700">{stats.usuariosCount}</div>
+                                <div className="text-xs text-purple-600">Usuarios</div>
+                            </div>
                         </div>
-                        <div className="bg-amber-50 p-2 rounded text-center">
-                            <div className="text-lg font-bold text-amber-700">{stats.lotesCount}</div>
-                            <div className="text-xs text-amber-600">Lotes</div>
-                        </div>
-                        <div className="bg-purple-50 p-2 rounded text-center">
-                            <div className="text-lg font-bold text-purple-700">{stats.usuariosCount}</div>
-                            <div className="text-xs text-purple-600">Usuarios</div>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Acciones rápidas por rol */}
@@ -117,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                         Acciones Rápidas
                     </h3>
                     <ul className="space-y-1">
-                        {canSee(['admin', 'asesor', 'docente', 'trabajador']) && (
+                        {canSee(['admin', 'asesor', 'docente']) && (
                             <li>
                                 <a href="/gestion/granjas" className="flex items-center space-x-2 text-gray-700 hover:text-green-600 hover:bg-gray-50 p-2 rounded transition-colors">
                                     <i className="fas fa-tractor w-4 text-green-500"></i>
@@ -126,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                             </li>
                         )}
 
-                        {canSee(['admin', 'asesor']) && (
+                        {canSee(['admin', 'asesor', 'docente']) && (
                             <li>
                                 <a href="/gestion/programas" className="flex items-center space-x-2 text-gray-700 hover:text-green-600 hover:bg-gray-50 p-2 rounded transition-colors">
                                     <i className="fas fa-seedling w-4 text-green-500"></i>
@@ -135,7 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                             </li>
                         )}
 
-                        {canSee(['admin', 'talento_humano']) && (
+                        {canSee(['admin']) && (
                             <li>
                                 <a href="/gestion/usuarios" className="flex items-center space-x-2 text-gray-700 hover:text-green-600 hover:bg-gray-50 p-2 rounded transition-colors">
                                     <i className="fas fa-user-edit w-4 text-blue-500"></i>
@@ -144,7 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                             </li>
                         )}
 
-                        {canSee(['admin', 'trabajador']) && (
+                        {canSee(['admin', 'docente', 'asesor']) && (
                             <li>
                                 <a href="/gestion/inventario" className="flex items-center space-x-2 text-gray-700 hover:text-green-600 hover:bg-gray-50 p-2 rounded transition-colors">
                                     <i className="fas fa-box-open w-4 text-amber-500"></i>
@@ -171,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                             </li>
                         )}
 
-                        {canSee(['admin', 'trabajador', 'talento_humano']) && (
+                        {canSee(['admin', 'talento_humano']) && (
                             <li>
                                 <a href="/gestion/labores" className="flex items-center space-x-2 text-gray-700 hover:text-green-600 hover:bg-gray-50 p-2 rounded transition-colors">
                                     <i className="fas fa-tasks w-4 text-orange-500"></i>
@@ -289,7 +326,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true }) => {
                     <div className="text-xs text-gray-500">
                         <div className="flex items-center justify-between mb-1">
                             <span>Sistema:</span>
-                            <span className="font-medium">AgroTech v1.0</span>
+                            <span className="font-medium">Sistema de granjas V1.0</span>
                         </div>
                         <div className="flex items-center justify-between mb-1">
                             <span>Estado:</span>
