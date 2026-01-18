@@ -23,7 +23,9 @@ bcrypt==4.0.1   # <-- Esta línea es la clave para evitar el error
 
 # Validación de email
 pydantic[email]==2.7.1
-boto3
+boto3==1.34.0  # <-- Versión específica
+botocore==1.34.0  # <-- Versión específica
+urllib3==2.0.0  # <-- Versión específica para SSL moderno
 python-multipart
 
 openpyxl
