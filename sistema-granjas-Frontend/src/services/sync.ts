@@ -1,6 +1,7 @@
 import { getAllPending, deletePending } from './indexedDB';
 
-const API_URL = 'http://localhost:8000/api/sync'; // Ajusta según tu backend real
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_URL = `${API_BASE_URL}/sync`; // Ajusta según tu backend real
 
 export const syncPendingData = async () => {
   try {
