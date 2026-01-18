@@ -2,28 +2,31 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     tailwindcss(),
     react()
   ],
   
-  // AÑADIR para producción:
+  // Configuración SEGURA para producción:
   build: {
     outDir: 'dist',
-    sourcemap: false, // Desactivar en producción
+    sourcemap: false,
+    // Deja que Vite maneje el chunking automáticamente
     rollupOptions: {
       output: {
-        // Mejor organización de chunks
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['@headlessui/react', '@heroicons/react']
-        }
+        // Solo configura naming si quieres, pero no manualChunks
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
   },
   
-  // IMPORTANTE para SPA en producción
-  base: '/', // Asegura rutas relativas
+  base: '/',
+  
+  // OPTIONAL: Si quieres optimizaciones
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom']
+  }
 })

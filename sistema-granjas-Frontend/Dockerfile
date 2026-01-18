@@ -1,21 +1,28 @@
-# Etapa 1: Build
-FROM node:20-alpine AS build
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copiar dependencias primero (para mejor cache)
-# ¡QUITAR --only=production! Necesitamos TypeScript para build
-COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps  # ← SOLUCIÓN
+# 1. Copiar package.json
+COPY package.json ./
 
-# Copiar el resto
+# 2. Instalar EXPLÍCITAMENTE las dependencias problemáticas PRIMERO
+RUN npm install --legacy-peer-deps react@^18 react-dom@^18
+RUN npm install --legacy-peer-deps @headlessui/react@^1 @heroicons/react@^2
+
+# 3. Instalar el resto
+RUN npm install --legacy-peer-deps
+
+# 4. Copiar todo
 COPY . .
 
-# Pasar variables de entorno al build (IMPORTANTE)
+# 5. Variables
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
-# Build
+# 6. Verificar que está instalado
+RUN ls -la node_modules/@headlessui/react/
+
+# 7. Build
 RUN npm run build
 
 # Etapa 2: Servir
