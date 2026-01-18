@@ -6,7 +6,7 @@ WORKDIR /app
 # Copiar dependencias primero (para mejor cache)
 # ¡QUITAR --only=production! Necesitamos TypeScript para build
 COPY package.json package-lock.json* ./
-RUN npm ci --silent  # ← SIN --only=production
+RUN npm install --legacy-peer-deps  # ← SOLUCIÓN
 
 # Copiar el resto
 COPY . .
