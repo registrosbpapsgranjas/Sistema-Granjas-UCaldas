@@ -65,8 +65,10 @@ class Settings(BaseSettings):
                 endpoint_url=self.R2_ENDPOINT,
                 aws_access_key_id=self.R2_ACCESS_KEY,
                 aws_secret_access_key=self.R2_SECRET_KEY,
-                config=s3_config
+                config=s3_config,
+                verify=False
             )
+            print("⚠️  WARNING: SSL verification disabled - NOT FOR PRODUCTION")
             
             # Verificar conexión más específicamente
             response = self.r2_client.list_buckets()
