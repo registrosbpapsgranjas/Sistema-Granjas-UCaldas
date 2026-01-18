@@ -37,14 +37,38 @@ class Settings(BaseSettings):
         extra = "allow"
 
     def init_storage(self):
-        """Inicializa cliente R2 (igual en toda la app)"""
+        """Inicializa cliente R2 con configuración SSL correcta"""
+        # Crear configuración con SSL específico
+        s3_config = Config(
+            region_name="auto",
+            signature_version='s3v4',
+            retries={
+                'max_attempts': 3,
+                'mode': 'standard'
+            },
+            connect_timeout=5,
+            read_timeout=5,
+            s3={
+                'addressing_style': 'virtual'
+            }
+        )
+        
+        # Crear cliente con configuración específica
         self.r2_client = boto3.client(
             "s3",
             endpoint_url=self.R2_ENDPOINT,
             aws_access_key_id=self.R2_ACCESS_KEY,
             aws_secret_access_key=self.R2_SECRET_KEY,
-            region_name="auto"
+            config=s3_config
         )
+        
+        # Verificar conexión
+        try:
+            # Test simple de conexión
+            self.r2_client.list_buckets()
+            print("✅ Conexión a R2 establecida correctamente")
+        except Exception as e:
+            print(f"⚠️  Error conectando a R2: {e}")
 
 
 settings = Settings()
