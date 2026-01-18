@@ -4,8 +4,9 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copiar dependencias primero (para mejor cache)
+# ¡QUITAR --only=production! Necesitamos TypeScript para build
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production --silent
+RUN npm ci --silent  # ← SIN --only=production
 
 # Copiar el resto
 COPY . .
