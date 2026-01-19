@@ -34,6 +34,7 @@ export default function GestionProgramas() {
     const [granjasPrograma, setGranjasPrograma] = useState<any[]>([]);
     const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<number>(0);
     const [granjaSeleccionada, setGranjaSeleccionada] = useState<number>(0);
+
     // Estados específicos para exportación
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
@@ -62,8 +63,16 @@ export default function GestionProgramas() {
     const [datosFormulario, setDatosFormulario] = useState({
         nombre: "",
         descripcion: "",
+        tipo: "agricola", // Valor por defecto: agrícola
         activo: true,
     });
+
+    // Tipos de programa disponibles
+    const tiposPrograma = [
+        { value: "agricola", label: "Agrícola", icon: "fas fa-seedling" },
+        { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" },
+        { value: "prueba", label: "Prueba", icon: "fas fa-flask" }
+    ];
 
     useEffect(() => {
         cargarDatos();
@@ -99,7 +108,7 @@ export default function GestionProgramas() {
 
         try {
             setError(null);
-            console.log('📤 Guardando programa...');
+            console.log('📤 Guardando programa...', datosFormulario);
 
             if (editando) {
                 await programaService.actualizarPrograma(programaSeleccionado.id, datosFormulario);
@@ -112,7 +121,12 @@ export default function GestionProgramas() {
             await cargarDatos();
             setModalCrear(false);
             setEditando(false);
-            setDatosFormulario({ nombre: "", descripcion: "", activo: true });
+            setDatosFormulario({
+                nombre: "",
+                descripcion: "",
+                tipo: "agricola",
+                activo: true
+            });
         } catch (error: any) {
             console.error('❌ Error guardando programa:', error);
             setError(error.message || 'Error al guardar el programa');
@@ -123,6 +137,7 @@ export default function GestionProgramas() {
         setDatosFormulario({
             nombre: programa.nombre,
             descripcion: programa.descripcion || "",
+            tipo: programa.tipo || "agricola",
             activo: programa.activo
         });
         setProgramaSeleccionado(programa);
@@ -236,6 +251,18 @@ export default function GestionProgramas() {
         }
     };
 
+    // Función para obtener el label del tipo de programa
+    const obtenerLabelTipo = (tipo: string) => {
+        const tipoObj = tiposPrograma.find(t => t.value === tipo);
+        return tipoObj ? tipoObj.label : tipo;
+    };
+
+    // Función para obtener el icono del tipo de programa
+    const obtenerIconoTipo = (tipo: string) => {
+        const tipoObj = tiposPrograma.find(t => t.value === tipo);
+        return tipoObj ? tipoObj.icon : "fas fa-question";
+    };
+
     if (cargando) {
         return (
             <div className="flex justify-center items-center p-8">
@@ -284,8 +311,8 @@ export default function GestionProgramas() {
                 </div>
             )}
 
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Estadísticas por tipo de programa */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <StatsCard
                     icon="fas fa-clipboard-list"
                     color="bg-blue-600"
@@ -293,16 +320,22 @@ export default function GestionProgramas() {
                     label="Programas Registrados"
                 />
                 <StatsCard
-                    icon="fas fa-users"
+                    icon="fas fa-seedling"
                     color="bg-green-600"
-                    value={usuarios.length}
-                    label="Usuarios Totales"
+                    value={programas.filter(p => p.tipo === 'agricola').length}
+                    label="Programas Agrícolas"
                 />
                 <StatsCard
-                    icon="fas fa-warehouse"
+                    icon="fas fa-paw"
+                    color="bg-amber-600"
+                    value={programas.filter(p => p.tipo === 'pecuario').length}
+                    label="Programas Pecuarios"
+                />
+                <StatsCard
+                    icon="fas fa-flask"
                     color="bg-purple-600"
-                    value={granjas.length}
-                    label="Granjas Totales"
+                    value={programas.filter(p => p.tipo === 'prueba').length}
+                    label="Programas de Prueba"
                 />
             </div>
 
@@ -310,7 +343,12 @@ export default function GestionProgramas() {
             <div className="mb-6">
                 <button
                     onClick={() => {
-                        setDatosFormulario({ nombre: "", descripcion: "", activo: true });
+                        setDatosFormulario({
+                            nombre: "",
+                            descripcion: "",
+                            tipo: "agricola",
+                            activo: true
+                        });
                         setEditando(false);
                         setModalCrear(true);
                     }}
@@ -327,6 +365,8 @@ export default function GestionProgramas() {
                 onEditar={abrirEditar}
                 onEliminar={manejarEliminar}
                 onVerDetalles={abrirDetalles}
+                obtenerLabelTipo={obtenerLabelTipo}
+                obtenerIconoTipo={obtenerIconoTipo}
             />
 
             {/* FORM */}
@@ -335,12 +375,18 @@ export default function GestionProgramas() {
                 onClose={() => {
                     setModalCrear(false);
                     setEditando(false);
-                    setDatosFormulario({ nombre: "", descripcion: "", activo: true });
+                    setDatosFormulario({
+                        nombre: "",
+                        descripcion: "",
+                        tipo: "agricola",
+                        activo: true
+                    });
                 }}
                 datosFormulario={datosFormulario}
                 setDatosFormulario={setDatosFormulario}
                 onSubmit={manejarCrear}
                 editando={editando}
+                tiposPrograma={tiposPrograma}
             />
 
             {/* DETALLES */}
@@ -354,6 +400,8 @@ export default function GestionProgramas() {
                 onAsignarGranjaOpen={() => setModalAsignarGranja(true)}
                 onRemoveUsuario={removerUsuario}
                 onRemoveGranja={removerGranja}
+                obtenerLabelTipo={obtenerLabelTipo}
+                obtenerIconoTipo={obtenerIconoTipo}
             />
 
             {/* MODAL ASIGNAR USUARIO */}

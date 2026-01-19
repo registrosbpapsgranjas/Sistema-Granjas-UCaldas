@@ -2,21 +2,30 @@
 import React from "react";
 import Modal from "../Common/Modal";
 
+interface TipoPrograma {
+    value: string;
+    label: string;
+    icon: string;
+}
+
 interface ProgramaFormProps {
     isOpen: boolean;
     onClose: () => void;
     datosFormulario: {
         nombre: string;
         descripcion: string;
+        tipo: string;
         activo: boolean;
     };
     setDatosFormulario: React.Dispatch<React.SetStateAction<{
         nombre: string;
         descripcion: string;
+        tipo: string;
         activo: boolean;
     }>>;
     onSubmit: (e: React.FormEvent) => void;
     editando: boolean;
+    tiposPrograma: TipoPrograma[];
 }
 
 export const ProgramaForm: React.FC<ProgramaFormProps> = ({
@@ -25,7 +34,12 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
     datosFormulario,
     setDatosFormulario,
     onSubmit,
-    editando
+    editando,
+    tiposPrograma = [
+        { value: "agricola", label: "Agrícola", icon: "fas fa-seedling" },
+        { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" },
+        { value: "prueba", label: "Prueba", icon: "fas fa-flask" }
+    ]
 }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose}>
@@ -48,6 +62,31 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Ingrese el nombre del programa"
                     />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de Programa *
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {tiposPrograma.map((tipo) => (
+                            <button
+                                key={tipo.value}
+                                type="button"
+                                onClick={() =>
+                                    setDatosFormulario({ ...datosFormulario, tipo: tipo.value })
+                                }
+                                className={`flex flex-col items-center justify-center p-3 rounded-md border-2 transition-all ${datosFormulario.tipo === tipo.value
+                                    ? "border-blue-500 bg-blue-50"
+                                    : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                                    }`}
+                            >
+                                <i className={`${tipo.icon} text-lg mb-1 ${datosFormulario.tipo === tipo.value ? "text-blue-600" : "text-gray-500"
+                                    }`}></i>
+                                <span className="text-sm font-medium">{tipo.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 <div>

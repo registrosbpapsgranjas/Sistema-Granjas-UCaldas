@@ -99,9 +99,6 @@ class GranjaUpdate(BaseModel):
             if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.\,0-9]+$', v):
                 raise ValueError('La ubicación contiene caracteres no permitidos')
             
-            if ',' not in v:
-                raise ValueError('La ubicación debe incluir ciudad y departamento separados por coma')
-            
         return v
 
     @model_validator(mode='after')
