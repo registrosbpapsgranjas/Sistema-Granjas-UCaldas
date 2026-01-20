@@ -43,7 +43,7 @@ def listar_labores(
     recomendacion_id: Optional[int] = None,
     tipo_labor_id: Optional[int] = None,  # ✅ AGREGADO: Filtro por tipo de labor
     db: Session = Depends(get_db),
-    usuario = Depends(require_any_role(["admin", "talento_humano"]))
+    usuario = Depends(require_any_role(["admin", "talento_humano", "estudiante", "docente", "asesor"]))
 ):
     """Listar labores con filtros"""
     return listar_labores_crud(
@@ -72,7 +72,7 @@ def actualizar_labor(
     id: int,
     data: LaborUpdate,
     db: Session = Depends(get_db),
-    usuario = Depends(require_any_role(["admin", "talento_humano"]))
+    usuario = Depends(require_any_role(["admin", "talento_humano", "trabajador"]))
 ):
     """
     Actualizar una labor.
@@ -89,7 +89,7 @@ def eliminar_labor(
     id: int,
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user),
-    _ = Depends(require_any_role(["admin"]))
+    _ = Depends(require_any_role(["admin", "talento_humano", "trabajador"]))
 ):
     """Eliminar una labor"""
     labor = obtener_labor_objeto(db, id, usuario)  # Usar obtener_labor_objeto para eliminar
