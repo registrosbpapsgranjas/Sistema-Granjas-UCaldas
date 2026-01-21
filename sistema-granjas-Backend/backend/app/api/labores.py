@@ -43,7 +43,7 @@ def listar_labores(
     recomendacion_id: Optional[int] = None,
     tipo_labor_id: Optional[int] = None,  # ✅ AGREGADO: Filtro por tipo de labor
     db: Session = Depends(get_db),
-    usuario = Depends(require_any_role(["admin", "talento_humano", "estudiante", "docente", "asesor"]))
+    usuario = Depends(require_any_role(["admin", "talento_humano", "estudiante", "docente", "asesor", "trabajador"]))
 ):
     """Listar labores con filtros"""
     return listar_labores_crud(
