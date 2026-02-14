@@ -19,7 +19,7 @@ RUN wget -O /usr/local/share/ca-certificates/ISRG_Root_X1.crt https://letsencryp
     && update-ca-certificates
 
 # Instalar Python dependencies
-COPY sistema-granjas-Backend/backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
@@ -27,28 +27,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "sistema-granjas-Backend.backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]aFROM python:3.12-slim-bookworm
-
-WORKDIR /app
-
-# Instalar dependencias del sistema necesarias
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && update-ca-certificates --fresh
-
-# Copiar requirements.txt e instalar dependencias Python
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r requirements.txt
-
-# Copiar el código de la aplicación
-COPY app/ ./app/
-
-# Expone el puerto
-EXPOSE 8000
-
-# Comotando para ejecutar la aplicación (el módulo app.main es accesible directamente)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
