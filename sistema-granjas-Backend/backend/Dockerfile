@@ -19,7 +19,7 @@ RUN wget -O /usr/local/share/ca-certificates/ISRG_Root_X1.crt https://letsencryp
     && update-ca-certificates
 
 # Instalar Python dependencies
-COPY backend/requirements.txt .
+COPY sistema-granjas-Backend/backend/requirements.txt .
 RUN pip install --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
