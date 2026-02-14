@@ -38,7 +38,7 @@ export const programaService = {
   // OBTENER todos los programas
   async obtenerProgramas(skip: number = 0, limit: number = 100): Promise<Programa[]> {
     try {
-      console.log('🔍 Obteniendo programas...');
+      console.log('🔍 Obteniendo programass...');
       const url = `${API_BASE_URL}/programas/?skip=${skip}&limit=${limit}`;
       console.log('📤 URL:', url);
       
