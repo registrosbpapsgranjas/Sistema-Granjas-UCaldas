@@ -11,6 +11,7 @@ def get_programa(db: Session, programa_id: int):
     return db.query(Programa).filter(Programa.id == programa_id).first()
 
 def create_programa(db: Session, data: ProgramaCreate):
+    # Crear programa sin las granjas
     programa = Programa(
         nombre=data.nombre,
         descripcion=data.descripcion,
@@ -18,14 +19,34 @@ def create_programa(db: Session, data: ProgramaCreate):
         activo=True
     )
     db.add(programa)
+    db.flush()  # Para obtener el ID antes de commit
+
+    # Asignar granjas si se proporcionaron
+    if data.granjas_ids:
+        granjas = db.query(Granja).filter(Granja.id.in_(data.granjas_ids)).all()
+        # Verificar que todos los IDs existan
+        if len(granjas) != len(data.granjas_ids):
+            raise HTTPException(status_code=400, detail="Algunas granjas no existen")
+        programa.granjas = granjas  # Asignar la lista de objetos Granja
+
     db.commit()
     db.refresh(programa)
     return programa
 
 def update_programa(db: Session, programa: Programa, data: ProgramaUpdate):
+    # Actualizar campos básicos
     update_data = data.dict(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(programa, field, value)
+        if field != 'granjas_ids':
+            setattr(programa, field, value)
+
+    # Manejar actualización de granjas si se envió el campo
+    if 'granjas_ids' in update_data and data.granjas_ids is not None:
+        granjas = db.query(Granja).filter(Granja.id.in_(data.granjas_ids)).all()
+        if len(granjas) != len(data.granjas_ids):
+            raise HTTPException(status_code=400, detail="Algunas granjas no existen")
+        programa.granjas = granjas  # Reemplaza la lista de granjas
+
     db.commit()
     db.refresh(programa)
     return programa
@@ -90,6 +111,8 @@ def listar_usuarios_programa(db: Session, programa_id: int):
         usuarios_info.append(usuario_info)
     
     return usuarios_info
+
+# === FUNCIONES PARA GRANJAS (asignación individual) ===
 
 def asignar_granja_programa(db: Session, programa_id: int, granja_id: int):
     programa = db.query(Programa).filter(Programa.id == programa_id).first()
