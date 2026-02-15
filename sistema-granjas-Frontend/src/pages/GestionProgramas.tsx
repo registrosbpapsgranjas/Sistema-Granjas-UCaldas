@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import programaService from "../../services/programaService";
-import usuarioService from "../../services/usuarioService";
-import granjaService from "../../services/granjaService";
-import exportService from "../../services/exportService";
-import { StatsCard } from "../Common/StatsCard";
-import { ProgramaForm } from "./ProgramaForm";
-import { DetallesPrograma } from "./DetallesPrograma";
-import { AsignarUsuarioModal } from "../Usuarios/AsignarUsuario";
-import { AsignarGranjaModal } from "../Granjas/AsignarGranja";
-import ProgramasTable from "./ProgramasTable";
+import programaService from "../services/programaService";
+import usuarioService from "../services/usuarioService";
+import granjaService from "../services/granjaService";
+import exportService from "../services/exportService";
+import { StatsCard } from "../components/Common/StatsCard";
+import { ProgramaForm } from "../components/Programas/ProgramasForm";
+import { DetallesPrograma } from "../components/Programas/DetallesPrograma";
+import { AsignarUsuarioModal } from "../components/Usuarios/AsignarUsuario";
+import { AsignarGranjaModal } from "../components/Granjas/AsignarGranja";
+import ProgramasTable from "../components/Programas/ProgramasTable";
 
 export default function GestionProgramas() {
     const [programas, setProgramas] = useState<any[]>([]);
