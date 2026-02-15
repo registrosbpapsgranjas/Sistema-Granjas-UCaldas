@@ -74,7 +74,7 @@ class ProgramaUpdate(BaseModel):
     @field_validator('tipo')
     def validar_tipo_update(cls, v):
         if v is not None:
-            tipos_permitidos = ['pecuario', 'agricola', 'prueba']
+            tipos_permitidos = ['pecuario', 'agricola']
             if v.lower() not in tipos_permitidos:
                 raise ValueError(f'Tipo de programa no válido. Tipos permitidos: {", ".join(tipos_permitidos)}')
         return v.lower() if v else v
