@@ -13,8 +13,7 @@ from app.CRUD.programas import (
     create_programa, update_programa, delete_programa,
     # Nuevas funciones
     asignar_usuario_programa, desasignar_usuario_programa, listar_usuarios_programa,
-    asignar_granja_programa, desasignar_granja_programa, listar_granjas_programa,
-    _programa_a_dict
+    asignar_granja_programa, desasignar_granja_programa, listar_granjas_programa
 )
 
 router = APIRouter(prefix="/programas", tags=["Programas"])
