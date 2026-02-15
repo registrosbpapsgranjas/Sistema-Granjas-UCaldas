@@ -9,7 +9,6 @@ interface Props {
     onSwitch: () => void;
 }
 
-// Tipo para errores por campo (mapeo de nombres de campo a mensajes)
 type FieldErrors = {
     nombre?: string;
     email?: string;
@@ -17,6 +16,9 @@ type FieldErrors = {
     role_id?: string;
     general?: string;
 };
+
+// Expresión regular para validar el nombre (misma que en el backend)
+const NAME_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-'.]+$/;
 
 export default function RegisterForm({ roles, onSwitch }: Props) {
     const [nombre, setNombre] = useState("");
@@ -28,18 +30,46 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
     const [loading, setLoading] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-    // Limpiar error de un campo cuando el usuario empieza a escribir
     const clearFieldError = (field: keyof FieldErrors) => {
         if (fieldErrors[field]) {
             setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
         }
     };
 
+    // Validación del nombre en tiempo real
+    const validateNombre = (value: string) => {
+        if (value && !NAME_REGEX.test(value)) {
+            return "El nombre solo puede contener letras, espacios, guiones, apóstrofes y puntos.";
+        }
+        return "";
+    };
+
+    const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
+        const value = e.target.value;
+        setter(value);
+        // Limpiar error del backend si el usuario corrige
+        if (fieldErrors.nombre) {
+            setFieldErrors((prev) => ({ ...prev, nombre: undefined }));
+        }
+    };
+
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
-        setFieldErrors({}); // limpiar errores anteriores
+        setFieldErrors({});
 
-        // --- Validaciones del frontend ---
+        const fullName = `${nombre} ${apellido}`.trim();
+
+        // Validaciones del frontend
+        if (!fullName) {
+            setFieldErrors({ nombre: "El nombre es obligatorio" });
+            return;
+        }
+        if (!NAME_REGEX.test(fullName)) {
+            setFieldErrors({
+                nombre: "El nombre solo puede contener letras, espacios, guiones, apóstrofes y puntos.",
+            });
+            return;
+        }
         if (password !== confirm) {
             setFieldErrors({ general: "Las contraseñas no coinciden" });
             return;
@@ -56,7 +86,6 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
             setFieldErrors({ password: "La contraseña no puede tener más de 100 caracteres" });
             return;
         }
-        // Validación extra: al menos una letra (coincide con la regla del backend)
         if (!/[a-zA-Z]/.test(password)) {
             setFieldErrors({ password: "La contraseña debe contener al menos una letra" });
             return;
@@ -64,18 +93,16 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
 
         setLoading(true);
         try {
-            const fullName = `${nombre} ${apellido}`.trim();
             const data = await register(fullName, email, password, selectedRole);
             saveToken(data.access_token);
             alert("Registro exitoso, ahora puedes iniciar sesión");
             onSwitch();
         } catch (err: any) {
-            // Procesar errores estructurados del backend (422 Validation Error)
+            // Manejo de errores del backend (422 Validation Error)
             if (err.response?.data?.detail && Array.isArray(err.response.data.detail)) {
                 const backendErrors: FieldErrors = {};
                 err.response.data.detail.forEach((error: any) => {
-                    // El campo suele venir en error.loc: ["body", "nombre"]
-                    const field = error.loc?.[1]; // tomamos el segundo elemento
+                    const field = error.loc?.[1]; // "nombre", "email", etc.
                     if (field === "nombre") {
                         backendErrors.nombre = error.msg;
                     } else if (field === "email") {
@@ -85,13 +112,11 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
                     } else if (field === "role_id") {
                         backendErrors.role_id = error.msg;
                     } else {
-                        // Si no reconocemos el campo, lo ponemos como general
                         backendErrors.general = error.msg;
                     }
                 });
                 setFieldErrors(backendErrors);
             } else {
-                // Error genérico (ej. 500, timeout)
                 setFieldErrors({
                     general: err.message || "Error al registrar usuario. Inténtalo de nuevo.",
                 });
@@ -103,7 +128,6 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
 
     return (
         <form onSubmit={handleRegister} className="space-y-5">
-            {/* Mensaje de error general */}
             {fieldErrors.general && (
                 <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800 border border-red-200">
                     {fieldErrors.general}
@@ -130,10 +154,7 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
                         type="text"
                         placeholder="Nombres"
                         value={nombre}
-                        onChange={(e) => {
-                            setNombre(e.target.value);
-                            clearFieldError("nombre");
-                        }}
+                        onChange={(e) => handleNombreChange(e, setNombre)}
                         required
                         className={`w-full rounded-lg border py-2 px-3 focus:ring-green-700 ${
                             fieldErrors.nombre
@@ -147,10 +168,7 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
                         type="text"
                         placeholder="Apellidos"
                         value={apellido}
-                        onChange={(e) => {
-                            setApellido(e.target.value);
-                            clearFieldError("nombre"); // el error de nombre afecta al nombre completo
-                        }}
+                        onChange={(e) => handleNombreChange(e, setApellido)}
                         required
                         className={`w-full rounded-lg border py-2 px-3 focus:ring-green-700 ${
                             fieldErrors.nombre
@@ -159,7 +177,6 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
                         }`}
                     />
                 </div>
-                {/* Mostrar error del campo "nombre" (nombre completo) debajo de ambos inputs */}
                 {fieldErrors.nombre && (
                     <div className="col-span-2">
                         <p className="text-sm text-red-600">{fieldErrors.nombre}</p>
