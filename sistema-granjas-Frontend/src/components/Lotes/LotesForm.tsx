@@ -206,7 +206,7 @@ const LoteForm: React.FC<LoteFormProps> = ({
 
         // Validar nombre del lote
         const nombreLote = datosFormulario.nombre.trim();
-        const regexValido = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\-_.,;:()]+$/;
+        const regexValido = /^[\p{L}0-9\s\-.,()]+$/u;
 
         if (!regexValido.test(nombreLote)) {
             toast.error('El nombre del lote contiene caracteres no permitidos. Solo letras, números y espacios', {
