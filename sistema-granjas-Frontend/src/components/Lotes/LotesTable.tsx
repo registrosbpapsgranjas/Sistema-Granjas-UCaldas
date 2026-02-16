@@ -114,7 +114,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
                                 </td>
 
                                 <td className="px-6 py-4">
-                                    {lote.granja_nombre}
+                                    {lote.granja_nombre || `Granja ${lote.granja_id}`}
                                 </td>
 
                                 <td className="px-6 py-4">
