@@ -33,8 +33,7 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
     editando,
     tiposPrograma = [
         { value: "agricola", label: "Agrícola", icon: "fas fa-seedling" },
-        { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" },
-        { value: "prueba", label: "Prueba", icon: "fas fa-flask" }
+        { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" }
     ]
 }) => {
     const [granjas, setGranjas] = useState<any[]>([]);

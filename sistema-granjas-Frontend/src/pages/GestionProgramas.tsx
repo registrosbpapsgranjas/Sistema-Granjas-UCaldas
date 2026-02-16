@@ -47,8 +47,7 @@ export default function GestionProgramas() {
 
     const tiposPrograma = [
         { value: "agricola", label: "Agrícola", icon: "fas fa-seedling" },
-        { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" },
-        { value: "prueba", label: "Prueba", icon: "fas fa-flask" }
+        { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" }
     ];
 
     useEffect(() => {
@@ -261,7 +260,6 @@ export default function GestionProgramas() {
                 <StatsCard icon="fas fa-clipboard-list" color="bg-blue-600" value={programas.length} label="Programas Registrados" />
                 <StatsCard icon="fas fa-seedling" color="bg-green-600" value={programas.filter(p => p.tipo === 'agricola').length} label="Programas Agrícolas" />
                 <StatsCard icon="fas fa-paw" color="bg-amber-600" value={programas.filter(p => p.tipo === 'pecuario').length} label="Programas Pecuarios" />
-                <StatsCard icon="fas fa-flask" color="bg-purple-600" value={programas.filter(p => p.tipo === 'prueba').length} label="Programas de Prueba" />
             </div>
 
             <div className="mb-6">
