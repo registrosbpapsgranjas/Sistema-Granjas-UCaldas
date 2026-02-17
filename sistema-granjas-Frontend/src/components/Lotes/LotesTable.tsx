@@ -200,7 +200,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
 
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">
-                                            {lote.nombre_granja || `${granja.nombre}`}
+                                            {granja?.nombre || lote.nombre_granja || '-'}
                                         </div>
                                     </td>
 
