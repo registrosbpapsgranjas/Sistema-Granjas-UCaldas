@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import programaService from '../../services/programaService';
 import cultivoService from '../../services/cultivoService';
+import granjaService from '../../services/granjaService'; // Asegúrate de importar
 
 interface LotesTableProps {
     lotes: any[];
@@ -14,18 +15,13 @@ const LotesTable: React.FC<LotesTableProps> = ({
     onEliminar
 }) => {
 
-    // Mapa programa_id -> nombre
+    // Mapas
     const [programasMap, setProgramasMap] = useState<Record<number, string>>({});
-    
-    // Mapa cultivo_id -> datos del cultivo (incluyendo duración)
     const [cultivosMap, setCultivosMap] = useState<Record<number, any>>({});
-
     const [granjasMap, setGranjasMap] = useState<Record<number, any>>({});
     
-    // Estado de carga
     const [cargando, setCargando] = useState(false);
 
-    // Cargar programas y cultivos
     useEffect(() => {
         const cargarDatosRelacionados = async () => {
             if (lotes.length === 0) return;
@@ -33,17 +29,12 @@ const LotesTable: React.FC<LotesTableProps> = ({
             setCargando(true);
             
             try {
-                // Obtener IDs únicos de programas
-                const programasIds = Array.from(
-                    new Set(lotes.map(l => l.programa_id).filter(Boolean))
-                );
-                
-                // Obtener IDs únicos de cultivos
-                const cultivosIds = Array.from(
-                    new Set(lotes.map(l => l.cultivo_id).filter(Boolean))
-                );
+                // IDs únicos
+                const programasIds = Array.from(new Set(lotes.map(l => l.programa_id).filter(Boolean)));
+                const cultivosIds = Array.from(new Set(lotes.map(l => l.cultivo_id).filter(Boolean)));
+                const granjasIds = Array.from(new Set(lotes.map(l => l.granja_id).filter(Boolean)));
 
-                // Cargar programas en paralelo
+                // Promesas para programas
                 const programasPromises = programasIds.map(async (id) => {
                     try {
                         const res = await programaService.obtenerProgramaPorId(id);
@@ -53,7 +44,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
                     }
                 });
 
-                // Cargar cultivos en paralelo (para obtener duración)
+                // Promesas para cultivos
                 const cultivosPromises = cultivosIds.map(async (id) => {
                     try {
                         const res = await cultivoService.obtenerCultivoPorId(id);
@@ -72,25 +63,36 @@ const LotesTable: React.FC<LotesTableProps> = ({
                     }
                 });
 
-                // Esperar todas las respuestas
-                const [programasResp, cultivosResp] = await Promise.all([
+                // Promesas para granjas
+                const granjasPromises = granjasIds.map(async (id) => {
+                    try {
+                        const res = await granjaService.obtenerGranjaPorId(id);
+                        return { id, nombre: res.nombre };
+                    } catch {
+                        return { id, nombre: 'No encontrada' };
+                    }
+                });
+
+                // Esperar todas
+                const [programasResp, cultivosResp, granjasResp] = await Promise.all([
                     Promise.all(programasPromises),
-                    Promise.all(cultivosPromises)
+                    Promise.all(cultivosPromises),
+                    Promise.all(granjasPromises)
                 ]);
 
                 // Construir mapas
                 const progMap: Record<number, string> = {};
-                programasResp.forEach(p => {
-                    progMap[p.id] = p.nombre;
-                });
+                programasResp.forEach(p => progMap[p.id] = p.nombre);
 
                 const cultMap: Record<number, any> = {};
-                cultivosResp.forEach(c => {
-                    cultMap[c.id] = c;
-                });
+                cultivosResp.forEach(c => cultMap[c.id] = c);
+
+                const granMap: Record<number, any> = {};
+                granjasResp.forEach(g => granMap[g.id] = g);
 
                 setProgramasMap(progMap);
                 setCultivosMap(cultMap);
+                setGranjasMap(granMap);
                 
             } catch (error) {
                 console.error('Error cargando datos relacionados:', error);
@@ -102,7 +104,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
         cargarDatosRelacionados();
     }, [lotes]);
 
-    // Estado → color
+    // Funciones auxiliares
     const getEstadoColor = (estado: string) => {
         switch (estado?.toLowerCase()) {
             case 'activo': return 'bg-green-100 text-green-800';
@@ -120,14 +122,11 @@ const LotesTable: React.FC<LotesTableProps> = ({
         }
     };
 
-    // Calcular fecha fin basada en fecha_inicio + duración del cultivo
     const calcularFechaFin = (fechaInicio: string | null | undefined, cultivoId: number | null | undefined) => {
         if (!fechaInicio || !cultivoId) return '-';
-        
         try {
             const cultivo = cultivosMap[cultivoId];
             if (!cultivo || !cultivo.duracion_dias) return '-';
-            
             const fecha = new Date(fechaInicio);
             fecha.setDate(fecha.getDate() + cultivo.duracion_dias);
             return fecha.toLocaleDateString('es-ES');
@@ -136,9 +135,8 @@ const LotesTable: React.FC<LotesTableProps> = ({
         }
     };
 
-    // Calcular días transcurridos desde inicio
     const calcularDiasTranscurridos = (fechaInicio: string | null | undefined) => {
-        if (!fechaInicio) return '-';
+        if (!fechaInicio) return null;
         try {
             const inicio = new Date(fechaInicio);
             const hoy = new Date();
@@ -150,7 +148,6 @@ const LotesTable: React.FC<LotesTableProps> = ({
         }
     };
 
-    // Obtener nombre del tipo de gestión desde el cultivo
     const obtenerTipoGestion = (cultivoId: number | null | undefined) => {
         if (!cultivoId) return '-';
         const cultivo = cultivosMap[cultivoId];
@@ -200,7 +197,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
 
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">
-                                            {granja?.nombre || lote.nombre_granja || '-'}
+                                            {granja?.nombre || lote.nombre_granja || `Granja ID: ${lote.granja_id}`}
                                         </div>
                                     </td>
 
