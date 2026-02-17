@@ -8,6 +8,7 @@ class TipoDiagnostico(str, Enum):
     PLAGAS = "plagas"
     CONTROLADORES_BIOLÓGICOS = "controladores_biológicos"
     FENOLOGÍA = "fenología"
+    CENSO_POBLACIONAL = "censo_poblacional"
 
 class EstadoDiagnostico(str, Enum):
     ABIERTO = "abierto"
