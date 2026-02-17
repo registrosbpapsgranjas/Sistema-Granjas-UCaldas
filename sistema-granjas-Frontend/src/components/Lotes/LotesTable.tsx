@@ -19,6 +19,8 @@ const LotesTable: React.FC<LotesTableProps> = ({
     
     // Mapa cultivo_id -> datos del cultivo (incluyendo duración)
     const [cultivosMap, setCultivosMap] = useState<Record<number, any>>({});
+
+    const [granjasMap, setGranjasMap] = useState<Record<number, any>>({});
     
     // Estado de carga
     const [cargando, setCargando] = useState(false);
@@ -184,6 +186,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
                     <tbody className="bg-white divide-y divide-gray-200">
                         {lotes.map((lote) => {
                             const cultivo = cultivosMap[lote.cultivo_id];
+                            const granja = granjasMap[lote.granja_id];
                             const diasTranscurridos = calcularDiasTranscurridos(lote.fecha_inicio);
                             
                             return (
@@ -197,7 +200,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
 
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">
-                                            {lote.nombre_granja || `Granja ID: ${lote.granja_id}`}
+                                            {lote.nombre_granja || `${granja.nombre}`}
                                         </div>
                                     </td>
 
