@@ -7,7 +7,6 @@ class LoteBase(BaseModel):
     nombre: str
     tipo_lote_id: int
     granja_id: int
-    nombre_granja: Optional[str] = None
     programa_id: int
     cultivo_id: Optional[int] = None
     nombre_cultivo: Optional[str] = None
@@ -69,20 +68,6 @@ class LoteBase(BaseModel):
         
         return v
     
-    @field_validator('nombre_granja')
-    def validar_nombre_granja(cls, v):
-        if v is not None:
-            if len(v.strip()) < 2:
-                raise ValueError('El nombre de la granja debe tener al menos 2 caracteres')
-            
-            if len(v) > 150:
-                raise ValueError('El nombre de la granja no puede tener más de 150 caracteres')
-            
-            if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.0-9]+$', v):
-                raise ValueError('El nombre de la granja contiene caracteres no permitidos')
-        
-        return v
-    
     @field_validator('estado')
     def validar_estado(cls, v):
         estados_permitidos = ['activo', 'inactivo']
@@ -114,7 +99,6 @@ class LoteBase(BaseModel):
             raise ValueError('Si especifica cultivo_id, debe proporcionar nombre_cultivo')
         
         return values
-
 class LoteCreate(LoteBase):
     pass
 
@@ -122,7 +106,6 @@ class LoteUpdate(BaseModel):
     nombre: Optional[str] = None
     tipo_lote_id: Optional[int] = None
     granja_id: Optional[int] = None
-    nombre_granja: Optional[str] = None
     programa_id: Optional[int] = None
     cultivo_id: Optional[int] = None
     nombre_cultivo: Optional[str] = None
