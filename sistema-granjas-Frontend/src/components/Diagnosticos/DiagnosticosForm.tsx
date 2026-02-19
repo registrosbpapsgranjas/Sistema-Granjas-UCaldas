@@ -449,10 +449,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {!formData.tipo && (
+                        {!formData.tipo || !formData.condiciones_dia && (
                             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
                                 <p className="text-sm text-yellow-700">
-                                    Selecciona un tipo de diagnóstico para completar la caracterización.
+                                    Selecciona un tipo de diagnóstico y condiciones del día para completar la caracterización.
                                 </p>
                             </div>
                         )}
