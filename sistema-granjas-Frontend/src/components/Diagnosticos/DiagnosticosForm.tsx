@@ -1,17 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { DiagnosticoItem } from '../../types/diagnosticoTypes';
-// Importar componentes de la encuesta
 import { CensoSection } from './CensoSection';
 import { FenologicoSection } from './FenologicoSection';
-import { ArthropodSection } from './ArthropodSection'; // Asegúrate de que la ruta sea correcta
+import { ArthropodSection } from './ArthropodSection';
 
-// Tipos de monitoreo disponibles
 const TIPOS_MONITOREO = [
     { value: 'citricos', label: 'MONITOREO EN CÍTRICOS' },
     { value: 'aguacate', label: 'MONITOREO EN AGUACATE' }
 ];
 
-// Interfaz para planta base (similar a la de encuesta)
 interface PlantaBase {
     codigo: string;
     label: string;
@@ -26,6 +23,7 @@ interface DiagnosticoFormProps {
     estudiantes: any[];
     tipos: string[];
     estados?: string[];
+    condiciones_dia: string[];  // Ej: ['Soleado','Nublado','Lluvia']
     currentUser: any;
     esEdicion?: boolean;
 }
@@ -39,6 +37,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     estudiantes,
     tipos,
     estados = ['abierto', 'en_revision', 'cerrado'],
+    condiciones_dia = ['Soleado','Nublado','Lluvia'],
     currentUser,
     esEdicion = false
 }) => {
@@ -52,6 +51,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     // Estados originales del formulario
     const [formData, setFormData] = useState({
         tipo: diagnostico?.tipo || '',
+        condiciones_dia: diagnostico?.condiciones_dia || '',  // NUEVO CAMPO
         descripcion: diagnostico?.descripcion || '',
         observaciones: diagnostico?.observaciones || '',
         estado: diagnostico?.estado || 'abierto',
@@ -75,7 +75,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         if (esEdicion && diagnostico) {
             setPaso(2);
             // Si el diagnóstico tuviera campos específicos de monitoreo, los cargaríamos aquí
-            // Por ahora, solo cargamos lo básico
         }
     }, [esEdicion, diagnostico]);
 
@@ -94,7 +93,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         }
     }, [currentUser, esEdicion]);
 
-    // Generar plantas aleatorias (función copiada de useEncuestaState)
+    // Generar plantas aleatorias
     const generarPlantas = useCallback((cantidad: number): PlantaBase[] => {
         const pares = new Set<string>();
         while (pares.size < cantidad) {
@@ -116,7 +115,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         const loteId = e.target.value;
         setLoteSeleccionado(loteId);
         setFormData(prev => ({ ...prev, lote_id: loteId }));
-        // Generar plantas al seleccionar lote
         if (loteId) {
             const nuevas = generarPlantas(5);
             setPlantasSeleccionadas(nuevas);
@@ -143,7 +141,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         setPaso(1);
     };
 
-    // Manejar cambios en campos básicos
+    // Manejar cambios en campos básicos (incluye condiciones_dia)
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
@@ -151,7 +149,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // Manejar cambios en caracterización (para censo, fenológico, etc.)
+    // Manejar cambios en caracterización
     const handleCaracterizacionChange = (campo: string, valor: string) => {
         setCaracterizacion(prev => ({ ...prev, [campo]: valor }));
     };
@@ -187,7 +185,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         setTiposEvidencia(copia);
     };
 
-    // Función para obtener el color del estado
+    // Colores e iconos para estado
     const getEstadoColor = (estado: string) => {
         const colores: Record<string, string> = {
             abierto: 'bg-green-100 text-green-800 border-green-200',
@@ -197,7 +195,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         return colores[estado] || 'bg-gray-100 text-gray-800 border-gray-200';
     };
 
-    // Función para obtener el icono del estado
     const getEstadoIcon = (estado: string) => {
         const iconos: Record<string, string> = {
             abierto: 'fas fa-circle',
@@ -219,7 +216,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             tipo: tiposEvidencia[index]
         })).filter(ev => ev.file);
 
-        // Construir datos finales, incluyendo caracterización y plantas si aplica
+        // Construir datos finales, incluyendo condiciones_dia
         const datosSubmit = {
             ...formData,
             estado: estadoFinal,
@@ -236,7 +233,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         onSubmit(datosSubmit);
     };
 
-    // Renderizado condicional por pasos
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 border-b pb-3">
@@ -319,7 +315,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             {paso === 2 && (
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-6">
-                        {/* Mostrar resumen de selección */}
+                        {/* Resumen de selección */}
                         <div className="bg-gray-100 p-4 rounded-lg flex justify-between items-center">
                             <div>
                                 <p className="text-sm text-gray-600">
@@ -384,26 +380,48 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {/* Tipo (campo original) - ahora controla la visualización de la caracterización */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
-                            <select
-                                name="tipo"
-                                value={formData.tipo}
-                                onChange={handleChange}
-                                className="w-full border rounded-lg p-3"
-                                required
-                            >
-                                <option value="">Seleccionar tipo</option>
-                                {tipos.map(tipo => (
-                                    <option key={tipo} value={tipo}>
-                                        {tipo.charAt(0).toUpperCase() + tipo.slice(1).replace(/_/g, ' ')}
-                                    </option>
-                                ))}
-                            </select>
+                        {/* Tipo y Condiciones del día en grid de 2 columnas */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Tipo */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
+                                <select
+                                    name="tipo"
+                                    value={formData.tipo}
+                                    onChange={handleChange}
+                                    className="w-full border rounded-lg p-3"
+                                    required
+                                >
+                                    <option value="">Seleccionar tipo</option>
+                                    {tipos.map(tipo => (
+                                        <option key={tipo} value={tipo}>
+                                            {tipo.charAt(0).toUpperCase() + tipo.slice(1).replace(/_/g, ' ')}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Condiciones del día */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Condiciones del día *</label>
+                                <select
+                                    name="condiciones_dia"
+                                    value={formData.condiciones_dia}
+                                    onChange={handleChange}
+                                    className="w-full border rounded-lg p-3"
+                                    required
+                                >
+                                    <option value="">Seleccionar condiciones</option>
+                                    {condiciones_dia.map(cond => (
+                                        <option key={cond} value={cond}>
+                                            {cond}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
-                        {/* Secciones específicas según el tipo de diagnóstico seleccionado */}
+                        {/* Secciones específicas según el tipo de diagnóstico */}
                         {formData.tipo && (
                             <div className="mt-4">
                                 {formData.tipo === 'censo_poblacional' && (
@@ -418,11 +436,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         plantas={plantasSeleccionadas.map(p => ({ ...p, fase: '' }))}
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
-                                        onFaseChange={(idx, fase) => {
-                                            // Aquí puedes manejar el cambio de fase si es necesario
-                                            // Por ejemplo, actualizar caracterizacion con la fase por planta
-                                            // Pero por simplicidad, se deja vacío
-                                        }}
+                                        onFaseChange={(idx, fase) => {}}
                                     />
                                 )}
                                 {formData.tipo === 'artropodos' && (
@@ -430,17 +444,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         plantas={plantasSeleccionadas}
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
-                                        // Si ArthropodSection requiere más props, agrégalos aquí
                                     />
                                 )}
                             </div>
                         )}
 
-                        {/* Mensaje cuando no se ha seleccionado un tipo de diagnóstico */}
                         {!formData.tipo && (
                             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
                                 <p className="text-sm text-yellow-700">
-                                    Selecciona un tipo de diagnóstico (Censo, Fenológico o Artrópodos) para completar la caracterización.
+                                    Selecciona un tipo de diagnóstico para completar la caracterización.
                                 </p>
                             </div>
                         )}
@@ -474,7 +486,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             />
                         </div>
 
-                        {/* Estudiante y Docente (mantener igual que original) */}
+                        {/* Estudiante y Docente */}
                         {(esAdmin || esEstudiante) && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Estudiante *</label>
