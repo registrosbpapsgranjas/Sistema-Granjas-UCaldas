@@ -37,7 +37,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     estudiantes,
     tipos,
     estados = ['abierto', 'en_revision', 'cerrado'],
-    condiciones_dia = ['Soleado','Nublado','Lluvia'],
+    condiciones_dia = ['Soleado', 'Nublado', 'Lluvia'],
     currentUser,
     esEdicion = false
 }) => {
@@ -262,11 +262,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     key={tipo.value}
                                     type="button"
                                     onClick={() => setTipoMonitoreo(tipo.value)}
-                                    className={`p-4 border-2 rounded-lg text-center transition ${
-                                        tipoMonitoreo === tipo.value
+                                    className={`p-4 border-2 rounded-lg text-center transition ${tipoMonitoreo === tipo.value
                                             ? 'border-blue-600 bg-blue-50'
                                             : 'border-gray-200 hover:border-blue-300'
-                                    }`}
+                                        }`}
                                 >
                                     <span className="font-medium">{tipo.label}</span>
                                 </button>
@@ -436,7 +435,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         plantas={plantasSeleccionadas.map(p => ({ ...p, fase: '' }))}
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
-                                        onFaseChange={(idx, fase) => {}}
+                                        onFaseChange={(idx, fase) => { }}
                                     />
                                 )}
                                 {formData.tipo === 'artropodos' && (
@@ -449,10 +448,14 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {!formData.tipo || !formData.condiciones_dia && (
+                        {(!formData.tipo || !formData.condiciones_dia) && (
                             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
                                 <p className="text-sm text-yellow-700">
-                                    Selecciona un tipo de diagnóstico y condiciones del día para completar la caracterización.
+                                    {!formData.tipo && !formData.condiciones_dia
+                                        ? "Selecciona un tipo de diagnóstico y las condiciones del día"
+                                        : !formData.tipo
+                                            ? "Selecciona un tipo de diagnóstico"
+                                            : "Selecciona las condiciones del día"}
                                 </p>
                             </div>
                         )}
