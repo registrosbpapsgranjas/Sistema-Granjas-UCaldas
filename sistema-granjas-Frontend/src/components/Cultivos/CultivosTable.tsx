@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { CultivoEspecie } from '../../types/cultivoTypes';
+import granjaService from '../../services/granjaService'; // Asegúrate de que la ruta sea correcta
 
 interface CultivosTableProps {
     cultivos: CultivoEspecie[];
@@ -12,6 +13,47 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
     onEditar,
     onEliminar
 }) => {
+    const [granjasMap, setGranjasMap] = useState<Record<number, string>>({});
+    const [cargando, setCargando] = useState(false);
+
+    useEffect(() => {
+        const cargarNombresGranjas = async () => {
+            if (cultivos.length === 0) return;
+            
+            // Extraer IDs únicos de granja
+            const granjaIds = Array.from(
+                new Set(cultivos.map(c => c.granja_id).filter(Boolean))
+            ) as number[];
+            
+            if (granjaIds.length === 0) return;
+            
+            setCargando(true);
+            
+            try {
+                const promesas = granjaIds.map(async (id) => {
+                    try {
+                        const res = await granjaService.obtenerGranjaPorId(id);
+                        return { id, nombre: res.nombre };
+                    } catch (error) {
+                        console.error(`Error al obtener granja ${id}:`, error);
+                        return { id, nombre: 'No encontrada' };
+                    }
+                });
+                
+                const resultados = await Promise.all(promesas);
+                const nuevoMap: Record<number, string> = {};
+                resultados.forEach(r => nuevoMap[r.id] = r.nombre);
+                setGranjasMap(nuevoMap);
+            } catch (error) {
+                console.error('Error cargando nombres de granjas:', error);
+            } finally {
+                setCargando(false);
+            }
+        };
+        
+        cargarNombresGranjas();
+    }, [cultivos]);
+
     // Función para obtener color según tipo
     const getTipoColor = (tipo: string) => {
         switch (tipo?.toLowerCase()) {
@@ -31,7 +73,7 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
         }
     };
 
-    // Formatear fecha
+    // Formatear fecha (si se necesita)
     const formatearFecha = (fechaString?: string) => {
         if (!fechaString) return '-';
         try {
@@ -50,6 +92,7 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                         <h3 className="text-lg font-medium text-gray-900">Lista de Cultivos/Especies</h3>
                         <p className="text-sm text-gray-500">
                             Mostrando {cultivos.length} registros
+                            {cargando && <span className="ml-2 text-blue-500">(Cargando granjas...)</span>}
                         </p>
                     </div>
                 </div>
@@ -103,7 +146,8 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {cultivo.granja_nombre || `Granja ${cultivo.granja_id}`}
+                                    {/* Primero usa el nombre del mapa, luego el que pudiera venir en el objeto, y finalmente un fallback */}
+                                    {granjasMap[cultivo.granja_id] || cultivo.granja_nombre || `Granja ${cultivo.granja_id}`}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {cultivo.duracion_dias ? `${cultivo.duracion_dias} días` : '-'}
