@@ -1,8 +1,8 @@
 import React from 'react';
-import { PlantaBase } from '../types/index';
+import { PlantaBase } from '../../types/diagnosticoTypes';
 
 interface ControladoresSectionProps {
-  plantas: PlantaBase[]; // plantas seleccionadas (con codigo y label)
+  plantas: PlantaBase[];
   caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
 }
@@ -15,33 +15,62 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
   const prefix = 'controladores';
 
   const handleChange = (clave: string, valor: any) => {
-    // Si es booleano, convertirlo a string "true"/"false"
     const valorString = typeof valor === 'boolean' ? String(valor) : String(valor);
     onCampoChange(clave, valorString);
   };
 
-  // Manejar checkboxes múltiples (arrays)
-  const handleArrayChange = (clave: string, valor: string, checked: boolean) => {
-    const current = caracterizacion[clave] ? JSON.parse(caracterizacion[clave]) : [];
-    const nuevos = checked
-      ? [...current, valor]
-      : current.filter((v: string) => v !== valor);
-    handleChange(clave, JSON.stringify(nuevos));
+  // Maneja cambios en un grupo de checkboxes con lógica de "No se observaron"
+  const handleGrupoChange = (
+    baseKey: string,
+    campo: string,
+    opcion: string,
+    checked: boolean,
+    opciones: string[],
+    opcionNinguno: string
+  ) => {
+    const key = `${baseKey}_${campo}`;
+    const current = caracterizacion[key] ? JSON.parse(caracterizacion[key]) : [];
+
+    let nuevos: string[];
+
+    if (opcion === opcionNinguno) {
+      if (checked) {
+        nuevos = [opcionNinguno];
+        // Limpiar el campo "otro" asociado
+        handleChange(`${baseKey}_${campo}_otro`, '');
+      } else {
+        nuevos = [];
+      }
+    } else {
+      if (checked) {
+        nuevos = current.filter((o: string) => o !== opcionNinguno);
+        if (!nuevos.includes(opcion)) {
+          nuevos.push(opcion);
+        }
+      } else {
+        nuevos = current.filter((o: string) => o !== opcion);
+      }
+    }
+
+    handleChange(key, JSON.stringify(nuevos));
   };
 
-  // Manejar cambio en "Otro" (texto)
-  const handleOtroChange = (baseKey: string, tipo: string, valor: string) => {
-    handleChange(`${baseKey}_otro_${tipo}`, valor);
+  // Maneja el campo "Otro" evitando escritura si "No se observaron" está seleccionado
+  const handleOtroChange = (baseKey: string, campo: string, valor: string, opcionNinguno: string) => {
+    const key = `${baseKey}_${campo}`;
+    const current = caracterizacion[key] ? JSON.parse(caracterizacion[key]) : [];
+    if (current.includes(opcionNinguno)) {
+      return; // No permitir escribir
+    }
+    handleChange(`${baseKey}_${campo}_otro`, valor);
   };
 
-  // Verificar si una planta tiene "No aplica" marcado
   const getNoAplica = (codigo: string): boolean => {
     return caracterizacion[`${prefix}_${codigo}_noAplica`] === 'true';
   };
 
   const handleNoAplicaChange = (codigo: string, checked: boolean) => {
     handleChange(`${prefix}_${codigo}_noAplica`, checked);
-    // Si se marca "No aplica", limpiar todos los campos de esa planta
     if (checked) {
       const campos = [
         'insectos',
@@ -74,17 +103,49 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
         const noAplica = getNoAplica(codigo);
         const baseKey = `${prefix}_${codigo}`;
 
-        // Valores actuales (para checkboxes)
-        const insectosSeleccionados = caracterizacion[`${baseKey}_insectos`]
+        const insectos = caracterizacion[`${baseKey}_insectos`]
           ? JSON.parse(caracterizacion[`${baseKey}_insectos`])
           : [];
-        const microbianosSeleccionados = caracterizacion[`${baseKey}_microbianos`]
+        const microbianos = caracterizacion[`${baseKey}_microbianos`]
           ? JSON.parse(caracterizacion[`${baseKey}_microbianos`])
           : [];
-        const evidenciasSeleccionadas = caracterizacion[`${baseKey}_evidencias`]
+        const evidencias = caracterizacion[`${baseKey}_evidencias`]
           ? JSON.parse(caracterizacion[`${baseKey}_evidencias`])
           : [];
         const nivel = caracterizacion[`${baseKey}_nivel`] || '';
+
+        const insectosOpciones = [
+          'Coccinélidos',
+          'Crisopas',
+          'Avispas parasitoides',
+          'Tamarixia radiata',
+          'Fidiobia sp.',
+          'No se observaron',
+        ];
+        const microbianosOpciones = [
+          'Beauveria',
+          'Lecanicillium',
+          'Metarhizium',
+          'Bacillus',
+          'No se observaron',
+        ];
+        const evidenciasOpciones = [
+          'Huevos de artrópodos benéficos',
+          'Larvas depredando',
+          'Plagas parasitadas',
+          'Micelio en insectos',
+          'Insectos benéficos en estados inmaduros',
+          'Insectos benéficos adultos',
+          'No se observaron evidencias',
+        ];
+
+        const opcionNingunoInsectos = 'No se observaron';
+        const opcionNingunoMicrobianos = 'No se observaron';
+        const opcionNingunoEvidencias = 'No se observaron evidencias';
+
+        const tieneNingunoInsectos = insectos.includes(opcionNingunoInsectos);
+        const tieneNingunoMicrobianos = microbianos.includes(opcionNingunoMicrobianos);
+        const tieneNingunoEvidencias = evidencias.includes(opcionNingunoEvidencias);
 
         return (
           <div key={codigo} className="border rounded-lg p-4 mb-6 bg-white shadow-sm">
@@ -111,19 +172,21 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     Insectos benéficos observados *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {[
-                      'Coccinélidos',
-                      'Crisopas',
-                      'Avispas parasitoides',
-                      'Tamarixia radiata',
-                      'Fidiobia sp.',
-                      'No se observaron',
-                    ].map(opcion => (
+                    {insectosOpciones.map(opcion => (
                       <label key={opcion} className="flex items-center text-sm">
                         <input
                           type="checkbox"
-                          checked={insectosSeleccionados.includes(opcion)}
-                          onChange={(e) => handleArrayChange(`${baseKey}_insectos`, opcion, e.target.checked)}
+                          checked={insectos.includes(opcion)}
+                          onChange={(e) =>
+                            handleGrupoChange(
+                              baseKey,
+                              'insectos',
+                              opcion,
+                              e.target.checked,
+                              insectosOpciones,
+                              opcionNingunoInsectos
+                            )
+                          }
                           className="mr-2"
                         />
                         {opcion}
@@ -135,8 +198,11 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     <input
                       type="text"
                       value={caracterizacion[`${baseKey}_insectos_otro`] || ''}
-                      onChange={(e) => handleChange(`${baseKey}_insectos_otro`, e.target.value)}
-                      className="border rounded px-2 py-1 w-full text-sm"
+                      onChange={(e) =>
+                        handleOtroChange(baseKey, 'insectos', e.target.value, opcionNingunoInsectos)
+                      }
+                      disabled={tieneNingunoInsectos}
+                      className={`border rounded px-2 py-1 w-full text-sm ${tieneNingunoInsectos ? 'bg-gray-100' : ''}`}
                       placeholder="Otro insecto benéfico"
                     />
                   </div>
@@ -148,18 +214,21 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     Controladores microbianos observados *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {[
-                      'Beauveria',
-                      'Lecanicillium',
-                      'Metarhizium',
-                      'Bacillus',
-                      'No se observaron',
-                    ].map(opcion => (
+                    {microbianosOpciones.map(opcion => (
                       <label key={opcion} className="flex items-center text-sm">
                         <input
                           type="checkbox"
-                          checked={microbianosSeleccionados.includes(opcion)}
-                          onChange={(e) => handleArrayChange(`${baseKey}_microbianos`, opcion, e.target.checked)}
+                          checked={microbianos.includes(opcion)}
+                          onChange={(e) =>
+                            handleGrupoChange(
+                              baseKey,
+                              'microbianos',
+                              opcion,
+                              e.target.checked,
+                              microbianosOpciones,
+                              opcionNingunoMicrobianos
+                            )
+                          }
                           className="mr-2"
                         />
                         {opcion}
@@ -171,8 +240,11 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     <input
                       type="text"
                       value={caracterizacion[`${baseKey}_microbianos_otro`] || ''}
-                      onChange={(e) => handleChange(`${baseKey}_microbianos_otro`, e.target.value)}
-                      className="border rounded px-2 py-1 w-full text-sm"
+                      onChange={(e) =>
+                        handleOtroChange(baseKey, 'microbianos', e.target.value, opcionNingunoMicrobianos)
+                      }
+                      disabled={tieneNingunoMicrobianos}
+                      className={`border rounded px-2 py-1 w-full text-sm ${tieneNingunoMicrobianos ? 'bg-gray-100' : ''}`}
                       placeholder="Otro microbiano"
                     />
                   </div>
@@ -184,20 +256,21 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     Evidencia de presencia observada *
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {[
-                      'Huevos de artrópodos benéficos',
-                      'Larvas depredando',
-                      'Plagas parasitadas',
-                      'Micelio en insectos',
-                      'Insectos benéficos en estados inmaduros',
-                      'Insectos benéficos adultos',
-                      'No se observaron evidencias',
-                    ].map(opcion => (
+                    {evidenciasOpciones.map(opcion => (
                       <label key={opcion} className="flex items-center text-sm">
                         <input
                           type="checkbox"
-                          checked={evidenciasSeleccionadas.includes(opcion)}
-                          onChange={(e) => handleArrayChange(`${baseKey}_evidencias`, opcion, e.target.checked)}
+                          checked={evidencias.includes(opcion)}
+                          onChange={(e) =>
+                            handleGrupoChange(
+                              baseKey,
+                              'evidencias',
+                              opcion,
+                              e.target.checked,
+                              evidenciasOpciones,
+                              opcionNingunoEvidencias
+                            )
+                          }
                           className="mr-2"
                         />
                         {opcion}
@@ -209,8 +282,11 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     <input
                       type="text"
                       value={caracterizacion[`${baseKey}_evidencias_otro`] || ''}
-                      onChange={(e) => handleChange(`${baseKey}_evidencias_otro`, e.target.value)}
-                      className="border rounded px-2 py-1 w-full text-sm"
+                      onChange={(e) =>
+                        handleOtroChange(baseKey, 'evidencias', e.target.value, opcionNingunoEvidencias)
+                      }
+                      disabled={tieneNingunoEvidencias}
+                      className={`border rounded px-2 py-1 w-full text-sm ${tieneNingunoEvidencias ? 'bg-gray-100' : ''}`}
                       placeholder="Otra evidencia"
                     />
                   </div>
@@ -258,8 +334,6 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                           alert('El archivo no debe superar los 10 MB.');
                           return;
                         }
-                        // Aquí se puede manejar la subida del archivo.
-                        // Por ahora, guardamos el nombre del archivo (solo como referencia).
                         handleChange(`${baseKey}_foto`, file.name);
                       }
                     }}
