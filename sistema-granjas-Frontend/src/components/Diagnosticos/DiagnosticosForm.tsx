@@ -469,7 +469,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         onCampoChange={handleCaracterizacionChange}
                                     />
                                 )}
-                                {formData.tipo == 'pilinizadores' && (
+                                {formData.tipo == 'polinizadores' && (
                                     <PolinizadoresSection
                                         plantas={plantasSeleccionadas}
                                         caracterizacion={caracterizacion}
