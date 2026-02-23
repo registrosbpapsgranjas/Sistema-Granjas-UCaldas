@@ -4,6 +4,7 @@ import { CensoSection } from './CensoSection';
 import { FenologicoSection } from './FenologicoSection';
 import { ArthropodSection } from './ArthropodSection';
 import { EnfermedadesSection} from './EnfermedadesSection';
+import { ArvensesSection } from './ArvensesSection';
 
 const TIPOS_MONITOREO = [
     { value: 'citricos', label: 'MONITOREO EN CÍTRICOS' },
@@ -452,6 +453,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
                                     />
+                                )}
+                                {formData.tipo ==='arvenses' &&(
+                                    <ArvensesSection
+                                    plantas={plantasSeleccionadas}
+                                    caracterizacion={caracterizacion}
+                                    onCampoChange={handleCaracterizacionChange}/>
                                 )}
                             </div>
                         )}
