@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlantaBase } from '../../types/diagnosticoTypes';
+import { PlantaBase } from '../types/index';
 
 interface ArvensesSectionProps {
   plantas: PlantaBase[]; // para sugerir códigos válidos
