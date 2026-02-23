@@ -13,11 +13,21 @@ export interface Fenologico {
   campos_requeridos: string[];
 }
 
+export interface Artropodos {
+  campos_requeridos: string[];
+}
+
+export interface Enfermedades {
+  campos_requeridos: string[];
+}
+
 export interface Formulario {
   id: string;
   caracterizacion_template: CaracterizacionTemplate;
   censo: Censo;
   fenologico: Fenologico;
+  artropodos: Artropodos;
+  enfermedades: Enfermedades;
 }
 
 export interface PlantaBase {
@@ -59,8 +69,6 @@ export interface FenologicoDatosEnvio {
   }>;
 }
 
-// ... (código existente)
-
 export interface ArtropodoDatosEnvio {
   clase: string; // "insecto" | "aracnido"
   tipo_insecto?: string;
@@ -92,12 +100,20 @@ export interface ArtropodoDatosEnvio {
   otro_fotos?: string;
 }
 
+// NUEVA INTERFAZ PARA ENFERMEDADES
+export interface EnfermedadesDatosEnvio {
+  agente: string; // 'hongo' | 'bacteria' | 'virus' | 'nematodos' | 'oomicetos'
+  // Mapeo de enfermedadId a sus datos (usando claves planas)
+  enfermedades: Record<string, any>; // se puede tipar más finamente si se desea
+}
+
 export interface DatosEnvio {
   test_id: string;
   caracterizacion_datos: Record<string, string>;
   censo_datos?: CensoDatosEnvio;
   fenologico_datos?: FenologicoDatosEnvio;
-  artropodo_datos?: ArtropodoDatosEnvio; // <-- NUEVO
+  artropodo_datos?: ArtropodoDatosEnvio;
+  enfermedades_datos?: EnfermedadesDatosEnvio; // <-- NUEVO
   fecha: string;
   fingerprint: string;
 }
