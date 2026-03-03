@@ -1,10 +1,10 @@
 // src/components/Granjas/GestionGranjas.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import granjaService from '../../services/granjaService';
-import programaService from '../../services/programaService';
-import loteService from '../../services/loteService';
-import laboresService from '../../services/laboresService';
+import granjaService from '../services/granjaService';
+import programaService from '../services/programaService';
+import loteService from '../services/loteService';
+import laboresService from '../services/laboresService';
 
 interface ProgramaResumen {
   id: string;
