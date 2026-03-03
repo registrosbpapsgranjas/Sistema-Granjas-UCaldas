@@ -3,307 +3,231 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '../components/Common/DashboardHeader';
 import Sidebar from '../components/Common/SideBar';
-// Importamos los servicios
+import ModulesGrid from '../components/Common/ModulesGrid';
+// Importa los servicios
 import granjaService from '../services/granjaService';
 import programaService from '../services/programaService';
 import loteService from '../services/loteService';
+import usuarioService from '../services/usuarioService';
 import laboresService from '../services/laboresService';
 
-// Interfaces para los datos enriquecidos
-interface ProgramaResumen {
-  id: string;
-  nombre: string;
-  cantidadLotes: number;
-}
-
-interface GranjaConDetalles {
-  id: string;
-  nombre: string;
-  ubicacion?: string;
-  programas: ProgramaResumen[];
-  totalLotes: number;
-  laboresPendientes: number;
-}
-
 const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const [granjas, setGranjas] = useState<GranjaConDetalles[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
+    const [stats, setStats] = useState({
+        granjasCount: 0,
+        usuariosCount: 0,
+        programasCount: 0,
+        laboresMesCount: 0,
+        loading: true
+    });
 
-  const cargarDashboard = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    useEffect(() => {
+        cargarEstadisticas();
+    }, []);
 
-      // 1. Obtener todas las granjas
-      const granjasData = await granjaService.obtenerGranjas();
-      if (!Array.isArray(granjasData)) {
-        throw new Error('Formato de granjas inválido');
-      }
+    const cargarEstadisticas = async () => {
+        try {
+            // Obtener fecha actual y primer día del mes
+            const ahora = new Date();
+            const primerDiaMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+            const ultimoDiaMes = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
 
-      // 2. Para cada granja, obtener sus programas y luego los lotes
-      const granjasConDetalles = await Promise.all(
-        granjasData.map(async (granja) => {
-          // Obtener programas de esta granja (asumiendo que existe este método)
-          // Si no existe, podemos filtrar todos los programas por granjaId
-          let programas = [];
-          try {
-            programas = await programaService.obtenerPorGranja?.(granja.id) || [];
-          } catch {
-            // Fallback: obtener todos y filtrar
-            const todosProgramas = await programaService.obtenerProgramas();
-            programas = Array.isArray(todosProgramas)
-              ? todosProgramas.filter(p => p.granjaId === granja.id)
-              : [];
-          }
+            // Formatear fechas para comparación
+            const fechaInicio = primerDiaMes.toISOString().split('T')[0];
+            const fechaFin = ultimoDiaMes.toISOString().split('T')[0];
 
-          // Para cada programa, obtener sus lotes
-          const programasConLotes = await Promise.all(
-            programas.map(async (prog) => {
-              let lotes = [];
-              try {
-                lotes = await loteService.obtenerPorPrograma?.(prog.id) || [];
-              } catch {
-                const todosLotes = await loteService.obtenerLotes();
-                const lotesArray = Array.isArray(todosLotes)
-                  ? todosLotes
-                  : todosLotes?.items || [];
-                lotes = lotesArray.filter(l => l.programaId === prog.id);
-              }
-              return {
-                id: prog.id,
-                nombre: prog.nombre,
-                cantidadLotes: lotes.length,
-              };
-            })
-          );
+            // Cargar todos los datos en paralelo
+            const [granjas, programas, lotes, usuarios, laboresResponse] = await Promise.all([
+                granjaService.obtenerGranjas(),
+                programaService.obtenerProgramas(),
+                loteService.obtenerLotes(),
+                usuarioService.obtenerUsuarios(),
+                laboresService.obtenerLabores() // Esta devuelve {items: [], total: X, paginas: X}
+            ]);
 
-          // Calcular total de lotes de la granja
-          const totalLotes = programasConLotes.reduce((acc, p) => acc + p.cantidadLotes, 0);
+            // Filtrar labores del mes actual - ahora laboresResponse.items
+            const laboresEsteMes = Array.isArray(laboresResponse?.items) ?
+                laboresResponse.items.filter(labor => {
+                    if (!labor.fecha_asignacion) return false;
 
-          // Calcular labores pendientes para esta granja
-          // Podemos obtener todas las labores y filtrar por lotes de la granja
-          let laboresPendientes = 0;
-          try {
-            const laboresResponse = await laboresService.obtenerLabores();
-            const todasLabores = Array.isArray(laboresResponse)
-              ? laboresResponse
-              : laboresResponse?.items || [];
+                    try {
+                        const fechaLabor = new Date(labor.fecha_asignacion);
+                        return fechaLabor >= primerDiaMes && fechaLabor <= ultimoDiaMes;
+                    } catch (error) {
+                        console.warn('Error parseando fecha de labor:', labor.fecha_asignacion);
+                        return false;
+                    }
+                }) : [];
 
-            // Necesitamos los IDs de todos los lotes de la granja
-            const lotesDeGranja = await Promise.all(
-              programas.map(p => loteService.obtenerPorPrograma?.(p.id) || [])
-            ).then(arr => arr.flat());
+            // Validar que los datos sean arrays y obtener conteos
+            // Asegurarse de que sean arrays antes de usar .length
+            const granjasArray = Array.isArray(granjas) ? granjas : [];
+            const programasArray = Array.isArray(programas) ? programas : [];
+            const usuariosArray = Array.isArray(usuarios) ? usuarios : [];
 
-            const lotesIds = lotesDeGranja.map(l => l.id);
-            laboresPendientes = todasLabores.filter(labor =>
-              lotesIds.includes(labor.loteId) && labor.estado !== 'completada'
-            ).length;
-          } catch (e) {
-            console.warn('No se pudieron cargar labores pendientes', e);
-          }
+            // Para lotes, verificar la estructura
+            let lotesArray = [];
+            if (Array.isArray(lotes)) {
+                lotesArray = lotes;
+            } else if (lotes && Array.isArray(lotes.items)) {
+                lotesArray = lotes.items; // Si viene con estructura similar a labores
+            }
 
-          return {
-            id: granja.id,
-            nombre: granja.nombre,
-            ubicacion: granja.ubicacion,
-            programas: programasConLotes,
-            totalLotes,
-            laboresPendientes,
-          };
-        })
-      );
+            setStats({
+                granjasCount: granjasArray.length,
+                usuariosCount: usuariosArray.length,
+                programasCount: programasArray.length,
+                laboresMesCount: laboresEsteMes.length,
+                loading: false
+            });
 
-      setGranjas(granjasConDetalles);
-    } catch (err) {
-      console.error('Error al cargar el dashboard:', err);
-      setError('No se pudo cargar la información. Intente nuevamente.');
-    } finally {
-      setLoading(false);
-    }
-  };
+        } catch (error) {
+            console.error('Error cargando estadísticas del dashboard:', error);
+            setStats(prev => ({ ...prev, loading: false }));
+        }
+    };
 
-  useEffect(() => {
-    cargarDashboard();
-  }, []);
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <DashboardHeader />
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <DashboardHeader />
+            <div className="flex">
+                <Sidebar />
 
-      <div className="flex">
-        <Sidebar />
-
-        <main className="flex-1 ml-64 p-8">
-          {/* Banner de bienvenida (se mantiene) */}
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-8 mb-8 text-white">
-            <h1 className="text-3xl font-bold mb-4">Bienvenido al Sistema Granjas</h1>
-            <p className="text-green-100 text-lg max-w-3xl">
-              Una plataforma integral para la gestión agrícola que conecta estudiantes,
-              sesiones, trabajadores y administradores en un ecosistema colaborativo
-              para optimizar la producción y el aprendizaje.
-            </p>
-          </div>
-
-          {/* Cabecera de la sección "Mis Granjas" con botón de refrescar */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Mis Granjas</h2>
-            <button
-              onClick={cargarDashboard}
-              disabled={loading}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'} mr-2`}></i>
-              Actualizar
-            </button>
-          </div>
-
-          {/* Mensaje de error */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
-
-          {/* Estado de carga */}
-          {loading && (
-            <div className="space-y-6">
-              {[1, 2].map(i => (
-                <div key={i} className="bg-white rounded-xl shadow-lg p-6 animate-pulse">
-                  <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="h-12 bg-gray-200 rounded"></div>
-                    <div className="h-12 bg-gray-200 rounded"></div>
-                    <div className="h-12 bg-gray-200 rounded"></div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Lista de granjas */}
-          {!loading && !error && (
-            <div className="space-y-6">
-              {granjas.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-                  <i className="fas fa-tractor text-gray-300 text-5xl mb-4"></i>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">No hay granjas registradas</h3>
-                  <p className="text-gray-500 mb-6">Comienza creando una nueva granja desde el módulo de administración.</p>
-                  <button
-                    onClick={() => navigate('/granjas/nueva')}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    <i className="fas fa-plus mr-2"></i>
-                    Crear granja
-                  </button>
-                </div>
-              ) : (
-                granjas.map(granja => (
-                  <div key={granja.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-                    {/* Cabecera de la tarjeta: nombre + acciones */}
-                    <div className="flex flex-wrap justify-between items-start gap-4">
-                      <div className="flex-1">
-                        <h3
-                          className="text-xl font-bold text-gray-800 cursor-pointer hover:text-green-600"
-                          onClick={() => navigate(`/granjas/${granja.id}`)}
-                        >
-                          {granja.nombre}
-                        </h3>
-                        {granja.ubicacion && (
-                          <p className="text-sm text-gray-500">{granja.ubicacion}</p>
-                        )}
-                      </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => navigate(`/granjas/${granja.id}/programas`)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                          title="Programas"
-                        >
-                          <i className="fas fa-tasks text-xl"></i>
-                        </button>
-                        <button
-                          onClick={() => navigate(`/granjas/${granja.id}/lotes`)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                          title="Lotes"
-                        >
-                          <i className="fas fa-layer-group text-xl"></i>
-                        </button>
-                        <button
-                          onClick={() => navigate(`/granjas/${granja.id}/inventario`)}
-                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-full transition-colors"
-                          title="Inventario"
-                        >
-                          <i className="fas fa-boxes text-xl"></i>
-                        </button>
-                        <button
-                          onClick={() => navigate(`/granjas/${granja.id}/labores`)}
-                          className="p-2 text-orange-600 hover:bg-orange-50 rounded-full transition-colors"
-                          title="Labores"
-                        >
-                          <i className="fas fa-calendar-check text-xl"></i>
-                        </button>
-                      </div>
+                {/* Contenido principal */}
+                <main className="flex-1 ml-64 p-8">
+                    {/* Banner de bienvenida */}
+                    <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-lg p-8 mb-8 text-white">
+                        <h1 className="text-3xl font-bold mb-4">Bienvenido al Sistema Granjas</h1>
+                        <p className="text-green-100 text-lg max-w-3xl">
+                            Una plataforma integral para la gestión agrícola que conecta estudiantes,
+                            sesiones, trabajadores y administradores en un ecosistema colaborativo
+                            para optimizar la producción y el aprendizaje.
+                        </p>
                     </div>
 
-                    {/* Métricas rápidas */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
-                      <div className="bg-gray-50 p-3 rounded-lg text-center">
-                        <div className="text-2xl font-semibold text-green-600">{granja.programas.length}</div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">Programas</div>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded-lg text-center">
-                        <div className="text-2xl font-semibold text-blue-600">{granja.totalLotes}</div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">Lotes totales</div>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded-lg text-center">
-                        <div className="text-2xl font-semibold text-orange-600">{granja.laboresPendientes}</div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide">Labores pendientes</div>
-                      </div>
-                    </div>
-
-                    {/* Programas destacados (máx. 3) */}
-                    {granja.programas.length > 0 && (
-                      <div className="border-t pt-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                          <i className="fas fa-tasks text-green-500 mr-2"></i>
-                          Programas activos
-                        </h4>
-                        <div className="space-y-2">
-                          {granja.programas.slice(0, 3).map(prog => (
-                            <div key={prog.id} className="flex justify-between items-center text-sm">
-                              <span className="text-gray-700">{prog.nombre}</span>
-                              <span className="text-gray-400 text-xs">{prog.cantidadLotes} lotes</span>
-                              <button
-                                onClick={() => navigate(`/programas/${prog.id}/lotes`)}
-                                className="text-xs text-green-600 hover:text-green-800 font-medium"
-                              >
-                                Ver lotes
-                              </button>
-                            </div>
-                          ))}
-                          {granja.programas.length > 3 && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              +{granja.programas.length - 3} programas más
-                            </div>
-                          )}
+                    {/* Estadísticas */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {/* Granjas Activas */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+                            {stats.loading ? (
+                                <div className="animate-pulse">
+                                    <div className="h-8 bg-gray-200 rounded mb-2 mx-auto w-16"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-24 mx-auto"></div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-3xl font-bold text-green-600 mb-2">
+                                        {stats.granjasCount}
+                                    </div>
+                                    <div className="text-gray-600">Granjas Activas</div>
+                                </>
+                            )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+
+                        {/* Usuarios Registrados */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+                            {stats.loading ? (
+                                <div className="animate-pulse">
+                                    <div className="h-8 bg-gray-200 rounded mb-2 mx-auto w-16"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-24 mx-auto"></div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                                        {stats.usuariosCount}
+                                    </div>
+                                    <div className="text-gray-600">Usuarios Registrados</div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Programas Activos */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+                            {stats.loading ? (
+                                <div className="animate-pulse">
+                                    <div className="h-8 bg-gray-200 rounded mb-2 mx-auto w-16"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-24 mx-auto"></div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-3xl font-bold text-purple-600 mb-2">
+                                        {stats.programasCount}
+                                    </div>
+                                    <div className="text-gray-600">Programas Activos</div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Labores del Mes */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+                            {stats.loading ? (
+                                <div className="animate-pulse">
+                                    <div className="h-8 bg-gray-200 rounded mb-2 mx-auto w-16"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-24 mx-auto"></div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-3xl font-bold text-orange-600 mb-2">
+                                        {stats.laboresMesCount}
+                                    </div>
+                                    <div className="text-gray-600">Labores del Mes</div>
+                                    <div className="text-xs text-gray-400 mt-1">
+                                        {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Módulos del Sistema */}
+                    <div className="bg-white rounded-xl shadow-lg p-8">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800">Módulos del Sistema</h2>
+                            <button
+                                onClick={cargarEstadisticas}
+                                className="text-sm text-green-600 hover:text-green-800 flex items-center px-3 py-1 bg-green-50 rounded hover:bg-green-100"
+                                disabled={stats.loading}
+                            >
+                                <i className={`fas ${stats.loading ? 'fa-spinner fa-spin' : 'fa-redo'} mr-2`}></i>
+                                Actualizar estadísticas
+                            </button>
+                        </div>
+                        <ModulesGrid navigate={navigate} />
+
+                        {/* Información adicional */}
+                        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="flex items-center">
+                                    <i className="fas fa-calendar-alt text-blue-500 text-xl mr-3"></i>
+                                    <div>
+                                        <h4 className="font-medium text-blue-800">Cálculo de labores</h4>
+                                        <p className="text-blue-700 text-sm">
+                                            Las "Labores del Mes" cuentan las actividades asignadas entre el
+                                            {` ${new Date().getDate() === 1 ? '1' : '1ro'} y el ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}`}.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div className="flex items-center">
+                                    <i className="fas fa-database text-green-500 text-xl mr-3"></i>
+                                    <div>
+                                        <h4 className="font-medium text-green-800">Datos actualizados</h4>
+                                        <p className="text-green-700 text-sm">
+                                            Todas las estadísticas se obtienen en tiempo real desde la base de datos.
+                                            Usa el botón "Actualizar" para refrescar los datos.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
             </div>
-          )}
-        </main>
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default Dashboard;
