@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 // Importamos los servicios necesarios
-import granjaService from '../../services/granjaService';
-import programaService from '../../services/programaService';
-import loteService from '../../services/loteService';
-import laboresService from '../../services/laboresService';
+import granjaService from '../services/granjaService';
+import programaService from '../services/programaService';
+import loteService from '../services/loteService';
+import laboresService from '../services/laboresService';
 
 // Interfaces para los datos enriquecidos
 interface ProgramaResumen {
