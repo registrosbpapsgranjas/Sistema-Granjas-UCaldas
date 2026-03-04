@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import granjaService from '../../services/granjaService';
 import programaService from '../../services/programaService';
 import asignacionService from '../../services/asignacionService';
+import { GranjaForm } from './GranjaForm'; // Ajusta la ruta si es necesario
 
 interface ProgramaResumen {
   id: string;
@@ -14,6 +15,7 @@ interface GranjaConDetalles {
   id: string;
   nombre: string;
   ubicacion?: string;
+  activo?: boolean;
   programas: ProgramaResumen[];
 }
 
@@ -31,22 +33,29 @@ const GestionGranjas: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado para el modal
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [granjaActual, setGranjaActual] = useState<any>({
+    id: null,
+    nombre: '',
+    ubicacion: '',
+    activo: true
+  });
+
   const cargarGranjas = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // 1. Obtener granjas
       const granjasResp = await granjaService.obtenerGranjas();
       const granjasData = normalizarArray<any>(granjasResp);
       console.log('Granjas obtenidas:', granjasData);
 
-      // 2. Obtener todos los programas
       const programasResp = await programaService.obtenerProgramas();
       const todosProgramas = normalizarArray<any>(programasResp);
       console.log('Programas obtenidos:', todosProgramas);
 
-      // 3. Obtener asignaciones programa-granja (desde tabla pivote)
       let asignaciones: { programa_id: number; granja_id: number }[] = [];
       try {
         asignaciones = await asignacionService.obtenerRelacionesProgramaGranja();
@@ -58,50 +67,34 @@ const GestionGranjas: React.FC = () => {
         return;
       }
 
-      // 4. Construir mapa de programas por granja usando las asignaciones
       const programasPorGranja = new Map<string, any[]>();
-      
       const programasMap = new Map<string, any>();
       todosProgramas.forEach(prog => programasMap.set(String(prog.id), prog));
 
       asignaciones.forEach(asig => {
         const programaId = String(asig.programa_id);
         const granjaId = String(asig.granja_id);
-        
         const programa = programasMap.get(programaId);
-        if (!programa) {
-          console.warn(`Asignación refiere a programa inexistente: ${programaId}`);
-          return;
-        }
-
-        if (!programasPorGranja.has(granjaId)) {
-          programasPorGranja.set(granjaId, []);
-        }
+        if (!programa) return;
+        if (!programasPorGranja.has(granjaId)) programasPorGranja.set(granjaId, []);
         programasPorGranja.get(granjaId)!.push(programa);
       });
 
-      console.log('Mapa programasPorGranja:', Object.fromEntries(programasPorGranja));
-
-      // 5. Para cada granja, armar su detalle (solo programas)
       const granjasConDetalles = granjasData.map(granja => {
         const granjaId = String(granja.id);
         const programasDeGranja = programasPorGranja.get(granjaId) || [];
-        console.log(`Granja ${granja.nombre} (${granjaId}) tiene ${programasDeGranja.length} programas`);
-
-        const programasResumen: ProgramaResumen[] = programasDeGranja.map(prog => ({
-          id: String(prog.id),
-          nombre: prog.nombre,
-        }));
-
         return {
           id: granjaId,
           nombre: granja.nombre,
           ubicacion: granja.ubicacion,
-          programas: programasResumen,
+          activo: granja.activo,
+          programas: programasDeGranja.map(prog => ({
+            id: String(prog.id),
+            nombre: prog.nombre,
+          })),
         };
       });
 
-      console.log('Granjas con detalles:', granjasConDetalles);
       setGranjas(granjasConDetalles);
     } catch (err) {
       console.error('Error al cargar las granjas:', err);
@@ -117,11 +110,51 @@ const GestionGranjas: React.FC = () => {
     }
     try {
       await granjaService.eliminarGranja(Number(id));
-      // Recargar la lista después de eliminar
       cargarGranjas();
     } catch (err) {
       console.error('Error al eliminar granja:', err);
       alert('Ocurrió un error al eliminar la granja. Intente nuevamente.');
+    }
+  };
+
+  const abrirModalNueva = () => {
+    setEditando(false);
+    setGranjaActual({ id: null, nombre: '', ubicacion: '', activo: true });
+    setModalAbierto(true);
+  };
+
+  const abrirModalEditar = (granja: any) => {
+    setEditando(true);
+    setGranjaActual({
+      id: granja.id,
+      nombre: granja.nombre,
+      ubicacion: granja.ubicacion || '',
+      activo: granja.activo !== undefined ? granja.activo : true
+    });
+    setModalAbierto(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editando) {
+        await granjaService.actualizarGranja(Number(granjaActual.id), {
+          nombre: granjaActual.nombre,
+          ubicacion: granjaActual.ubicacion,
+          activo: granjaActual.activo
+        });
+      } else {
+        await granjaService.crearGranja({
+          nombre: granjaActual.nombre,
+          ubicacion: granjaActual.ubicacion,
+          activo: granjaActual.activo
+        });
+      }
+      setModalAbierto(false);
+      cargarGranjas(); // Recargar la lista
+    } catch (err) {
+      console.error('Error al guardar granja:', err);
+      alert('Ocurrió un error al guardar la granja. Intente nuevamente.');
     }
   };
 
@@ -144,7 +177,7 @@ const GestionGranjas: React.FC = () => {
             Actualizar
           </button>
           <button
-            onClick={() => navigate('/granjas/nueva')}
+            onClick={abrirModalNueva}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <i className="fas fa-plus mr-2"></i>
@@ -182,7 +215,7 @@ const GestionGranjas: React.FC = () => {
               <h3 className="text-xl font-semibold text-gray-700 mb-2">No hay granjas registradas</h3>
               <p className="text-gray-500 mb-6">Comienza creando una nueva granja.</p>
               <button
-                onClick={() => navigate('/granjas/nueva')}
+                onClick={abrirModalNueva}
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 <i className="fas fa-plus mr-2"></i>
@@ -192,7 +225,6 @@ const GestionGranjas: React.FC = () => {
           ) : (
             granjas.map(granja => (
               <div key={granja.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-                {/* Cabecera de tarjeta con nombre, ubicación y acciones */}
                 <div className="flex flex-wrap justify-between items-start gap-4">
                   <div className="flex-1">
                     <h3
@@ -204,9 +236,13 @@ const GestionGranjas: React.FC = () => {
                     {granja.ubicacion && (
                       <p className="text-sm text-gray-500">{granja.ubicacion}</p>
                     )}
+                    {granja.activo === false && (
+                      <span className="inline-flex items-center px-2 py-1 mt-1 rounded-full text-xs bg-red-100 text-red-800">
+                        Inactiva
+                      </span>
+                    )}
                   </div>
                   <div className="flex space-x-2">
-                    {/* Botones de navegación a secciones de la granja */}
                     <button
                       onClick={() => navigate(`/granjas/${granja.id}/programas`)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
@@ -235,15 +271,13 @@ const GestionGranjas: React.FC = () => {
                     >
                       <i className="fas fa-calendar-check text-xl"></i>
                     </button>
-                    {/* Botón de editar */}
                     <button
-                      onClick={() => navigate(`/granjas/editar/${granja.id}`)}
+                      onClick={() => abrirModalEditar(granja)}
                       className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
                       title="Editar granja"
                     >
                       <i className="fas fa-edit text-xl"></i>
                     </button>
-                    {/* Botón de eliminar */}
                     <button
                       onClick={() => eliminarGranja(granja.id)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
@@ -254,7 +288,6 @@ const GestionGranjas: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Lista de programas asociados */}
                 {granja.programas.length > 0 && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -278,6 +311,16 @@ const GestionGranjas: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Modal de creación/edición */}
+      <GranjaForm
+        isOpen={modalAbierto}
+        onClose={() => setModalAbierto(false)}
+        datosFormulario={granjaActual}
+        setDatosFormulario={setGranjaActual}
+        onSubmit={handleSubmit}
+        editando={editando}
+      />
     </div>
   );
 };
