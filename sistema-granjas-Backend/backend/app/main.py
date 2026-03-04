@@ -21,7 +21,8 @@ from app.api import (
     upload,
     movimientos,
     roles,
-    exportRoutes
+    exportRoutes,
+    asignaciones
 )
 from app.db.database import engine, Base
 from app.db.models import Usuario, Granja, Programa, Lote, Labor, Rol
@@ -231,6 +232,7 @@ app.include_router(upload.router, prefix="/api")
 app.include_router(movimientos.router, prefix="/api")
 app.include_router(roles.router, prefix="/api")
 app.include_router(exportRoutes.router, prefix="/api")
+app.include_router(asignaciones.router, prefix="/api")
 
 @app.get("/")
 def root():
