@@ -53,10 +53,6 @@ class GranjaBase(BaseModel):
         # Asegurar que empiece con mayúscula
         values.nombre = nombre.title()
         
-        # Validar que incluya "Granja" en el nombre
-        if 'granja' not in nombre.lower():
-            raise ValueError('El nombre de la granja debe incluir la palabra "Granja" (ej: Granja Experimental Central)')
-        
         return values
 
 class GranjaCreate(GranjaBase):
