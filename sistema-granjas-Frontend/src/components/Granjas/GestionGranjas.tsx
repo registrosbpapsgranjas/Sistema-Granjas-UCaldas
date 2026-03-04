@@ -3,14 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import granjaService from '../../services/granjaService';
 import programaService from '../../services/programaService';
-import loteService from '../../services/loteService';
-import laboresService from '../../services/laboresService';
 import asignacionService from '../../services/asignacionService';
 
 interface ProgramaResumen {
   id: string;
   nombre: string;
-  cantidadLotes: number;
 }
 
 interface GranjaConDetalles {
@@ -18,8 +15,6 @@ interface GranjaConDetalles {
   nombre: string;
   ubicacion?: string;
   programas: ProgramaResumen[];
-  totalLotes: number;
-  laboresPendientes: number;
 }
 
 // Normaliza cualquier respuesta a un array
@@ -63,27 +58,7 @@ const GestionGranjas: React.FC = () => {
         return;
       }
 
-      // 4. Obtener todos los lotes
-      const lotesResp = await loteService.obtenerLotes();
-      const todosLotes = normalizarArray<any>(lotesResp);
-      console.log('Lotes obtenidos:', todosLotes);
-
-      // 5. Obtener labores
-      const laboresResp = await laboresService.obtenerLabores();
-      const todasLabores = normalizarArray<any>(laboresResp);
-      console.log('Labores obtenidas:', todasLabores);
-
-      // 6. Construir mapa de lotes por programa
-      const lotesPorPrograma = new Map<string, any[]>();
-      todosLotes.forEach(lote => {
-        const progId = lote.programaId || lote.programa_id || lote.id_programa;
-        if (!progId) return;
-        const key = String(progId);
-        if (!lotesPorPrograma.has(key)) lotesPorPrograma.set(key, []);
-        lotesPorPrograma.get(key)!.push(lote);
-      });
-
-      // 7. Construir mapa de programas por granja usando las asignaciones
+      // 4. Construir mapa de programas por granja usando las asignaciones
       const programasPorGranja = new Map<string, any[]>();
       
       const programasMap = new Map<string, any>();
@@ -107,38 +82,22 @@ const GestionGranjas: React.FC = () => {
 
       console.log('Mapa programasPorGranja:', Object.fromEntries(programasPorGranja));
 
-      // 8. Para cada granja, armar su detalle
+      // 5. Para cada granja, armar su detalle (solo programas)
       const granjasConDetalles = granjasData.map(granja => {
         const granjaId = String(granja.id);
         const programasDeGranja = programasPorGranja.get(granjaId) || [];
         console.log(`Granja ${granja.nombre} (${granjaId}) tiene ${programasDeGranja.length} programas`);
 
-        const programasResumen: ProgramaResumen[] = programasDeGranja.map(prog => {
-          const progId = String(prog.id);
-          const lotesDePrograma = lotesPorPrograma.get(progId) || [];
-          return {
-            id: progId,
-            nombre: prog.nombre,
-            cantidadLotes: lotesDePrograma.length,
-          };
-        });
-
-        const totalLotes = programasResumen.reduce((acc, p) => acc + p.cantidadLotes, 0);
-
-        const lotesDeGranja = programasDeGranja.flatMap(prog => lotesPorPrograma.get(String(prog.id)) || []);
-        const lotesIds = lotesDeGranja.map(l => String(l.id));
-
-        const laboresPendientes = todasLabores.filter(labor =>
-          lotesIds.includes(String(labor.loteId)) && labor.estado !== 'completada'
-        ).length;
+        const programasResumen: ProgramaResumen[] = programasDeGranja.map(prog => ({
+          id: String(prog.id),
+          nombre: prog.nombre,
+        }));
 
         return {
           id: granjaId,
           nombre: granja.nombre,
           ubicacion: granja.ubicacion,
           programas: programasResumen,
-          totalLotes,
-          laboresPendientes,
         };
       });
 
@@ -149,6 +108,20 @@ const GestionGranjas: React.FC = () => {
       setError('No se pudo cargar la información. Intente nuevamente.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const eliminarGranja = async (id: string) => {
+    if (!window.confirm('¿Está seguro de que desea eliminar esta granja? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    try {
+      await granjaService.eliminarGranja(Number(id));
+      // Recargar la lista después de eliminar
+      cargarGranjas();
+    } catch (err) {
+      console.error('Error al eliminar granja:', err);
+      alert('Ocurrió un error al eliminar la granja. Intente nuevamente.');
     }
   };
 
@@ -193,16 +166,8 @@ const GestionGranjas: React.FC = () => {
           {[1, 2].map(i => (
             <div key={i} className="bg-white rounded-xl shadow-lg p-6 animate-pulse">
               <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="h-12 bg-gray-200 rounded"></div>
-                <div className="h-12 bg-gray-200 rounded"></div>
-                <div className="h-12 bg-gray-200 rounded"></div>
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded"></div>
-              </div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
             </div>
           ))}
         </div>
@@ -227,7 +192,7 @@ const GestionGranjas: React.FC = () => {
           ) : (
             granjas.map(granja => (
               <div key={granja.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-                {/* Cabecera de tarjeta */}
+                {/* Cabecera de tarjeta con nombre, ubicación y acciones */}
                 <div className="flex flex-wrap justify-between items-start gap-4">
                   <div className="flex-1">
                     <h3
@@ -241,6 +206,7 @@ const GestionGranjas: React.FC = () => {
                     )}
                   </div>
                   <div className="flex space-x-2">
+                    {/* Botones de navegación a secciones de la granja */}
                     <button
                       onClick={() => navigate(`/granjas/${granja.id}/programas`)}
                       className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
@@ -269,50 +235,41 @@ const GestionGranjas: React.FC = () => {
                     >
                       <i className="fas fa-calendar-check text-xl"></i>
                     </button>
+                    {/* Botón de editar */}
+                    <button
+                      onClick={() => navigate(`/granjas/editar/${granja.id}`)}
+                      className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-full transition-colors"
+                      title="Editar granja"
+                    >
+                      <i className="fas fa-edit text-xl"></i>
+                    </button>
+                    {/* Botón de eliminar */}
+                    <button
+                      onClick={() => eliminarGranja(granja.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      title="Eliminar granja"
+                    >
+                      <i className="fas fa-trash text-xl"></i>
+                    </button>
                   </div>
                 </div>
 
-                {/* Métricas */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
-                  <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <div className="text-2xl font-semibold text-green-600">{granja.programas.length}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">Programas</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <div className="text-2xl font-semibold text-blue-600">{granja.totalLotes}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">Lotes totales</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg text-center">
-                    <div className="text-2xl font-semibold text-orange-600">{granja.laboresPendientes}</div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">Labores pendientes</div>
-                  </div>
-                </div>
-
-                {/* Programas destacados */}
+                {/* Lista de programas asociados */}
                 {granja.programas.length > 0 && (
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                       <i className="fas fa-tasks text-green-500 mr-2"></i>
-                      Programas activos
+                      Programas asignados
                     </h4>
-                    <div className="space-y-2">
-                      {granja.programas.slice(0, 3).map(prog => (
-                        <div key={prog.id} className="flex justify-between items-center text-sm">
-                          <span className="text-gray-700">{prog.nombre}</span>
-                          <span className="text-gray-400 text-xs">{prog.cantidadLotes} lotes</span>
-                          <button
-                            onClick={() => navigate(`/programas/${prog.id}/lotes`)}
-                            className="text-xs text-green-600 hover:text-green-800 font-medium"
-                          >
-                            Ver lotes
-                          </button>
-                        </div>
+                    <div className="flex flex-wrap gap-2">
+                      {granja.programas.map(prog => (
+                        <span
+                          key={prog.id}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
+                        >
+                          {prog.nombre}
+                        </span>
                       ))}
-                      {granja.programas.length > 3 && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          +{granja.programas.length - 3} programas más
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
