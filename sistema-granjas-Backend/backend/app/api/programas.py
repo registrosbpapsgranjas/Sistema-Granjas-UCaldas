@@ -1,120 +1,213 @@
-from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from fastapi import HTTPException
+from app.db.models import Programa, Usuario, Granja
+from app.schemas.programa_schema import ProgramaCreate, ProgramaUpdate
+from typing import List, Optional
 
-from app.db.database import get_db
-from app.core.dependencies import require_any_role
-from app.schemas.programa_schema import (
-    ProgramaCreate, ProgramaResponse, ProgramaUpdate,
-    AsignacionUsuarioPrograma, AsignacionGranjaPrograma
-)
-from app.CRUD.programas import (
-    get_programas, get_programa,
-    create_programa, update_programa, delete_programa,
-    # Nuevas funciones
-    asignar_usuario_programa, desasignar_usuario_programa, listar_usuarios_programa,
-    asignar_granja_programa, desasignar_granja_programa, listar_granjas_programa
-)
+def get_programas(db: Session, skip: int = 0, limit: int = 100, solo_activos: bool = True):
+    """Obtener todos los programas con paginación"""
+    query = db.query(Programa)
+    if solo_activos:
+        query = query.filter(Programa.activo == True)
+    return query.offset(skip).limit(limit).all()
 
-router = APIRouter(prefix="/programas", tags=["Programas"])
+def get_programa(db: Session, programa_id: int):
+    """Obtener un programa por su ID"""
+    return db.query(Programa).filter(Programa.id == programa_id).first()
 
-# Endpoints básicos existentes
-@router.get("/", response_model=List[ProgramaResponse])
-def listar_programas(db: Session = Depends(get_db),
-                     current_user: dict = Depends(require_any_role(["admin"]))):
-    return get_programas(db)
+def create_programa(db: Session, data: ProgramaCreate):
+    """Crear un nuevo programa"""
+    programa = Programa(
+        nombre=data.nombre,
+        descripcion=data.descripcion,
+        tipo=data.tipo,
+        activo=True
+    )
+    db.add(programa)
+    db.flush()  # Para obtener el ID
 
-@router.get("/{programa_id}", response_model=ProgramaResponse)
-def obtener_programa(programa_id: int, db: Session = Depends(get_db),
-                     current_user: dict = Depends(require_any_role(["admin"]))):
-    programa = get_programa(db, programa_id)
-    if not programa:
-        raise HTTPException(404, "Programa no encontrado")
+    # Asignar granjas si se proporcionaron
+    if data.granjas_ids:
+        granjas = db.query(Granja).filter(Granja.id.in_(data.granjas_ids)).all()
+        if len(granjas) != len(data.granjas_ids):
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Algunas granjas no existen")
+        programa.granjas = granjas
+
+    db.commit()
+    db.refresh(programa)
     return programa
 
-@router.post("/", response_model=ProgramaResponse, status_code=201)
-def crear_programa(data: ProgramaCreate, db: Session = Depends(get_db),
-                   current_user: dict = Depends(require_any_role(["admin"]))):
-    return create_programa(db, data)
+def update_programa(db: Session, programa: Programa, data: ProgramaUpdate):
+    """Actualizar un programa existente"""
+    update_data = data.dict(exclude_unset=True)
+    
+    # Actualizar campos básicos
+    for field, value in update_data.items():
+        if field != 'granjas_ids':
+            setattr(programa, field, value)
 
-@router.put("/{programa_id}", response_model=ProgramaResponse)
-def actualizar_programa(programa_id: int, data: ProgramaUpdate,
-                        db: Session = Depends(get_db),
-                        current_user: dict = Depends(require_any_role(["admin"]))):
-    programa = get_programa(db, programa_id)
-    if not programa:
-        raise HTTPException(404, "Programa no encontrado")
-    return update_programa(db, programa, data)
+    # Actualizar granjas si se proporcionaron
+    if 'granjas_ids' in update_data and data.granjas_ids is not None:
+        granjas = db.query(Granja).filter(Granja.id.in_(data.granjas_ids)).all()
+        if len(granjas) != len(data.granjas_ids):
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Algunas granjas no existen")
+        programa.granjas = granjas
 
-@router.delete("/{programa_id}")
-def eliminar_programa(programa_id: int, db: Session = Depends(get_db),
-                      current_user: dict = Depends(require_any_role(["admin"]))):
-    programa = get_programa(db, programa_id)
-    if not programa:
-        raise HTTPException(404, "Programa no encontrado")
-    delete_programa(db, programa)
+    db.commit()
+    db.refresh(programa)
+    return programa
+
+def delete_programa(db: Session, programa: Programa):
+    """Eliminar (desactivar) un programa"""
+    programa.activo = False
+    db.commit()
     return {"message": "Programa eliminado correctamente"}
 
-# === NUEVOS ENDPOINTS PARA ASIGNACIÓN DE USUARIOS ===
-
-@router.post("/{programa_id}/usuarios", response_model=ProgramaResponse)
-def asignar_usuario_a_programa(
-    programa_id: int,
-    data: AsignacionUsuarioPrograma,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin"]))
-):
+# === ASIGNACIÓN DE USUARIOS ===
+def asignar_usuario_programa(db: Session, programa_id: int, usuario_id: int):
     """Asignar un usuario a un programa"""
-    programa = asignar_usuario_programa(db, programa_id, data.usuario_id)
-    return _programa_a_dict(programa)
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    if not programa.activo:
+        raise HTTPException(status_code=400, detail="No se pueden asignar usuarios a un programa inactivo")
+    
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if not usuario.activo:
+        raise HTTPException(status_code=400, detail="No se puede asignar un usuario inactivo")
+    
+    if usuario in programa.usuarios:
+        raise HTTPException(status_code=400, detail="El usuario ya está asignado a este programa")
+    
+    programa.usuarios.append(usuario)
+    db.commit()
+    return programa
 
-@router.delete("/{programa_id}/usuarios/{usuario_id}")
-def desasignar_usuario_de_programa(
-    programa_id: int,
-    usuario_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin"]))
-):
+def desasignar_usuario_programa(db: Session, programa_id: int, usuario_id: int):
     """Desasignar un usuario de un programa"""
-    return desasignar_usuario_programa(db, programa_id, usuario_id)
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if usuario not in programa.usuarios:
+        raise HTTPException(status_code=400, detail="El usuario no está asignado a este programa")
+    
+    programa.usuarios.remove(usuario)
+    db.commit()
+    return {"message": "Usuario desasignado correctamente"}
 
-@router.get("/{programa_id}/usuarios")
-def listar_usuarios_del_programa(
-    programa_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin"]))
-):
+def listar_usuarios_programa(db: Session, programa_id: int):
     """Listar todos los usuarios asignados a un programa"""
-    return listar_usuarios_programa(db, programa_id)
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    return [
+        {
+            "id": u.id,
+            "nombre": u.nombre,
+            "email": u.email,
+            "rol": u.rol.nombre if u.rol else None,
+            "activo": u.activo
+        }
+        for u in programa.usuarios
+    ]
 
-# === NUEVOS ENDPOINTS PARA ASIGNACIÓN DE GRANJAS ===
-
-@router.post("/{programa_id}/granjas", response_model=ProgramaResponse)
-def asignar_granja_a_programa(
-    programa_id: int,
-    data: AsignacionGranjaPrograma,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin"]))
-):
+# === ASIGNACIÓN DE GRANJAS ===
+def asignar_granja_programa(db: Session, programa_id: int, granja_id: int):
     """Asignar una granja a un programa"""
-    programa = asignar_granja_programa(db, programa_id, data.granja_id)
-    return _programa_a_dict(programa)
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    if not programa.activo:
+        raise HTTPException(status_code=400, detail="No se pueden asignar granjas a un programa inactivo")
+    
+    granja = db.query(Granja).filter(Granja.id == granja_id).first()
+    if not granja:
+        raise HTTPException(status_code=404, detail="Granja no encontrada")
+    
+    if not granja.activo:
+        raise HTTPException(status_code=400, detail="No se puede asignar una granja inactiva")
+    
+    if granja in programa.granjas:
+        raise HTTPException(status_code=400, detail="La granja ya está asignada a este programa")
+    
+    programa.granjas.append(granja)
+    db.commit()
+    return programa
 
-@router.delete("/{programa_id}/granjas/{granja_id}")
-def desasignar_granja_de_programa(
-    programa_id: int,
-    granja_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin"]))
-):
+def desasignar_granja_programa(db: Session, programa_id: int, granja_id: int):
     """Desasignar una granja de un programa"""
-    return desasignar_granja_programa(db, programa_id, granja_id)
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    granja = db.query(Granja).filter(Granja.id == granja_id).first()
+    if not granja:
+        raise HTTPException(status_code=404, detail="Granja no encontrada")
+    
+    if granja not in programa.granjas:
+        raise HTTPException(status_code=400, detail="La granja no está asignada a este programa")
+    
+    programa.granjas.remove(granja)
+    db.commit()
+    return {"message": "Granja desasignada correctamente"}
 
-@router.get("/{programa_id}/granjas")
-def listar_granjas_del_programa(
-    programa_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin"]))
-):
+def listar_granjas_programa(db: Session, programa_id: int):
     """Listar todas las granjas asignadas a un programa"""
-    return listar_granjas_programa(db, programa_id)
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    return [
+        {
+            "id": g.id,
+            "nombre": g.nombre,
+            "ubicacion": g.ubicacion,
+            "activo": g.activo
+        }
+        for g in programa.granjas
+    ]
+
+# === NUEVAS FUNCIONES ÚTILES ===
+def get_programas_por_granja(db: Session, granja_id: int):
+    """Obtener todos los programas asignados a una granja específica"""
+    return db.query(Programa).join(
+        Programa.granjas
+    ).filter(
+        Granja.id == granja_id,
+        Programa.activo == True
+    ).all()
+
+def get_programas_con_relaciones(db: Session, programa_id: Optional[int] = None):
+    """Obtener programas con sus usuarios y granjas"""
+    if programa_id:
+        programa = get_programa(db, programa_id)
+        if not programa:
+            raise HTTPException(status_code=404, detail="Programa no encontrado")
+        return {
+            "programa": programa,
+            "usuarios": listar_usuarios_programa(db, programa_id),
+            "granjas": listar_granjas_programa(db, programa_id)
+        }
+    else:
+        programas = get_programas(db)
+        return [
+            {
+                "programa": p,
+                "usuarios": listar_usuarios_programa(db, p.id),
+                "granjas": listar_granjas_programa(db, p.id)
+            }
+            for p in programas
+        ]
