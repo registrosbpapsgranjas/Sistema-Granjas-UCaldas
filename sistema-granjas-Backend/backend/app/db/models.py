@@ -11,13 +11,6 @@ usuario_granja = Table(
     Column('granja_id', Integer, ForeignKey('granjas.id'), primary_key=True)
 )
 
-granja_programa = Table(
-    'granja_programa',
-    Base.metadata,
-    Column('granja_id', Integer, ForeignKey('granjas.id'), primary_key=True),
-    Column('programa_id', Integer, ForeignKey('programas.id'), primary_key=True)
-)
-
 usuario_programa = Table(
     'usuario_programa',
     Base.metadata,
@@ -320,6 +313,11 @@ class AsignacionHerramienta(Base):
     fecha_asignacion = Column(DateTime, default=datetime.utcnow)
 
     herramienta = relationship("Herramienta", back_populates="asignaciones")
+    
+class GranjaPrograma(Base):
+    __tablename__ = 'granja_programa'
+    granja_id = Column(Integer, ForeignKey('granjas.id'), primary_key=True)
+    programa_id = Column(Integer, ForeignKey('programas.id'), primary_key=True)
 
 class CultivoEspecie(Base):
     __tablename__ = "cultivos_especies"

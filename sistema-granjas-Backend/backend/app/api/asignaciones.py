@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import GranjaProgramas
+from app.db.models import GranjaPrograma
 from pydantic import BaseModel
 from typing import List
 
