@@ -182,19 +182,6 @@ const Dashboard: React.FC = () => {
 
                     {/* Módulos del Sistema */}
                     <div className="bg-white rounded-xl shadow-lg p-8">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-gray-800">Módulos del Sistema</h2>
-                            <button
-                                onClick={cargarEstadisticas}
-                                className="text-sm text-green-600 hover:text-green-800 flex items-center px-3 py-1 bg-green-50 rounded hover:bg-green-100"
-                                disabled={stats.loading}
-                            >
-                                <i className={`fas ${stats.loading ? 'fa-spinner fa-spin' : 'fa-redo'} mr-2`}></i>
-                                Actualizar estadísticas
-                            </button>
-                        </div>
-                        <ModulesGrid navigate={navigate} />
-
                         {/* Información adicional */}
                         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
