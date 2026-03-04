@@ -3,18 +3,18 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom"; // <-- Importar useParams y useNavigate
 
 // Services
-import programaService from "../../services/programaService";
-import usuarioService from "../../services/usuarioService";
-import granjaService from "../../services/granjaService";
+import programaService from "../services/programaService";
+import usuarioService from "../services/usuarioService";
+import granjaService from "../services/granjaService";
 
 // Components
-import { StatsCard } from "../Common/StatsCard";
-import { ProgramaForm } from "./ProgramasForm";
-import { DetallesPrograma } from "./DetallesPrograma";
-import { AsignarUsuarioModal } from "../Usuarios/AsignarUsuario";
-import { AsignarGranjaModal } from "../Granjas/AsignarGranja";
-import ProgramasTable from "./ProgramasTable";
-import exportService from "../../services/exportService";
+import { StatsCard } from "../components/Common/StatsCard";
+import { ProgramaForm } from "../components/Programas/ProgramasForm";
+import { DetallesPrograma } from "../components/Programas/DetallesPrograma";
+import { AsignarUsuarioModal } from "../components/Usuarios/AsignarUsuario";
+import { AsignarGranjaModal } from "../components/Granjas/AsignarGranja";
+import ProgramasTable from "../components/Programas/ProgramasTable";
+import exportService from "../services/exportService";
 
 export default function GestionProgramas() {
     const { granjaId } = useParams<{ granjaId: string }>(); // <-- Obtener granjaId de la URL
