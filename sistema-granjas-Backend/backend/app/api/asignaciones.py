@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models import GranjaPrograma
+from app.db.models import GranjaProgramas
 from pydantic import BaseModel
 from typing import List
 
@@ -16,5 +16,5 @@ def obtener_relaciones(db: Session = Depends(get_db)):
     """
     Devuelve todas las relaciones programa-granja desde la tabla pivote.
     """
-    relaciones = db.query(GranjaPrograma).all()
+    relaciones = db.query(GranjaProgramas).all()
     return relaciones
