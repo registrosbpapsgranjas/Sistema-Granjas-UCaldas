@@ -18,11 +18,6 @@ import type { Programa, Usuario, Granja } from "../../types/granjaTypes";
 export default function GestionProgramas() {
   const { granjaId } = useParams<{ granjaId: string }>();
   const navigate = useNavigate();
-  
-  // 🔍 LOGS DE DIAGNÓSTICO
-  console.log("🔍 URL actual:", window.location.pathname);
-  console.log("🔍 granjaId desde useParams:", granjaId);
-  
   const [programas, setProgramas] = useState<Programa[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [granjas, setGranjas] = useState<Granja[]>([]);
@@ -63,9 +58,8 @@ export default function GestionProgramas() {
   ];
 
   useEffect(() => {
-    console.log("🔄 useEffect ejecutándose con granjaId:", granjaId);
     cargarDatos();
-  }, [granjaId]); // 👈 IMPORTANTE: granjaId en dependencias
+  }, [granjaId]);
 
   const cargarDatos = async () => {
     try {
@@ -93,29 +87,17 @@ export default function GestionProgramas() {
       setUsuarios(normalizarArray<Usuario>(usuariosResp));
       setGranjas(normalizarArray<Granja>(granjasResp));
 
-      // ===== FILTRADO DE PROGRAMAS USANDO ASIGNACIONES =====
+      // ===== OBTENER PROGRAMAS CON SUS GRANJAS =====
       if (granjaId) {
-        // 1. Obtener todas las asignaciones
-        const asignacionesResp = await asignacionService.obtenerRelacionesProgramaGranja();
-        const asignaciones = normalizarArray<{ programa_id: number; granja_id: number }>(asignacionesResp);
-        console.log("📊 Asignaciones recibidas:", asignaciones);
-
-        // 2. Obtener todos los programas
-        const programasResp = await programaService.obtenerProgramas();
-        const todosProgramas = normalizarArray<Programa>(programasResp);
-        console.log("📋 Todos los programas:", todosProgramas);
-
-        // 3. Filtrar los que tienen asignación a esta granja
-        const programasFiltrados = todosProgramas.filter(programa =>
-          asignaciones.some(a => a.programa_id === programa.id && a.granja_id === Number(granjaId))
-        );
-
-        console.log(`✅ Programas filtrados para granja ${granjaId}:`, programasFiltrados);
-        setProgramas(programasFiltrados);
+        // Usar el método optimizado del servicio
+        const programasConGranjas = await programaService.obtenerProgramasPorGranjaConGranjas(Number(granjaId));
+        setProgramas(programasConGranjas);
+        console.log(`✅ Programas filtrados para granja ${granjaId}:`, programasConGranjas);
       } else {
-        // Vista general: cargar todos los programas
-        const programasResp = await programaService.obtenerProgramas();
-        setProgramas(normalizarArray<Programa>(programasResp));
+        // Vista general: cargar todos los programas con sus granjas
+        const programasConGranjas = await programaService.obtenerProgramasConGranjas();
+        setProgramas(programasConGranjas);
+        console.log("✅ Programas con granjas:", programasConGranjas);
       }
     } catch (error: any) {
       console.error("❌ Error en cargarDatos:", error);
@@ -173,12 +155,19 @@ export default function GestionProgramas() {
   const abrirDetalles = async (programa: Programa) => {
     try {
       setProgramaSeleccionado(programa);
-      const [usuarios, granjas] = await Promise.all([
-        programaService.obtenerUsuariosPorPrograma(programa.id),
-        programaService.obtenerGranjasPorPrograma(programa.id)
-      ]);
+      
+      // Si el programa ya tiene las granjas cargadas, las usamos
+      if (programa.granjas && programa.granjas.length > 0) {
+        setGranjasPrograma(programa.granjas);
+      } else {
+        const granjas = await programaService.obtenerGranjasPorPrograma(programa.id);
+        setGranjasPrograma(normalizarArray<Granja>(granjas));
+      }
+
+      // Obtener usuarios
+      const usuarios = await programaService.obtenerUsuariosPorPrograma(programa.id);
       setUsuariosPrograma(normalizarArray<Usuario>(usuarios));
-      setGranjasPrograma(normalizarArray<Granja>(granjas));
+      
       setModalDetalles(true);
     } catch (error: any) {
       setError(error.message || "Error al cargar los detalles");
@@ -214,6 +203,14 @@ export default function GestionProgramas() {
       await programaService.asignarGranja(programaSeleccionado.id, granjaSeleccionada);
       const granjasActualizadas = await programaService.obtenerGranjasPorPrograma(programaSeleccionado.id);
       setGranjasPrograma(normalizarArray<Granja>(granjasActualizadas));
+      
+      // Actualizar el programa en la lista principal
+      setProgramas(programas.map(p => 
+        p.id === programaSeleccionado.id 
+          ? { ...p, granjas: granjasActualizadas }
+          : p
+      ));
+      
       setGranjaSeleccionada(0);
       setModalAsignarGranja(false);
     } catch (error: any) {
@@ -240,6 +237,13 @@ export default function GestionProgramas() {
       await programaService.removerGranja(programaSeleccionado.id, granjaId);
       const granjasActualizadas = await programaService.obtenerGranjasPorPrograma(programaSeleccionado.id);
       setGranjasPrograma(normalizarArray<Granja>(granjasActualizadas));
+      
+      // Actualizar el programa en la lista principal
+      setProgramas(programas.map(p => 
+        p.id === programaSeleccionado.id 
+          ? { ...p, granjas: granjasActualizadas }
+          : p
+      ));
     } catch (error: any) {
       setError(error.message || "Error al remover granja");
     }

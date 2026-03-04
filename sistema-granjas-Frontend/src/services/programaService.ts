@@ -107,12 +107,95 @@ export const programaService = {
     return handleResponse(response);
   },
 
-  // Obtener programas filtrados por granja
-  async obtenerProgramasPorGranja(granjaId: number): Promise<Programa[]> {
-    const response = await fetch(`${API_BASE_URL}/programas/?granja_id=${granjaId}`, {
-      headers: getHeaders()
-    });
-    return handleResponse(response);
+  // Obtener programas con sus granjas
+  async obtenerProgramasConGranjas(skip: number = 0, limit: number = 100): Promise<Programa[]> {
+    try {
+      const programas = await this.obtenerProgramas(skip, limit);
+      
+      const programasConGranjas = await Promise.all(
+        programas.map(async (programa) => {
+          try {
+            const granjas = await this.obtenerGranjasPorPrograma(programa.id);
+            return {
+              ...programa,
+              granjas: granjas || []
+            };
+          } catch (error) {
+            console.error(`Error al obtener granjas para programa ${programa.id}:`, error);
+            return {
+              ...programa,
+              granjas: []
+            };
+          }
+        })
+      );
+      
+      return programasConGranjas;
+    } catch (error) {
+      console.error("Error al obtener programas con granjas:", error);
+      throw error;
+    }
+  },
+
+  // Obtener programas filtrados por granja con sus granjas
+  async obtenerProgramasPorGranjaConGranjas(granjaId: number): Promise<Programa[]> {
+    try {
+      // Intentar usar el endpoint filtrado si existe
+      let programas: Programa[];
+      try {
+        programas = await this.obtenerProgramasPorGranja(granjaId);
+      } catch (error) {
+        console.log("Endpoint filtrado no disponible, usando filtrado manual");
+        const todosProgramas = await this.obtenerProgramas();
+        programas = todosProgramas;
+      }
+
+      // Obtener granjas para cada programa
+      const programasConGranjas = await Promise.all(
+        programas.map(async (programa) => {
+          try {
+            const granjas = await this.obtenerGranjasPorPrograma(programa.id);
+            return {
+              ...programa,
+              granjas: granjas || []
+            };
+          } catch (error) {
+            console.error(`Error al obtener granjas para programa ${programa.id}:`, error);
+            return {
+              ...programa,
+              granjas: []
+            };
+          }
+        })
+      );
+
+      // Si no hay endpoint filtrado, filtrar manualmente
+      if (!programas.length || programas.length === (await this.obtenerProgramas()).length) {
+        const asignaciones = await this.obtenerTodasLasAsignaciones();
+        const programasFiltrados = programasConGranjas.filter(programa =>
+          asignaciones.some(a => a.programa_id === programa.id && a.granja_id === granjaId)
+        );
+        return programasFiltrados;
+      }
+
+      return programasConGranjas;
+    } catch (error) {
+      console.error("Error al obtener programas por granja con granjas:", error);
+      throw error;
+    }
+  },
+
+  // Obtener todas las asignaciones programa-granja
+  async obtenerTodasLasAsignaciones(): Promise<{ programa_id: number; granja_id: number }[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/asignaciones/programas-granjas`, {
+        headers: getHeaders()
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error("Error al obtener asignaciones:", error);
+      return [];
+    }
   },
 
   async removerGranja(programaId: number, granjaId: number): Promise<void> {
