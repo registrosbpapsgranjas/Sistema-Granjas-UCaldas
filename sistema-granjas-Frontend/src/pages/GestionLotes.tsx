@@ -42,7 +42,7 @@ const GestionLotesPage: React.FC = () => {
     // Función para manejar el botón de retroceso
     const handleBack = () => {
         if (programaId) {
-            navigate(`granjas/${programaId}/programas`);
+            navigate(`/granjas/${programaId}/programas`);
         } else {
             navigate("/dashboard");
         }
