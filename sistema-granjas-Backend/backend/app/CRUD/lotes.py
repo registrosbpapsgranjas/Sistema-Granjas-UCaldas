@@ -4,13 +4,39 @@ from app.db.models import Lote
 from app.schemas.lote_schema import LoteCreate, LoteUpdate
 from typing import List, Optional
 
-def get_lotes(db: Session, skip: int = 0, limit: int = 100):
-    """Obtener todos los lotes con paginación"""
-    return db.query(Lote).filter(Lote.estado != "eliminado").offset(skip).limit(limit).all()
+def get_lotes(
+    db: Session, 
+    skip: int = 0, 
+    limit: int = 100,
+    programa_id: Optional[int] = None,
+    granja_id: Optional[int] = None,
+    estado: Optional[str] = None
+):
+    """
+    Obtener todos los lotes con filtros opcionales
+    - programa_id: Filtrar por programa
+    - granja_id: Filtrar por granja
+    - estado: Filtrar por estado específico
+    """
+    query = db.query(Lote).filter(Lote.estado != "eliminado")
+    
+    if programa_id:
+        query = query.filter(Lote.programa_id == programa_id)
+    
+    if granja_id:
+        query = query.filter(Lote.granja_id == granja_id)
+    
+    if estado:
+        query = query.filter(Lote.estado == estado)
+    
+    return query.offset(skip).limit(limit).all()
 
 def get_lote(db: Session, lote_id: int):
     """Obtener un lote por su ID"""
-    return db.query(Lote).filter(Lote.id == lote_id, Lote.estado != "eliminado").first()
+    return db.query(Lote).filter(
+        Lote.id == lote_id, 
+        Lote.estado != "eliminado"
+    ).first()
 
 def create_lote(db: Session, data: LoteCreate):
     """Crear un nuevo lote"""
