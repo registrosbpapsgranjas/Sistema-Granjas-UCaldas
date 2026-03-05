@@ -36,7 +36,7 @@ const GestionProgramasPage: React.FC = () => {
     
     // Determinar el título basado en si hay granjaId o no
     const title = granjaId 
-        ? `Programas de la Granja: ${nombreGranja || '...'}` 
+        ? `Programas: ${nombreGranja || '...'}` 
         : "Gestión de Programas";
 
     // Función para manejar el botón de retroceso
