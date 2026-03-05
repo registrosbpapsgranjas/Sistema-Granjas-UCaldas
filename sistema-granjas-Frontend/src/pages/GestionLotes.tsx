@@ -1,6 +1,6 @@
 // src/pages/GestionLotesPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams} from 'react-router-dom';
 import DashboardHeader from '../components/Common/DashboardHeader';
 import GestionLotes from '../components/Lotes/GestionLote';
 import programaService from '../services/programaService';
