@@ -350,22 +350,16 @@ export default function GestionCultivos() {
                         setEditando(false);
                         setModalCrear(true);
                     }}
-                    disabled={!!programaId}
                     className={`text-white px-4 py-2 rounded-lg transition flex items-center gap-2 ${
                         programaId 
                             ? 'bg-gray-400 cursor-not-allowed' 
                             : 'bg-green-600 hover:bg-green-700'
                     }`}
-                    title={programaId ? "No puedes crear cultivos desde la vista de programa" : "Nuevo cultivo"}
+                    title={"Nuevo cultivo"}
                 >
                     <i className="fas fa-plus"></i>
                     Nuevo Cultivo/Especie
                 </button>
-                {programaId && (
-                    <p className="text-sm text-gray-500 mt-2">
-                        ⚠️ Los cultivos se crean desde la vista general, no desde un programa específico.
-                    </p>
-                )}
             </div>
 
             {/* Tabla de cultivos */}
