@@ -1,4 +1,6 @@
+// src/components/Programas/ProgramasTable.tsx
 import React from "react";
+import { useNavigate } from "react-router-dom"; // Agregar useNavigate
 import type { Programa, Granja } from "../../types/granjaTypes";
 
 interface ProgramasTableProps {
@@ -18,6 +20,14 @@ const ProgramasTable: React.FC<ProgramasTableProps> = ({
     obtenerLabelTipo,
     obtenerIconoTipo,
 }) => {
+    const navigate = useNavigate();
+
+    // Función para ver lotes del programa
+    const verLotesPrograma = (e: React.MouseEvent, programaId: number) => {
+        e.stopPropagation(); // Evitar que se active el onClick de la fila
+        navigate(`/programas/${programaId}/lotes`);
+    };
+
     // Función para obtener el color según el tipo
     const getTipoColor = (tipo: string) => {
         switch (tipo) {
@@ -46,7 +56,6 @@ const ProgramasTable: React.FC<ProgramasTableProps> = ({
             );
         }
 
-        // Mostrar máximo 2 granjas y un indicador de cuántas más hay
         const granjasVisibles = granjas.slice(0, 2);
         const restantes = granjas.length - 2;
 
@@ -155,6 +164,15 @@ const ProgramasTable: React.FC<ProgramasTableProps> = ({
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div className="flex justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
+                                    {/* Nuevo botón: Ver Lotes */}
+                                    <button
+                                        onClick={(e) => verLotesPrograma(e, programa.id)}
+                                        className="text-purple-600 hover:text-purple-900 p-2 hover:bg-purple-50 rounded transition-colors"
+                                        title="Ver lotes del programa"
+                                    >
+                                        <i className="fas fa-seedling"></i>
+                                    </button>
+                                    
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();

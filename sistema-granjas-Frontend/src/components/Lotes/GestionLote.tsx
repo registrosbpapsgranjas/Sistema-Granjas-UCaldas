@@ -1,5 +1,7 @@
+// src/components/Lotes/GestionLote.tsx
 import { useEffect, useState } from "react";
-import { toast } from "react-hot-toast"; // <-- Agregar esta importación
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import { loteService } from "../../services/loteService";
 import granjaService from "../../services/granjaService";
 import programaService from "../../services/programaService";
@@ -9,11 +11,19 @@ import LoteForm from "./LotesForm";
 import TiposLoteModal from "./TiposLote";
 import exportService from "../../services/exportService";
 
-export default function GestionLotes() {
+interface GestionLotesProps {
+    programaId?: string; // Para filtrar por programa específico
+}
+
+export default function GestionLotes({ programaId }: GestionLotesProps) {
+    console.log('📍 GestionLotes - programaId recibido:', programaId);
+    
+    const navigate = useNavigate();
     const [lotes, setLotes] = useState<any[]>([]);
     const [tiposLote, setTiposLote] = useState<any[]>([]);
     const [granjas, setGranjas] = useState<any[]>([]);
     const [programas, setProgramas] = useState<any[]>([]);
+    const [nombrePrograma, setNombrePrograma] = useState<string>('');
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +37,21 @@ export default function GestionLotes() {
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
 
+    // Cargar nombre del programa si hay programaId
+    useEffect(() => {
+        const cargarNombrePrograma = async () => {
+            if (programaId) {
+                try {
+                    const programa = await programaService.obtenerProgramaPorId(Number(programaId));
+                    setNombrePrograma(programa.nombre);
+                } catch (error) {
+                    console.error('Error al cargar nombre del programa:', error);
+                }
+            }
+        };
+        cargarNombrePrograma();
+    }, [programaId]);
+
     // Handler para exportar lotes
     const handleExportLotes = async () => {
         if (exporting) return;
@@ -35,7 +60,9 @@ export default function GestionLotes() {
 
         try {
             const loadingToast = toast.loading('Exportando lotes...');
-            const result = await exportService.exportarLotes();
+            const result = programaId 
+                ? await exportService.exportarLotesPorPrograma(Number(programaId))
+                : await exportService.exportarLotes();
 
             toast.dismiss(loadingToast);
             toast.success('Lotes exportados exitosamente', {
@@ -47,12 +74,10 @@ export default function GestionLotes() {
             setTimeout(() => setExportMessage(''), 5000);
         } catch (error: any) {
             console.error('❌ Error exportando lotes:', error);
-
             toast.error('Error al exportar lotes', {
                 duration: 4000,
                 position: 'top-right'
             });
-
             setExportMessage('Error al exportar.');
             setTimeout(() => setExportMessage(''), 5000);
         } finally {
@@ -65,7 +90,7 @@ export default function GestionLotes() {
         nombre: "",
         tipo_lote_id: 0,
         granja_id: 0,
-        programa_id: 0,
+        programa_id: programaId ? Number(programaId) : 0,
         nombre_cultivo: "",
         tipo_gestion: "Convencional",
         fecha_inicio: new Date().toISOString().split('T')[0],
@@ -76,25 +101,27 @@ export default function GestionLotes() {
 
     useEffect(() => {
         cargarDatos();
-    }, []);
+    }, [programaId]);
 
     const cargarDatos = async () => {
         try {
             setCargando(true);
             setError(null);
 
-            console.log('🔄 Cargando datos de lotes...');
+            console.log('🔄 Cargando datos de lotes...', programaId ? `para programa ${programaId}` : 'todos');
             const loadingToast = toast.loading('Cargando datos de lotes...');
 
-            const [datosLotes, datosTiposLote, datosGranjas, datosProgramas] = await Promise.all([
-                loteService.obtenerLotes(),
+            const promesas = [
+                programaId ? loteService.obtenerLotesPorPrograma(Number(programaId)) : loteService.obtenerLotes(),
                 loteService.obtenerTiposLote(),
                 granjaService.obtenerGranjas(),
                 programaService.obtenerProgramas()
-            ]);
+            ];
+
+            const [datosLotes, datosTiposLote, datosGranjas, datosProgramas] = await Promise.all(promesas);
 
             toast.dismiss(loadingToast);
-            console.log('✅ Datos cargados exitosamente');
+            console.log(`✅ ${datosLotes.length} lotes cargados`);
 
             setLotes(datosLotes);
             setTiposLote(datosTiposLote);
@@ -118,18 +145,22 @@ export default function GestionLotes() {
 
         try {
             setError(null);
-            console.log('📤 Guardando lote...', datosFormulario);
+            
+            const datosEnvio = { ...datosFormulario };
+            if (programaId && !datosEnvio.programa_id) {
+                datosEnvio.programa_id = Number(programaId);
+            }
+            
+            console.log('📤 Guardando lote...', datosEnvio);
 
-            // El toast de carga será manejado por el formulario hijo
             if (editando && loteSeleccionado) {
-                const result = await loteService.actualizarLote(loteSeleccionado.id, datosFormulario);
+                await loteService.actualizarLote(loteSeleccionado.id, datosEnvio);
                 console.log('✅ Lote actualizado');
             } else {
-                const result = await loteService.crearLote(datosFormulario);
+                await loteService.crearLote(datosEnvio);
                 console.log('✅ Lote creado');
             }
 
-            // El éxito será mostrado por el formulario hijo
             await cargarDatos();
             setModalCrear(false);
             setEditando(false);
@@ -138,8 +169,6 @@ export default function GestionLotes() {
         } catch (error: any) {
             console.error('❌ Error guardando lote:', error);
             setError(error.message || 'Error al guardar el lote');
-
-            // IMPORTANTE: Lanzar el error para que lo capture el formulario
             throw error;
         }
     };
@@ -149,7 +178,7 @@ export default function GestionLotes() {
             nombre: lote.nombre || "",
             tipo_lote_id: lote.tipo_lote_id || 0,
             granja_id: lote.granja_id || 0,
-            programa_id: lote.programa_id || 0,
+            programa_id: lote.programa_id || (programaId ? Number(programaId) : 0),
             nombre_cultivo: lote.nombre_cultivo || "",
             tipo_gestion: lote.tipo_gestion || "Convencional",
             fecha_inicio: lote.fecha_inicio ? new Date(lote.fecha_inicio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -196,7 +225,7 @@ export default function GestionLotes() {
             nombre: "",
             tipo_lote_id: 0,
             granja_id: 0,
-            programa_id: 0,
+            programa_id: programaId ? Number(programaId) : 0,
             nombre_cultivo: "",
             tipo_gestion: "Convencional",
             fecha_inicio: new Date().toISOString().split('T')[0],
@@ -210,23 +239,29 @@ export default function GestionLotes() {
         return (
             <div className="flex justify-center items-center p-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-                <span className="ml-4 text-gray-600">Cargando lotes...</span>
+                <span className="ml-4 text-gray-600">
+                    {programaId ? 'Cargando lotes del programa...' : 'Cargando lotes...'}
+                </span>
             </div>
         );
     }
 
     return (
         <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Gestión de Lotes</h1>
+            {/* Título dinámico */}
+            {programaId && nombrePrograma && (
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                    Programa: <span className="text-green-600">{nombrePrograma}</span>
+                </h2>
+            )}
 
-            {/* Botón de exportación */}
             <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-3 m-2">
+                <div className="flex items-center space-x-3">
                     {exportMessage && (
                         <span className={`text-sm px-3 py-1 rounded ${exportMessage.includes('Error')
                             ? 'bg-red-100 text-red-600'
                             : 'bg-green-100 text-green-600'
-                            }`}>
+                        }`}>
                             {exportMessage}
                         </span>
                     )}
@@ -242,7 +277,6 @@ export default function GestionLotes() {
                 </div>
             </div>
 
-            {/* Mostrar error global */}
             {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                     <div className="flex items-center">
@@ -297,7 +331,7 @@ export default function GestionLotes() {
                     className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
                 >
                     <i className="fas fa-plus"></i>
-                    Nuevo Lote
+                    {programaId ? 'Nuevo Lote en este Programa' : 'Nuevo Lote'}
                 </button>
 
                 <button
@@ -307,6 +341,16 @@ export default function GestionLotes() {
                     <i className="fas fa-cog"></i>
                     Gestionar Tipos de Lote
                 </button>
+
+                {programaId && (
+                    <button
+                        onClick={() => navigate(`/programas/${programaId}`)}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
+                    >
+                        <i className="fas fa-arrow-left"></i>
+                        Volver al Programa
+                    </button>
+                )}
             </div>
 
             {/* Tabla de lotes */}
@@ -331,6 +375,7 @@ export default function GestionLotes() {
                 tiposLote={tiposLote}
                 granjas={granjas}
                 programas={programas}
+                programaIdFijo={programaId ? Number(programaId) : undefined}
             />
 
             {/* Modal de tipos de lote */}

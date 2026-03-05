@@ -126,6 +126,15 @@ function AppContent() {
         />
 
         <Route
+          path="/programas/:programaId/lotes"
+          element={
+            <ProtectedRoute>
+              <GestionLotesPage /> {/* Usamos el mismo componente, no uno nuevo */}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/gestion/programas"
           element={
             <ProtectedRoute>

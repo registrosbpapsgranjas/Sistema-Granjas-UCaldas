@@ -10,6 +10,7 @@ from app.schemas.programa_schema import (
 )
 from app.schemas.usuario_schema import UsuarioResponse
 from app.schemas.granja_schema import GranjaResponse
+from app.schemas.lote_schema import LoteResponse  # IMPORTANTE: Importar LoteResponse
 from app.CRUD.programas import (
     get_programas, get_programa,
     create_programa, update_programa, delete_programa,
@@ -17,6 +18,7 @@ from app.CRUD.programas import (
     asignar_granja_programa, desasignar_granja_programa, listar_granjas_programa,
     get_programas_por_granja, get_programas_con_relaciones
 )
+from app.CRUD.lotes import get_lotes_por_programa  # Importar la función de lotes
 
 router = APIRouter(prefix="/programas", tags=["Programas"])
 
@@ -169,6 +171,24 @@ def listar_granjas(
         raise e
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# === NUEVO ENDPOINT: LOTES POR PROGRAMA ===
+@router.get("/{programa_id}/lotes", response_model=List[LoteResponse])
+def listar_lotes_por_programa(
+    programa_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_any_role(["admin", "coordinador"]))
+):
+    """Listar todos los lotes asignados a un programa específico"""
+    # Verificar que el programa existe
+    programa = get_programa(db, programa_id)
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    # Obtener lotes del programa
+    return get_lotes_por_programa(db, programa_id, skip=skip, limit=limit)
 
 # === ENDPOINTS ADICIONALES ===
 @router.get("/{programa_id}/relaciones")
