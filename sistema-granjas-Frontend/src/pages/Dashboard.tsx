@@ -235,7 +235,7 @@ const Dashboard: React.FC = () => {
               descripcion="Controla lotes de producción y seguimiento de cultivos"
               icono="tractor"
               color="bg-purple-600"
-              ruta="/lotes"
+              ruta="/gestion/lotes"
               stats={`${stats.lotes} registrados`}
               features={[
                 "Jerarquía: Granja → Programa → Lotes",
