@@ -301,12 +301,6 @@ export default function GestionProgramas() {
 
   return (
     <div className="p-6">
-      <DashboardHeader
-        title={granjaActual ? `Programas de ${granjaActual.nombre}` : "Gestión de Programas"}
-        selectedModule="programas"
-        onBack={granjaId ? () => navigate("/granjas") : undefined}
-      />
-      
       <div className="flex items-center space-x-3 m-2">
         {exportMessage && (
           <span className={`text-sm px-3 py-1 rounded ${
