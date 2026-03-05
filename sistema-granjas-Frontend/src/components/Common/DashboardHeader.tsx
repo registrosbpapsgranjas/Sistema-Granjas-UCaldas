@@ -16,6 +16,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     onBack
 }) => {
     const { user } = useAuth();
+    if (user) {
+        localStorage.setItem("user", user?.nombre)
+    }
     const navigate = useNavigate();
 
     // Definir qué módulos puede ver cada rol

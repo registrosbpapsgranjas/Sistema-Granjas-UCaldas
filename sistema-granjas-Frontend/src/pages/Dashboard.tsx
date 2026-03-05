@@ -24,15 +24,8 @@ const Dashboard: React.FC = () => {
     cargarEstadisticas();
     
     // Obtener nombre del usuario del localStorage
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setNombreUsuario(user.nombre || user.email || 'Usuario');
-      } catch (e) {
-        console.error('Error parsing user:', e);
-      }
-    }
+    const user = localStorage.getItem('user');
+    setNombreUsuario(user || 'Usuario');
   }, []);
 
   const cargarEstadisticas = async () => {
