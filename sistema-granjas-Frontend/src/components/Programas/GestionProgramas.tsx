@@ -17,6 +17,9 @@ import type { Programa, Usuario, Granja } from "../../types/granjaTypes";
 export default function GestionProgramas() {
   const { granjaId } = useParams<{ granjaId: string }>();
   console.log('Valor granja id: ', granjaId)
+  if (granjaId){
+    localStorage.setItem("granjaid",granjaId)
+  }
   const navigate = useNavigate();
   const [programas, setProgramas] = useState<Programa[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
