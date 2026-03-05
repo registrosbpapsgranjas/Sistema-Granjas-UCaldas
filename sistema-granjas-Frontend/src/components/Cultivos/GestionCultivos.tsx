@@ -1,23 +1,24 @@
 // src/components/Cultivos/GestionCultivos.tsx
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom"; // 👈 Importar
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import cultivoService from "../../services/cultivoService";
 import granjaService from "../../services/granjaService";
-import loteService from "../../services/loteService"; // 👈 Importar
 import { StatsCard } from "../Common/StatsCard";
 import CultivosTable from "./CultivosTable";
 import CultivoForm from "./CultivosForm";
 import exportService from "../../services/exportService";
 
 export default function GestionCultivos() {
-    const [searchParams] = useSearchParams(); // 👈 Para obtener query params
-    const programaId = searchParams.get('programaId'); // 👈 Obtener programaId de la URL
+    const [searchParams] = useSearchParams();
+    const programaId = searchParams.get('programaId');
     
     const [cultivos, setCultivos] = useState<any[]>([]);
     const [granjas, setGranjas] = useState<any[]>([]);
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    
+    // ✅ Estadísticas calculadas localmente
     const [estadisticas, setEstadisticas] = useState({
         total: 0,
         agricolas: 0,
@@ -44,7 +45,7 @@ export default function GestionCultivos() {
         granja_id: 0,
     });
 
-    // Estados específicos para exportación
+    // Exportación
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
 
@@ -89,9 +90,20 @@ export default function GestionCultivos() {
         }
     };
 
+    // ✅ Función para calcular estadísticas locales
+    const calcularEstadisticasLocales = (cultivosData: any[]) => {
+        return {
+            total: cultivosData.length,
+            agricolas: cultivosData.filter(c => c.tipo?.toLowerCase() === 'agricola').length,
+            pecuarios: cultivosData.filter(c => c.tipo?.toLowerCase() === 'pecuario').length,
+            activos: cultivosData.filter(c => c.estado?.toLowerCase() === 'activo').length,
+            completados: cultivosData.filter(c => c.estado?.toLowerCase() === 'completado').length
+        };
+    };
+
     useEffect(() => {
         cargarDatos();
-    }, [programaId]); // 👈 Recargar cuando cambie programaId
+    }, [programaId]);
 
     const cargarDatos = async () => {
         try {
@@ -103,25 +115,24 @@ export default function GestionCultivos() {
 
             let datosCultivos;
             
-            // 👇 Lógica de filtrado por programa
+            // Lógica de filtrado por programa
             if (programaId) {
-                // Obtener cultivos a través de los lotes del programa
                 datosCultivos = await cultivoService.obtenerCultivosPorPrograma(Number(programaId));
             } else {
                 datosCultivos = await cultivoService.obtenerCultivos();
             }
 
-            const [datosGranjas, datosEstadisticas] = await Promise.all([
-                granjaService.obtenerGranjas(),
-                cultivoService.obtenerEstadisticas()
-            ]);
+            // Obtener granjas (siempre se necesitan para los formularios)
+            const datosGranjas = await granjaService.obtenerGranjas();
 
             toast.dismiss(loadingToast);
             console.log('✅ Datos cargados exitosamente');
 
             setCultivos(datosCultivos);
             setGranjas(datosGranjas);
-            setEstadisticas(datosEstadisticas);
+            
+            // ✅ Calcular estadísticas locales en lugar de usar las globales
+            setEstadisticas(calcularEstadisticasLocales(datosCultivos));
 
         } catch (error: any) {
             console.error('❌ Error cargando datos:', error);
@@ -148,24 +159,18 @@ export default function GestionCultivos() {
 
             if (editando && cultivoSeleccionado) {
                 await cultivoService.actualizarCultivo(cultivoSeleccionado.id, datosFormulario);
-
                 toast.dismiss(loadingToast);
                 toast.success('Cultivo actualizado exitosamente', {
                     duration: 3000,
                     position: 'top-right'
                 });
-
-                console.log('✅ Cultivo actualizado');
             } else {
                 await cultivoService.crearCultivo(datosFormulario);
-
                 toast.dismiss(loadingToast);
                 toast.success('Cultivo creado exitosamente', {
                     duration: 3000,
                     position: 'top-right'
                 });
-
-                console.log('✅ Cultivo creado');
             }
 
             await cargarDatos();
@@ -177,6 +182,7 @@ export default function GestionCultivos() {
             console.error('❌ Error guardando cultivo:', error);
             setError(error.message || 'Error al guardar el cultivo');
 
+            toast.dismiss();
             toast.error(`Error al guardar cultivo: ${error.message || 'Error desconocido'}`, {
                 duration: 4000,
                 position: 'top-right'
@@ -215,7 +221,6 @@ export default function GestionCultivos() {
                 position: 'top-right'
             });
 
-            console.log('✅ Cultivo eliminado');
             await cargarDatos();
 
         } catch (error: any) {
@@ -297,7 +302,7 @@ export default function GestionCultivos() {
                 </div>
             )}
 
-            {/* Estadísticas */}
+            {/* ✅ Estadísticas ahora calculadas localmente (correctamente filtradas) */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <StatsCard
                     icon="fas fa-leaf"
@@ -331,7 +336,7 @@ export default function GestionCultivos() {
                 />
             </div>
 
-            {/* Botón Crear - Deshabilitado si hay filtro de programa (opcional) */}
+            {/* Botón Crear */}
             <div className="mb-6">
                 <button
                     onClick={() => {
@@ -339,8 +344,7 @@ export default function GestionCultivos() {
                         setEditando(false);
                         setModalCrear(true);
                     }}
-                    className={`text-white px-4 py-2 rounded-lg transition flex items-center gap-2 bg-green-600 hover:bg-green-700`}
-                    title={"Nuevo cultivo"}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition flex items-center gap-2"
                 >
                     <i className="fas fa-plus"></i>
                     Nuevo Cultivo/Especie
