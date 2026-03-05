@@ -248,13 +248,6 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
 
     return (
         <div className="p-6">
-            {/* Título dinámico */}
-            {programaId && nombrePrograma && (
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                    Programa: <span className="text-green-600">{nombrePrograma}</span>
-                </h2>
-            )}
-
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center space-x-3">
                     {exportMessage && (

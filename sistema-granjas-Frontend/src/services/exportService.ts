@@ -57,6 +57,13 @@ export const exportService = {
     return handleExcelDownload(response, 'lotes');
   },
 
+  // ✅ NUEVO: Exportar lotes filtrados por programa
+  async exportarLotesPorPrograma(programaId: number): Promise<{ success: boolean; filename: string }> {
+    const url = `${API_BASE_URL}/export/lotes?programa_id=${programaId}`;
+    const response = await fetch(url, { method: 'GET', headers: getHeaders() });
+    return handleExcelDownload(response, `lotes_programa_${programaId}`);
+  },
+
   async exportarDiagnosticos(): Promise<{ success: boolean; filename: string }> {
     const url = `${API_BASE_URL}/export/diagnosticos/excel`;
     const response = await fetch(url, { method: 'GET', headers: getHeaders() });
@@ -93,7 +100,7 @@ export const exportService = {
     return handleExcelDownload(response, 'programas');
   },
 
-  // ✅ NUEVO: Exportar programas filtrados por granja
+  // Exportar programas filtrados por granja
   async exportarProgramasPorGranja(granjaId: number): Promise<{ success: boolean; filename: string }> {
     const url = `${API_BASE_URL}/export/programas?granja_id=${granjaId}`;
     const response = await fetch(url, { method: 'GET', headers: getHeaders() });
@@ -132,13 +139,14 @@ export const exportService = {
 export const exportBackup = exportService.exportarBackupCompleto;
 export const exportGranjas = exportService.exportarGranjas;
 export const exportLotes = exportService.exportarLotes;
+export const exportLotesPorPrograma = exportService.exportarLotesPorPrograma; // ✅ Nuevo alias
 export const exportDiagnosticos = exportService.exportarDiagnosticos;
 export const exportRecomendaciones = exportService.exportarRecomendaciones;
 export const exportLabores = exportService.exportarLabores;
 export const exportInventario = exportService.exportarInventario;
 export const exportUsuarios = exportService.exportarUsuarios;
 export const exportProgramas = exportService.exportarProgramas;
-export const exportProgramasPorGranja = exportService.exportarProgramasPorGranja; // ✅ Nuevo alias
+export const exportProgramasPorGranja = exportService.exportarProgramasPorGranja;
 export const exportCultivos = exportService.exportarCultivos;
 export const exportMovimientos = exportService.exportarMovimientos;
 export const exportResumen = exportService.exportarResumen;
