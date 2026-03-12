@@ -88,7 +88,7 @@ app = FastAPI(
 # CORS - Añade tu dominio de frontend si está en producción
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://sistema-granjas-ucaldas-production-c171.up.railway.app"],
+    allow_origins=["https://sistemagranjasucaldas-production.up.railway.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
