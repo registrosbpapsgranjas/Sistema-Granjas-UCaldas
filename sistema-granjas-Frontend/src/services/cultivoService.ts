@@ -45,17 +45,27 @@ export const cultivoService = {
     return handleResponse(response);
   },
 
-  // CREAR cultivo
+  // CREAR cultivo - SIN fecha_inicio NI duracion_dias
   async crearCultivo(datosCultivo: CultivoFormData): Promise<CultivoEspecie> {
+    const payload = {
+      nombre: datosCultivo.nombre,
+      tipo: datosCultivo.tipo,
+      descripcion: datosCultivo.descripcion || null,
+      estado: datosCultivo.estado,
+      granja_id: datosCultivo.granja_id
+      // No se envían fecha_inicio ni duracion_dias
+    };
+
     const response = await fetch(`${API_BASE_URL}/cultivos/`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(datosCultivo)
+      body: JSON.stringify(payload)
     });
     return handleResponse(response);
   },
+
   // ✅ NUEVA FUNCIÓN: Obtener cultivos por programa (a través de lotes)
-  async obtenerCultivosPorPrograma(programaId: number): Promise<any[]> {
+  async obtenerCultivosPorPrograma(programaId: number): Promise<CultivoEspecie[]> {
     try {
       // 1. Obtener todos los lotes del programa
       const lotes = await loteService.obtenerLotesPorPrograma(programaId);
@@ -76,12 +86,21 @@ export const cultivoService = {
     }
   },
 
-  // ACTUALIZAR cultivo
+  // ACTUALIZAR cultivo - SIN fecha_inicio NI duracion_dias
   async actualizarCultivo(id: number, datosCultivo: Partial<CultivoFormData>): Promise<CultivoEspecie> {
+    const payload: any = {};
+    
+    if (datosCultivo.nombre !== undefined) payload.nombre = datosCultivo.nombre;
+    if (datosCultivo.tipo !== undefined) payload.tipo = datosCultivo.tipo;
+    if (datosCultivo.descripcion !== undefined) payload.descripcion = datosCultivo.descripcion;
+    if (datosCultivo.estado !== undefined) payload.estado = datosCultivo.estado;
+    if (datosCultivo.granja_id !== undefined) payload.granja_id = datosCultivo.granja_id;
+    // No se incluyen fecha_inicio ni duracion_dias
+
     const response = await fetch(`${API_BASE_URL}/cultivos/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify(datosCultivo)
+      body: JSON.stringify(payload)
     });
     return handleResponse(response);
   },
@@ -100,17 +119,16 @@ export const cultivoService = {
 
   // ========== ESTADÍSTICAS ==========
 
-  // OBTENER estadísticas de cultivos
+  // OBTENER estadísticas de cultivos - SIN completados
   async obtenerEstadisticas(): Promise<CultivoStats> {
-    // Si tu backend no tiene este endpoint, lo podemos calcular en el frontend
     const cultivos = await this.obtenerCultivos();
 
     return {
       total: cultivos.length,
       agricolas: cultivos.filter(c => c.tipo === 'agricola').length,
       pecuarios: cultivos.filter(c => c.tipo === 'pecuario').length,
-      activos: cultivos.filter(c => c.estado === 'activo').length,
-      completados: cultivos.filter(c => c.estado === 'completado').length
+      activos: cultivos.filter(c => c.estado === 'activo').length
+      // Eliminado: completados
     };
   },
 

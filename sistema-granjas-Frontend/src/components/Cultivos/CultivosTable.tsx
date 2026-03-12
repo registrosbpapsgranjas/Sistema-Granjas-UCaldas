@@ -67,20 +67,8 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
     const getEstadoColor = (estado: string) => {
         switch (estado?.toLowerCase()) {
             case 'activo': return 'bg-blue-100 text-blue-800';
-            case 'completado': return 'bg-purple-100 text-purple-800';
             case 'inactivo': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    // Formatear fecha (si se necesita)
-    const formatearFecha = (fechaString?: string) => {
-        if (!fechaString) return '-';
-        try {
-            const fecha = new Date(fechaString);
-            return fecha.toLocaleDateString('es-ES');
-        } catch {
-            return '-';
         }
     };
 
@@ -115,9 +103,6 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                 Granja
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Duración
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Acciones
                             </th>
                         </tr>
@@ -146,11 +131,7 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {/* Primero usa el nombre del mapa, luego el que pudiera venir en el objeto, y finalmente un fallback */}
                                     {granjasMap[cultivo.granja_id] || cultivo.granja_nombre || `Granja ${cultivo.granja_id}`}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {cultivo.duracion_dias ? `${cultivo.duracion_dias} días` : '-'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex space-x-2">

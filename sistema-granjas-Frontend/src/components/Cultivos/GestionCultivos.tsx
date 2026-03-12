@@ -6,40 +6,38 @@ import cultivoService from "../../services/cultivoService";
 import granjaService from "../../services/granjaService";
 import { StatsCard } from "../Common/StatsCard";
 import CultivosTable from "./CultivosTable";
-import CultivoForm from "./CultivosForm";
+import CultivoForm from "./CultivoForm";
 import exportService from "../../services/exportService";
+import type { CultivoFormData, CultivoEspecie } from "../../types/cultivoTypes";
 
 export default function GestionCultivos() {
     const [searchParams] = useSearchParams();
     const programaId = searchParams.get('programaId');
     
-    const [cultivos, setCultivos] = useState<any[]>([]);
+    const [cultivos, setCultivos] = useState<CultivoEspecie[]>([]);
     const [granjas, setGranjas] = useState<any[]>([]);
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
     
-    // ✅ Estadísticas calculadas localmente
+    // ✅ Estadísticas calculadas localmente (sin completados)
     const [estadisticas, setEstadisticas] = useState({
         total: 0,
         agricolas: 0,
         pecuarios: 0,
-        activos: 0,
-        completados: 0
+        activos: 0
     });
 
     // Modales
     const [modalCrear, setModalCrear] = useState(false);
 
     // Selecciones
-    const [cultivoSeleccionado, setCultivoSeleccionado] = useState<any>(null);
+    const [cultivoSeleccionado, setCultivoSeleccionado] = useState<CultivoEspecie | null>(null);
     const [editando, setEditando] = useState(false);
 
-    // Formulario
-    const [datosFormulario, setDatosFormulario] = useState({
+    // Formulario - SIN fecha_inicio NI duracion_dias
+    const [datosFormulario, setDatosFormulario] = useState<CultivoFormData>({
         nombre: "",
         tipo: "agricola",
-        fecha_inicio: new Date().toISOString().split('T')[0],
-        duracion_dias: 90,
         descripcion: "",
         estado: "activo",
         granja_id: 0,
@@ -90,14 +88,13 @@ export default function GestionCultivos() {
         }
     };
 
-    // ✅ Función para calcular estadísticas locales
-    const calcularEstadisticasLocales = (cultivosData: any[]) => {
+    // ✅ Función para calcular estadísticas locales (sin completados)
+    const calcularEstadisticasLocales = (cultivosData: CultivoEspecie[]) => {
         return {
             total: cultivosData.length,
             agricolas: cultivosData.filter(c => c.tipo?.toLowerCase() === 'agricola').length,
             pecuarios: cultivosData.filter(c => c.tipo?.toLowerCase() === 'pecuario').length,
-            activos: cultivosData.filter(c => c.estado?.toLowerCase() === 'activo').length,
-            completados: cultivosData.filter(c => c.estado?.toLowerCase() === 'completado').length
+            activos: cultivosData.filter(c => c.estado?.toLowerCase() === 'activo').length
         };
     };
 
@@ -113,7 +110,7 @@ export default function GestionCultivos() {
             console.log('🔄 Cargando datos de cultivos...', programaId ? `para programa ${programaId}` : 'todos');
             const loadingToast = toast.loading('Cargando datos...');
 
-            let datosCultivos;
+            let datosCultivos: CultivoEspecie[];
             
             // Lógica de filtrado por programa
             if (programaId) {
@@ -131,7 +128,7 @@ export default function GestionCultivos() {
             setCultivos(datosCultivos);
             setGranjas(datosGranjas);
             
-            // ✅ Calcular estadísticas locales en lugar de usar las globales
+            // ✅ Calcular estadísticas locales
             setEstadisticas(calcularEstadisticasLocales(datosCultivos));
 
         } catch (error: any) {
@@ -190,12 +187,10 @@ export default function GestionCultivos() {
         }
     };
 
-    const abrirEditar = (cultivo: any) => {
+    const abrirEditar = (cultivo: CultivoEspecie) => {
         setDatosFormulario({
             nombre: cultivo.nombre || "",
             tipo: cultivo.tipo || "agricola",
-            fecha_inicio: cultivo.fecha_inicio ? new Date(cultivo.fecha_inicio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            duracion_dias: cultivo.duracion_dias || 90,
             descripcion: cultivo.descripcion || "",
             estado: cultivo.estado || "activo",
             granja_id: cultivo.granja_id || 0,
@@ -238,8 +233,6 @@ export default function GestionCultivos() {
         setDatosFormulario({
             nombre: "",
             tipo: "agricola",
-            fecha_inicio: new Date().toISOString().split('T')[0],
-            duracion_dias: 90,
             descripcion: "",
             estado: "activo",
             granja_id: 0,
@@ -302,8 +295,8 @@ export default function GestionCultivos() {
                 </div>
             )}
 
-            {/* ✅ Estadísticas ahora calculadas localmente (correctamente filtradas) */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            {/* ✅ Estadísticas ahora calculadas localmente (sin completados) */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <StatsCard
                     icon="fas fa-leaf"
                     color="bg-green-600"
@@ -327,12 +320,6 @@ export default function GestionCultivos() {
                     color="bg-blue-600"
                     value={estadisticas.activos}
                     label="Activos"
-                />
-                <StatsCard
-                    icon="fas fa-flag-checkered"
-                    color="bg-purple-600"
-                    value={estadisticas.completados}
-                    label="Completados"
                 />
             </div>
 
