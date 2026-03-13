@@ -12,12 +12,13 @@ import { AsignarGranjaModal } from "../Granjas/AsignarGranja";
 import ProgramasTable from "./ProgramasTable";
 import { normalizarArray } from "../../utils/normalize";
 import type { Programa, Usuario, Granja } from "../../types/granjaTypes";
+import toast from "react-hot-toast";
 
 export default function GestionProgramas() {
   const { granjaId } = useParams<{ granjaId: string }>();
   console.log('Valor granja id: ', granjaId)
-  if (granjaId){
-    localStorage.setItem("granjaid",granjaId)
+  if (granjaId) {
+    localStorage.setItem("granjaid", granjaId)
   }
   const navigate = useNavigate();
   const [programas, setProgramas] = useState<Programa[]>([]);
@@ -115,37 +116,39 @@ export default function GestionProgramas() {
   const manejarCrear = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroresValidacion({});
-    
+
     try {
       setError(null);
-      
+
       if (editando && programaSeleccionado) {
         await programaService.actualizarPrograma(programaSeleccionado.id, datosFormulario);
+        toast.success("Programa actualizado correctamente");
       } else {
         const nuevoPrograma = await programaService.crearPrograma(datosFormulario);
+
         if (granjaId && nuevoPrograma) {
           await programaService.asignarGranja(nuevoPrograma.id, Number(granjaId));
         }
+        toast.success("Programa creado correctamente");
       }
-      
-      // Recargar datos después de crear/editar
-      const programasActualizados = granjaId
-        ? await programaService.obtenerProgramasPorGranjaConGranjas(Number(granjaId))
-        : await programaService.obtenerProgramasConGranjas();
-      setProgramas(programasActualizados);
-      
-      // 👇 ESTO CIERRA EL MODAL DESPUÉS DE CREAR EXITOSAMENTE
+
+      // Cerrar el modal
       cerrarModalCrear();
-      
+
+      // 👇 FORZAR RECARGA DEL COMPONENTE NAVEGANDO A LA MISMA RUTA
+      navigate(0); // Esto recarga la ruta actual
+
     } catch (error: any) {
       console.error("❌ Error al guardar programa:", error);
-      
+
       if (error.erroresValidacion) {
         setErroresValidacion(error.erroresValidacion);
         const primerError = Object.values(error.erroresValidacion)[0];
-        setError(primerError);
+        toast.error(primerError);
       } else {
-        setError(error.message || "Error al guardar el programa");
+        const mensaje = error.message || "Error al guardar el programa";
+        setError(mensaje);
+        toast.error(mensaje);
       }
     }
   };
@@ -182,7 +185,7 @@ export default function GestionProgramas() {
   const abrirDetalles = async (programa: Programa) => {
     try {
       setProgramaSeleccionado(programa);
-      
+
       // Si el programa ya tiene las granjas cargadas, las usamos
       if (programa.granjas && programa.granjas.length > 0) {
         setGranjasPrograma(programa.granjas);
@@ -194,7 +197,7 @@ export default function GestionProgramas() {
       // Obtener usuarios
       const usuarios = await programaService.obtenerUsuariosPorPrograma(programa.id);
       setUsuariosPrograma(normalizarArray<Usuario>(usuarios));
-      
+
       setModalDetalles(true);
     } catch (error: any) {
       setError(error.message || "Error al cargar los detalles");
@@ -205,7 +208,7 @@ export default function GestionProgramas() {
     if (!confirm("¿Estás seguro de eliminar este programa?")) return;
     try {
       await programaService.eliminarPrograma(id);
-      
+
       // Recargar datos después de eliminar
       const programasActualizados = granjaId
         ? await programaService.obtenerProgramasPorGranjaConGranjas(Number(granjaId))
@@ -235,14 +238,14 @@ export default function GestionProgramas() {
       await programaService.asignarGranja(programaSeleccionado.id, granjaSeleccionada);
       const granjasActualizadas = await programaService.obtenerGranjasPorPrograma(programaSeleccionado.id);
       setGranjasPrograma(normalizarArray<Granja>(granjasActualizadas));
-      
+
       // Actualizar el programa en la lista principal
-      setProgramas(programas.map(p => 
-        p.id === programaSeleccionado.id 
+      setProgramas(programas.map(p =>
+        p.id === programaSeleccionado.id
           ? { ...p, granjas: granjasActualizadas }
           : p
       ));
-      
+
       setGranjaSeleccionada(0);
       setModalAsignarGranja(false);
     } catch (error: any) {
@@ -269,10 +272,10 @@ export default function GestionProgramas() {
       await programaService.removerGranja(programaSeleccionado.id, granjaId);
       const granjasActualizadas = await programaService.obtenerGranjasPorPrograma(programaSeleccionado.id);
       setGranjasPrograma(normalizarArray<Granja>(granjasActualizadas));
-      
+
       // Actualizar el programa en la lista principal
-      setProgramas(programas.map(p => 
-        p.id === programaSeleccionado.id 
+      setProgramas(programas.map(p =>
+        p.id === programaSeleccionado.id
           ? { ...p, granjas: granjasActualizadas }
           : p
       ));
@@ -322,11 +325,10 @@ export default function GestionProgramas() {
     <div className="p-6">
       <div className="flex items-center space-x-3 m-2 mb-4">
         {exportMessage && (
-          <span className={`text-sm px-3 py-1 rounded ${
-            exportMessage.includes("Error") 
-              ? "bg-red-100 text-red-600" 
+          <span className={`text-sm px-3 py-1 rounded ${exportMessage.includes("Error")
+              ? "bg-red-100 text-red-600"
               : "bg-green-100 text-green-600"
-          }`}>
+            }`}>
             {exportMessage}
           </span>
         )}
@@ -346,8 +348,8 @@ export default function GestionProgramas() {
             <i className="fas fa-exclamation-triangle mr-2"></i>
             <strong>Error:</strong> {error}
           </div>
-          <button 
-            onClick={() => setError(null)} 
+          <button
+            onClick={() => setError(null)}
             className="float-right text-red-800 hover:text-red-900"
           >
             <i className="fas fa-times"></i>
@@ -356,23 +358,23 @@ export default function GestionProgramas() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatsCard 
-          icon="fas fa-clipboard-list" 
-          color="bg-blue-600" 
-          value={programas.length} 
-          label="Programas Registrados" 
+        <StatsCard
+          icon="fas fa-clipboard-list"
+          color="bg-blue-600"
+          value={programas.length}
+          label="Programas Registrados"
         />
-        <StatsCard 
-          icon="fas fa-seedling" 
-          color="bg-green-600" 
-          value={programas.filter(p => p.tipo === "agricola").length} 
-          label="Programas Agrícolas" 
+        <StatsCard
+          icon="fas fa-seedling"
+          color="bg-green-600"
+          value={programas.filter(p => p.tipo === "agricola").length}
+          label="Programas Agrícolas"
         />
-        <StatsCard 
-          icon="fas fa-paw" 
-          color="bg-amber-600" 
-          value={programas.filter(p => p.tipo === "pecuario").length} 
-          label="Programas Pecuarios" 
+        <StatsCard
+          icon="fas fa-paw"
+          color="bg-amber-600"
+          value={programas.filter(p => p.tipo === "pecuario").length}
+          label="Programas Pecuarios"
         />
       </div>
 
