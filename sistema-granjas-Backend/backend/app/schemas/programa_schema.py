@@ -32,24 +32,33 @@ class ProgramaBase(BaseModel):
     @field_validator('tipo')
     def validar_tipo(cls, v):
         tipos_permitidos = ['pecuario', 'agricola', 'prueba']
-        if v.lower() not in tipos_permitidos:
+        v_lower = v.lower()
+        if v_lower not in tipos_permitidos:
             raise ValueError(f'Tipo de programa no válido. Tipos permitidos: {", ".join(tipos_permitidos)}')
-        return v.lower()
+        return v_lower
 
     @model_validator(mode='after')
-    def validar_coherencia_nombre_tipo(cls, values):
-        # Puedes ajustar o eliminar esta validación según necesidades reales
-        return values
+    def validar_coherencia_nombre_tipo(self):
+        # Validación opcional de coherencia
+        return self
 
 class ProgramaCreate(ProgramaBase):
-    granjas_ids: List[int] = []  # IDs de granjas a las que se asignará el programa
+    granjas_ids: List[int] = []
+
+    @field_validator('granjas_ids')
+    def validar_granjas_ids(cls, v):
+        if v is not None:
+            for granja_id in v:
+                if granja_id < 1:
+                    raise ValueError(f'ID de granja inválido: {granja_id}. Debe ser un número positivo')
+        return v
 
 class ProgramaUpdate(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     tipo: Optional[str] = None
     activo: Optional[bool] = None
-    granjas_ids: Optional[List[int]] = None  # Si se envía, reemplaza las asignaciones
+    granjas_ids: Optional[List[int]] = None
 
     @field_validator('nombre')
     def validar_nombre_update(cls, v):
@@ -74,16 +83,37 @@ class ProgramaUpdate(BaseModel):
     @field_validator('tipo')
     def validar_tipo_update(cls, v):
         if v is not None:
-            tipos_permitidos = ['pecuario', 'agricola']
-            if v.lower() not in tipos_permitidos:
+            tipos_permitidos = ['pecuario', 'agricola', 'prueba']
+            v_lower = v.lower()
+            if v_lower not in tipos_permitidos:
                 raise ValueError(f'Tipo de programa no válido. Tipos permitidos: {", ".join(tipos_permitidos)}')
-        return v.lower() if v else v
+            return v_lower
+        return v
+
+    @field_validator('granjas_ids')
+    def validar_granjas_ids_update(cls, v):
+        if v is not None:
+            for granja_id in v:
+                if granja_id < 1:
+                    raise ValueError(f'ID de granja inválido: {granja_id}. Debe ser un número positivo')
+        return v
 
     @model_validator(mode='after')
-    def validar_al_menos_un_campo(cls, values):
-        if all(values.get(f) is None for f in ['nombre', 'descripcion', 'tipo', 'activo', 'granjas_ids']):
+    def validar_al_menos_un_campo(self):
+        """Validar que se envíe al menos un campo para actualizar"""
+        campos = ['nombre', 'descripcion', 'tipo', 'activo', 'granjas_ids']
+        tiene_campo = False
+        
+        for campo in campos:
+            valor = getattr(self, campo, None)
+            if valor is not None:
+                tiene_campo = True
+                break
+        
+        if not tiene_campo:
             raise ValueError('Debe proporcionar al menos un campo para actualizar')
-        return values
+        
+        return self
 
 class ProgramaResponse(ProgramaBase):
     id: int
@@ -92,12 +122,27 @@ class ProgramaResponse(ProgramaBase):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 class AsignacionUsuarioPrograma(BaseModel):
     usuario_id: int
 
+    @field_validator('usuario_id')
+    def validar_usuario_id(cls, v):
+        if v < 1:
+            raise ValueError('El ID del usuario debe ser un número positivo')
+        return v
+
 class AsignacionGranjaPrograma(BaseModel):
     granja_id: int
+
+    @field_validator('granja_id')
+    def validar_granja_id(cls, v):
+        if v < 1:
+            raise ValueError('El ID de la granja debe ser un número positivo')
+        return v
 
 class ProgramaWithRelations(ProgramaResponse):
     usuarios: List[dict] = []
@@ -107,3 +152,18 @@ class ProgramaWithRelations(ProgramaResponse):
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode='after')
+    def validar_relaciones(self):
+        """Validar que las relaciones tengan datos mínimos requeridos"""
+        if hasattr(self, 'usuarios') and self.usuarios:
+            for usuario in self.usuarios:
+                if 'id' not in usuario:
+                    raise ValueError('Usuario sin ID en la respuesta')
+        
+        if hasattr(self, 'granjas') and self.granjas:
+            for granja in self.granjas:
+                if 'id' not in granja:
+                    raise ValueError('Granja sin ID en la respuesta')
+        
+        return self
