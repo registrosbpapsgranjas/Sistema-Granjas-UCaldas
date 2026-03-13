@@ -28,9 +28,6 @@ export default function GestionProgramas() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [erroresValidacion, setErroresValidacion] = useState<Record<string, string>>({});
-  
-  // 👇 NUEVO: Estado para controlar envío
-  const [enviando, setEnviando] = useState(false);
 
   // Modales
   const [modalCrear, setModalCrear] = useState(false);
@@ -118,14 +115,6 @@ export default function GestionProgramas() {
 
   const manejarCrear = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 👇 PREVENIR DOBLE ENVÍO
-    if (enviando) {
-      console.log("⏳ Ya se está procesando un envío...");
-      return;
-    }
-    
-    setEnviando(true);
     setErroresValidacion({});
 
     try {
@@ -143,11 +132,11 @@ export default function GestionProgramas() {
         toast.success("Programa creado correctamente");
       }
 
-      // 👇 CERRAR MODAL PRIMERO
+      // Cerrar el modal
       cerrarModalCrear();
-      
-      // 👇 LUEGO RECARGAR DATOS (sin recargar la página)
-      await cargarDatos();
+
+      // 👇 FORZAR RECARGA DEL COMPONENTE NAVEGANDO A LA MISMA RUTA
+      navigate(0); // Esto recarga la ruta actual
 
     } catch (error: any) {
       console.error("❌ Error al guardar programa:", error);
@@ -161,14 +150,11 @@ export default function GestionProgramas() {
         setError(mensaje);
         toast.error(mensaje);
       }
-    } finally {
-      // 👇 SIEMPRE DESACTIVAR ESTADO DE ENVÍO
-      setEnviando(false);
     }
   };
 
   const cerrarModalCrear = () => {
-    setModalCrear(false);
+    setModalCrear(false);        // 👈 ESTO CIERRA EL MODAL
     setEditando(false);
     setDatosFormulario({
       nombre: "",
@@ -179,7 +165,6 @@ export default function GestionProgramas() {
     });
     setProgramaSeleccionado(null);
     setErroresValidacion({});
-    setEnviando(false); // 👈 IMPORTANTE: resetear también este estado
   };
 
   const abrirEditar = (programa: Programa) => {
@@ -201,6 +186,7 @@ export default function GestionProgramas() {
     try {
       setProgramaSeleccionado(programa);
 
+      // Si el programa ya tiene las granjas cargadas, las usamos
       if (programa.granjas && programa.granjas.length > 0) {
         setGranjasPrograma(programa.granjas);
       } else {
@@ -208,6 +194,7 @@ export default function GestionProgramas() {
         setGranjasPrograma(normalizarArray<Granja>(granjas));
       }
 
+      // Obtener usuarios
       const usuarios = await programaService.obtenerUsuariosPorPrograma(programa.id);
       setUsuariosPrograma(normalizarArray<Usuario>(usuarios));
 
@@ -221,11 +208,14 @@ export default function GestionProgramas() {
     if (!confirm("¿Estás seguro de eliminar este programa?")) return;
     try {
       await programaService.eliminarPrograma(id);
-      await cargarDatos();
-      toast.success("Programa eliminado correctamente");
+
+      // Recargar datos después de eliminar
+      const programasActualizados = granjaId
+        ? await programaService.obtenerProgramasPorGranjaConGranjas(Number(granjaId))
+        : await programaService.obtenerProgramasConGranjas();
+      setProgramas(programasActualizados);
     } catch (error: any) {
       setError(error.message || "Error al eliminar el programa");
-      toast.error(error.message || "Error al eliminar el programa");
     }
   };
 
@@ -237,9 +227,8 @@ export default function GestionProgramas() {
       setUsuariosPrograma(normalizarArray<Usuario>(usuariosActualizados));
       setUsuarioSeleccionado(0);
       setModalAsignarUsuario(false);
-      toast.success("Usuario asignado correctamente");
     } catch (error: any) {
-      toast.error(error.message || "Error al asignar usuario");
+      setError(error.message || "Error al asignar usuario");
     }
   };
 
@@ -250,6 +239,7 @@ export default function GestionProgramas() {
       const granjasActualizadas = await programaService.obtenerGranjasPorPrograma(programaSeleccionado.id);
       setGranjasPrograma(normalizarArray<Granja>(granjasActualizadas));
 
+      // Actualizar el programa en la lista principal
       setProgramas(programas.map(p =>
         p.id === programaSeleccionado.id
           ? { ...p, granjas: granjasActualizadas }
@@ -258,9 +248,8 @@ export default function GestionProgramas() {
 
       setGranjaSeleccionada(0);
       setModalAsignarGranja(false);
-      toast.success("Granja asignada correctamente");
     } catch (error: any) {
-      toast.error(error.message || "Error al asignar granja");
+      setError(error.message || "Error al asignar granja");
     }
   };
 
@@ -271,9 +260,8 @@ export default function GestionProgramas() {
       await programaService.removerUsuario(programaSeleccionado.id, usuarioId);
       const usuariosActualizados = await programaService.obtenerUsuariosPorPrograma(programaSeleccionado.id);
       setUsuariosPrograma(normalizarArray<Usuario>(usuariosActualizados));
-      toast.success("Usuario removido correctamente");
     } catch (error: any) {
-      toast.error(error.message || "Error al remover usuario");
+      setError(error.message || "Error al remover usuario");
     }
   };
 
@@ -285,14 +273,14 @@ export default function GestionProgramas() {
       const granjasActualizadas = await programaService.obtenerGranjasPorPrograma(programaSeleccionado.id);
       setGranjasPrograma(normalizarArray<Granja>(granjasActualizadas));
 
+      // Actualizar el programa en la lista principal
       setProgramas(programas.map(p =>
         p.id === programaSeleccionado.id
           ? { ...p, granjas: granjasActualizadas }
           : p
       ));
-      toast.success("Granja removida correctamente");
     } catch (error: any) {
-      toast.error(error.message || "Error al remover granja");
+      setError(error.message || "Error al remover granja");
     }
   };
 
@@ -306,10 +294,8 @@ export default function GestionProgramas() {
         : await exportService.exportarProgramas();
       setExportMessage(`¡Exportación completada! (${result.filename})`);
       setTimeout(() => setExportMessage(""), 5000);
-      toast.success("Exportación completada");
     } catch (error) {
       setExportMessage("Error al exportar.");
-      toast.error("Error al exportar");
       setTimeout(() => setExportMessage(""), 5000);
     } finally {
       setExporting(false);
@@ -430,7 +416,6 @@ export default function GestionProgramas() {
         editando={editando}
         tiposPrograma={tiposPrograma}
         erroresValidacion={erroresValidacion}
-        enviando={enviando}  // 👑 NUEVA PROP
       />
 
       <DetallesPrograma
