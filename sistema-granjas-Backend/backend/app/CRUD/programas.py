@@ -130,9 +130,6 @@ def asignar_granja_programa(db: Session, programa_id: int, granja_id: int):
     if not granja.activo:
         raise HTTPException(status_code=400, detail="No se puede asignar una granja inactiva")
     
-    if granja in programa.granjas:
-        raise HTTPException(status_code=400, detail="La granja ya está asignada a este programa")
-    
     programa.granjas.append(granja)
     db.commit()
     return {"message": "Granja asignada correctamente", "granja_id": granja_id, "programa_id": programa_id}
