@@ -27,9 +27,10 @@ from app.api import (
 from app.db.database import engine, Base
 from app.db.models import Usuario, Granja, Programa, Lote, Labor, Rol
 import logging
-import time  # <-- Añade esto
-import sys   # <-- Añade esto
-import ssl   # <-- Añade esto
+import time
+import sys
+import ssl
+import os
 from starlette.middleware.base import BaseHTTPMiddleware
 
 class ForceHTTPSRedirectMiddleware(BaseHTTPMiddleware):
@@ -46,7 +47,7 @@ class ForceHTTPSRedirectMiddleware(BaseHTTPMiddleware):
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout  # <-- Esto asegura que Render vea los logs
+    stream=sys.stdout  # Esto asegura que Render vea los logs
 )
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,6 @@ logger.info(f"Python version: {sys.version}")
 logger.info(f"OpenSSL version: {ssl.OPENSSL_VERSION}")
 
 # Test de variables de entorno críticas
-import os
 env_vars_to_check = [
     'R2_ACCESS_KEY',
     'R2_SECRET_KEY', 
@@ -74,8 +74,13 @@ for var in env_vars_to_check:
     else:
         logger.warning(f"⚠️  {var}: NO DEFINIDA")
 
-# Crear tablas (esto es solo para desarrollo)
-Base.metadata.create_all(bind=engine)
+# Crear tablas - Solo en desarrollo, en producción usar Alembic
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+if ENVIRONMENT == "development":
+    logger.info("🔧 Modo desarrollo: creando tablas automáticamente...")
+    Base.metadata.create_all(bind=engine)
+else:
+    logger.info("🏭 Modo producción: asumiendo que las migraciones están manejadas por Alembic")
 
 app = FastAPI(
     title="Sistema Granjas UCaldas",
@@ -85,10 +90,25 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS - Añade tu dominio de frontend si está en producción
+# CORS - Configuración completa para desarrollo y producción
+allow_origins = [
+    "https://sistemagranjasucaldas-production.up.railway.app",  # Producción frontend
+    "http://localhost:3000",  # Desarrollo local React/Vite
+    "http://localhost:5173",  # Alternativa de Vite
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
+
+# Si hay una variable de entorno para orígenes adicionales
+if os.getenv("CORS_ORIGINS"):
+    extra_origins = os.getenv("CORS_ORIGINS").split(",")
+    allow_origins.extend(extra_origins)
+
+logger.info(f"🌐 CORS allow_origins: {allow_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://sistemagranjasucaldas-production.up.railway.app"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -210,7 +230,43 @@ async def debug_ssl():
     
     return debug_info
 
-# Incluir routers (tus routers existentes)
+# ========== ENDPOINT DE DIAGNÓSTICO DE AUTENTICACIÓN ==========
+@app.get("/debug/auth-check")
+async def debug_auth_check(token: str = None):
+    """Endpoint para verificar tokens JWT"""
+    try:
+        from app.core.security import verify_token
+        from jose import jwt
+        
+        debug_info = {
+            "token_provided": bool(token),
+            "timestamp": time.time()
+        }
+        
+        if token:
+            try:
+                payload = verify_token(token)
+                debug_info["payload"] = payload
+                debug_info["valid"] = True
+                
+                # Verificar expiración
+                if "exp" in payload:
+                    exp_time = payload["exp"]
+                    current_time = time.time()
+                    debug_info["expires_at"] = exp_time
+                    debug_info["expires_in"] = exp_time - current_time
+                    debug_info["is_expired"] = exp_time < current_time
+                    
+            except Exception as e:
+                debug_info["valid"] = False
+                debug_info["error"] = str(e)
+                debug_info["error_type"] = type(e).__name__
+        
+        return debug_info
+    except Exception as e:
+        return {"error": str(e)}
+
+# Incluir routers
 app.include_router(oauth_google.router, prefix="/api")
 app.include_router(auth_tradicional.router, prefix="/api")
 app.include_router(usuarios.router, prefix="/api")
@@ -239,30 +295,36 @@ def root():
     return {
         "message": "Sistema de Gestión de Granjas UCaldas API", 
         "version": "2.0.0",
+        "environment": ENVIRONMENT,
         "status": "running",
         "debug_endpoints": {
             "r2_test": "/debug/r2",
-            "ssl_test": "/debug/ssl"
+            "ssl_test": "/debug/ssl",
+            "auth_check": "/debug/auth-check?token=YOUR_TOKEN"
         }
     }
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "timestamp": time.time()}
+    return {"status": "healthy", "timestamp": time.time(), "environment": ENVIRONMENT}
 
 @app.get("/api/info")
 def api_info():
     return {
         "name": "Sistema Granjas UCaldas",
         "version": "2.0.0",
+        "environment": ENVIRONMENT,
         "endpoints": {
             "auth": "/api/auth",
             "usuarios": "/api/usuarios",
             "granjas": "/api/granjas",
+            "programas": "/api/programas",
+            "lotes": "/api/lotes",
             "sync": "/api/sync",
             "evidencias": "/api/evidencias",
             "debug_r2": "/debug/r2",
-            "debug_ssl": "/debug/ssl"
+            "debug_ssl": "/debug/ssl",
+            "debug_auth": "/debug/auth-check"
         }
     }
 
@@ -270,7 +332,7 @@ def api_info():
 @app.on_event("startup")
 async def startup_event():
     """Ejecutar al iniciar la app"""
-    logger.info("🎉 Aplicación iniciada correctamente")
+    logger.info(f"🎉 Aplicación iniciada correctamente en modo {ENVIRONMENT}")
     
     # Test R2 al inicio
     try:
@@ -284,3 +346,6 @@ async def startup_event():
             logger.warning("⚠️  Cliente R2 no inicializado")
     except Exception as e:
         logger.error(f"❌ Error testing R2 on startup: {e}")
+    
+    # Mostrar orígenes CORS configurados
+    logger.info(f"🌐 CORS configurado para: {allow_origins}")
