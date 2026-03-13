@@ -6,24 +6,23 @@ import granjaService from "../../services/granjaService";
 import { StatsCard } from "../Common/StatsCard";
 import CultivosTable from "./CultivosTable";
 import CultivoForm from "./CultivosForm";
-import exportService from "../../services/exportService";
 import type { CultivoFormData, CultivoEspecie } from "../../types/cultivoTypes";
 
 export default function GestionCultivos() {
     const [searchParams] = useSearchParams();
-    const programaId = searchParams.get('programaId');
-    
+    const programaId = searchParams.get("programaId");
+
     const [cultivos, setCultivos] = useState<CultivoEspecie[]>([]);
     const [granjas, setGranjas] = useState<any[]>([]);
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [erroresValidacion, setErroresValidacion] = useState<Record<string, string>>({});
-    
+
     const [estadisticas, setEstadisticas] = useState({
         total: 0,
         agricolas: 0,
         pecuarios: 0,
-        activos: 0
+        activos: 0,
     });
 
     const [modalCrear, setModalCrear] = useState(false);
@@ -38,8 +37,6 @@ export default function GestionCultivos() {
         granja_id: 0,
     });
 
-    const [exporting, setExporting] = useState(false);
-
     useEffect(() => {
         cargarDatos();
     }, [programaId]);
@@ -48,8 +45,9 @@ export default function GestionCultivos() {
         try {
             setCargando(true);
             setError(null);
-            
+
             let datosCultivos: CultivoEspecie[];
+
             if (programaId) {
                 datosCultivos = await cultivoService.obtenerCultivosPorPrograma(Number(programaId));
             } else {
@@ -60,16 +58,17 @@ export default function GestionCultivos() {
 
             setCultivos(datosCultivos);
             setGranjas(datosGranjas);
+
             setEstadisticas({
                 total: datosCultivos.length,
-                agricolas: datosCultivos.filter(c => c.tipo === 'agricola').length,
-                pecuarios: datosCultivos.filter(c => c.tipo === 'pecuario').length,
-                activos: datosCultivos.filter(c => c.estado === 'activo').length
+                agricolas: datosCultivos.filter((c) => c.tipo === "agricola").length,
+                pecuarios: datosCultivos.filter((c) => c.tipo === "pecuario").length,
+                activos: datosCultivos.filter((c) => c.estado === "activo").length,
             });
-
-        } catch (error: any) {
-            setError(error.message || 'Error al cargar los datos');
-            toast.error(error.message || 'Error al cargar los datos');
+        } catch (err: unknown) {
+            const mensaje = err instanceof Error ? err.message : "Error al cargar los datos";
+            setError(mensaje);
+            toast.error(mensaje);
         } finally {
             setCargando(false);
         }
@@ -77,35 +76,39 @@ export default function GestionCultivos() {
 
     const manejarCrear = async (e: React.FormEvent) => {
         e.preventDefault();
+
         setErroresValidacion({});
         setError(null);
 
-        try {
-            const loadingToast = toast.loading(editando ? 'Actualizando...' : 'Creando...');
+        const loadingToast = toast.loading(editando ? "Actualizando..." : "Creando...");
 
+        try {
             if (editando && cultivoSeleccionado) {
                 await cultivoService.actualizarCultivo(cultivoSeleccionado.id, datosFormulario);
-                toast.success('Actualizado exitosamente');
+                toast.success("Actualizado exitosamente");
             } else {
                 await cultivoService.crearCultivo(datosFormulario);
-                toast.success('Creado exitosamente');
+                toast.success("Creado exitosamente");
             }
 
-            toast.dismiss(loadingToast);
             await cargarDatos();
+
             setModalCrear(false);
             setEditando(false);
             resetFormulario();
+        } catch (err: any) {
+            if (err.erroresValidacion) {
+                setErroresValidacion(err.erroresValidacion);
 
-        } catch (error: any) {
-            if (error.erroresValidacion) {
-                setErroresValidacion(error.erroresValidacion);
-                const primerError = Object.values(error.erroresValidacion)[0];
-                toast.error(primerError);
+                const primerError = Object.values(err.erroresValidacion)[0] as string;
+                if (primerError) toast.error(primerError);
             } else {
-                setError(error.message);
-                toast.error(error.message);
+                const mensaje = err?.message || "Error inesperado";
+                setError(mensaje);
+                toast.error(mensaje);
             }
+        } finally {
+            toast.dismiss(loadingToast);
         }
     };
 
@@ -117,6 +120,7 @@ export default function GestionCultivos() {
             estado: cultivo.estado || "activo",
             granja_id: cultivo.granja_id || 0,
         });
+
         setCultivoSeleccionado(cultivo);
         setEditando(true);
         setModalCrear(true);
@@ -125,12 +129,14 @@ export default function GestionCultivos() {
 
     const manejarEliminar = async (id: number) => {
         if (!window.confirm("¿Eliminar este cultivo?")) return;
+
         try {
             await cultivoService.eliminarCultivo(id);
-            toast.success('Eliminado exitosamente');
+            toast.success("Eliminado exitosamente");
             await cargarDatos();
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (err: unknown) {
+            const mensaje = err instanceof Error ? err.message : "Error al eliminar";
+            toast.error(mensaje);
         }
     };
 
@@ -142,6 +148,7 @@ export default function GestionCultivos() {
             estado: "activo",
             granja_id: 0,
         });
+
         setErroresValidacion({});
     };
 
