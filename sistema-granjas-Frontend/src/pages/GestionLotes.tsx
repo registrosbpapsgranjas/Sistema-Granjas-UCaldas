@@ -1,16 +1,16 @@
 // src/pages/GestionLotesPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useParams} from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import DashboardHeader from '../components/Common/DashboardHeader';
 import GestionLotes from '../components/Lotes/GestionLote';
 import programaService from '../services/programaService';
 
 const GestionLotesPage: React.FC = () => {
     const { programaId } = useParams<{ programaId: string }>();
+    const [searchParams] = useSearchParams();
+    const cultivoNombre = searchParams.get('cultivoNombre');
     const [nombrePrograma, setNombrePrograma] = useState<string>('');
-    const [cargando, setCargando] = useState<boolean>(true);
-
-    console.log('📍 GestionLotesPage - programaId:', programaId);
+    const [cargando, setCargando] = useState<boolean>(false);
 
     useEffect(() => {
         const cargarNombrePrograma = async () => {
@@ -25,18 +25,16 @@ const GestionLotesPage: React.FC = () => {
                 } finally {
                     setCargando(false);
                 }
-            } else {
-                setCargando(false);
             }
         };
-
         cargarNombrePrograma();
     }, [programaId]);
 
-    // Determinar el título basado en si hay programaId o no
-    const title = programaId
-        ? `Lotes: ${nombrePrograma || '...'}`
-        : "Gestión de Lotes";
+    const title = cultivoNombre 
+        ? `Lotes con cultivo: ${decodeURIComponent(cultivoNombre)}`
+        : programaId 
+            ? `Lotes: ${nombrePrograma || '...'}` 
+            : "Gestión de Lotes";
 
     if (cargando && programaId) {
         return (

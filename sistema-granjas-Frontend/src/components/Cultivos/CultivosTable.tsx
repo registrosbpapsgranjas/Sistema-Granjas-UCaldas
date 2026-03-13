@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // 👈 Importar useNavigate
 import type { CultivoEspecie } from '../../types/cultivoTypes';
-import granjaService from '../../services/granjaService'; // Asegúrate de que la ruta sea correcta
+import granjaService from '../../services/granjaService';
 
 interface CultivosTableProps {
     cultivos: CultivoEspecie[];
@@ -13,6 +14,7 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
     onEditar,
     onEliminar
 }) => {
+    const navigate = useNavigate(); // 👈 Para navegación
     const [granjasMap, setGranjasMap] = useState<Record<number, string>>({});
     const [cargando, setCargando] = useState(false);
 
@@ -20,7 +22,6 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
         const cargarNombresGranjas = async () => {
             if (cultivos.length === 0) return;
             
-            // Extraer IDs únicos de granja
             const granjaIds = Array.from(
                 new Set(cultivos.map(c => c.granja_id).filter(Boolean))
             ) as number[];
@@ -54,7 +55,12 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
         cargarNombresGranjas();
     }, [cultivos]);
 
-    // Función para obtener color según tipo
+    // ✅ NUEVA FUNCIÓN: Ver lotes que usan este cultivo
+    const verLotesConCultivo = (e: React.MouseEvent, cultivoId: number, cultivoNombre: string) => {
+        e.stopPropagation();
+        navigate(`/lotes?cultivoId=${cultivoId}&cultivoNombre=${encodeURIComponent(cultivoNombre)}`);
+    };
+
     const getTipoColor = (tipo: string) => {
         switch (tipo?.toLowerCase()) {
             case 'agricola': return 'bg-green-100 text-green-800';
@@ -63,10 +69,10 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
         }
     };
 
-    // Función para obtener color según estado
     const getEstadoColor = (estado: string) => {
         switch (estado?.toLowerCase()) {
             case 'activo': return 'bg-blue-100 text-blue-800';
+            case 'completado': return 'bg-purple-100 text-purple-800';
             case 'inactivo': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
         }
@@ -103,6 +109,9 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                 Granja
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Duración
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Acciones
                             </th>
                         </tr>
@@ -133,18 +142,30 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {granjasMap[cultivo.granja_id] || cultivo.granja_nombre || `Granja ${cultivo.granja_id}`}
                                 </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {cultivo.duracion_dias ? `${cultivo.duracion_dias} días` : '-'}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex space-x-2">
+                                        {/* ✅ NUEVO BOTÓN: Ver lotes con este cultivo */}
+                                        <button
+                                            onClick={(e) => verLotesConCultivo(e, cultivo.id, cultivo.nombre)}
+                                            className="text-purple-600 hover:text-purple-900 p-1.5 hover:bg-purple-50 rounded transition-colors"
+                                            title="Ver lotes con este cultivo"
+                                        >
+                                            <i className="fas fa-seedling"></i>
+                                        </button>
+
                                         <button
                                             onClick={() => onEditar(cultivo)}
-                                            className="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                            className="text-yellow-600 hover:text-yellow-900 p-1.5 hover:bg-yellow-50 rounded transition-colors"
                                             title="Editar"
                                         >
                                             <i className="fas fa-edit"></i>
                                         </button>
                                         <button
                                             onClick={() => onEliminar(cultivo.id)}
-                                            className="text-red-600 hover:text-red-900 transition-colors"
+                                            className="text-red-600 hover:text-red-900 p-1.5 hover:bg-red-50 rounded transition-colors"
                                             title="Eliminar"
                                         >
                                             <i className="fas fa-trash"></i>

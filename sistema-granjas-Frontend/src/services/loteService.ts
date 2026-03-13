@@ -42,7 +42,7 @@ export const loteService = {
     async obtenerLotesConFiltros(filtros?: any): Promise<any> {
         try {
             let url = `${API_BASE_URL}/lotes/`;
-            
+
             // Agregar filtros si existen
             if (filtros) {
                 const params = new URLSearchParams();
@@ -52,17 +52,17 @@ export const loteService = {
                 if (filtros.tipo_lote_id) params.append('tipo_lote_id', filtros.tipo_lote_id.toString());
                 if (filtros.skip !== undefined) params.append('skip', filtros.skip.toString());
                 if (filtros.limit !== undefined) params.append('limit', filtros.limit.toString());
-                
+
                 const queryString = params.toString();
                 if (queryString) {
                     url += `?${queryString}`;
                 }
             }
-            
+
             const response = await fetch(url, {
                 headers: getHeaders(),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al obtener lotes:', error);
@@ -83,19 +83,19 @@ export const loteService = {
         try {
             // Primero obtenemos el lote
             const lote = await this.obtenerLote(id);
-            
+
             // Si ya incluye información del programa, retornarlo
             if (lote.programa) {
                 return lote;
             }
-            
+
             // Si no, intentar obtener el programa por separado si hay programa_id
             if (lote.programa_id) {
                 try {
                     const programaResponse = await fetch(`${API_BASE_URL}/programas/${lote.programa_id}`, {
                         headers: getHeaders(),
                     });
-                    
+
                     if (programaResponse.ok) {
                         const programaData = await programaResponse.json();
                         lote.programa = programaData;
@@ -108,7 +108,7 @@ export const loteService = {
                     };
                 }
             }
-            
+
             return lote;
         } catch (error) {
             console.error('Error al obtener lote con programa:', error);
@@ -142,7 +142,7 @@ export const loteService = {
             method: 'DELETE',
             headers: getHeaders(),
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
@@ -185,7 +185,7 @@ export const loteService = {
             method: 'DELETE',
             headers: getHeaders(),
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
@@ -218,11 +218,24 @@ export const loteService = {
             const response = await fetch(`${API_BASE_URL}/lotes/estadisticas/`, {
                 headers: getHeaders(),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al obtener estadísticas de lotes:', error);
             throw error;
+        }
+    },
+
+    // src/services/loteService.ts - Agregar este método
+    async obtenerLotesPorCultivo(cultivoId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/lotes?cultivo_id=${cultivoId}`, {
+                headers: getHeaders()
+            });
+            return handleResponse(response);
+        } catch (error) {
+            console.error('Error obteniendo lotes por cultivo:', error);
+            return [];
         }
     },
 
@@ -232,7 +245,7 @@ export const loteService = {
             const response = await fetch(`${API_BASE_URL}/lotes/buscar?nombre=${encodeURIComponent(nombre)}`, {
                 headers: getHeaders(),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al buscar lotes por nombre:', error);
@@ -247,11 +260,11 @@ export const loteService = {
             if (granjaId) {
                 url += `?granja_id=${granjaId}`;
             }
-            
+
             const response = await fetch(url, {
                 headers: getHeaders(),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al obtener cultivos disponibles:', error);
@@ -265,7 +278,7 @@ export const loteService = {
             const response = await fetch(`${API_BASE_URL}/programas/`, {
                 headers: getHeaders(),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al obtener programas disponibles:', error);
@@ -279,7 +292,7 @@ export const loteService = {
             const response = await fetch(`${API_BASE_URL}/granjas`, {
                 headers: getHeaders(),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al obtener granjas disponibles:', error);
@@ -294,13 +307,13 @@ export const loteService = {
             if (observaciones) {
                 payload.observaciones = observaciones;
             }
-            
+
             const response = await fetch(`${API_BASE_URL}/lotes/${id}/estado`, {
                 method: 'PUT',
                 headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
-            
+
             return handleResponse(response);
         } catch (error) {
             console.error('Error al cambiar estado de lote:', error);

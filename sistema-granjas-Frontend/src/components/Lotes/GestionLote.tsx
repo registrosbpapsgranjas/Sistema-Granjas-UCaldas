@@ -1,6 +1,6 @@
 // src/components/Lotes/GestionLote.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom"; // 👈 Importar useSearchParams
 import { toast } from "react-hot-toast";
 import { loteService } from "../../services/loteService";
 import granjaService from "../../services/granjaService";
@@ -16,7 +16,13 @@ interface GestionLotesProps {
 }
 
 export default function GestionLotes({ programaId }: GestionLotesProps) {
-    console.log('📍 GestionLotes - programaId recibido:', programaId);
+    const [searchParams] = useSearchParams(); // 👈 Para query params
+    const cultivoId = searchParams.get('cultivoId');
+    const cultivoNombre = searchParams.get('cultivoNombre');
+    
+    console.log('📍 GestionLotes - programaId:', programaId);
+    console.log('📍 GestionLotes - cultivoId:', cultivoId);
+    console.log('📍 GestionLotes - cultivoNombre:', cultivoNombre);
     
     const navigate = useNavigate();
     const [lotes, setLotes] = useState<any[]>([]);
@@ -101,24 +107,36 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
 
     useEffect(() => {
         cargarDatos();
-    }, [programaId]);
+    }, [programaId, cultivoId]); // 👈 Recargar cuando cambie cultivoId
 
     const cargarDatos = async () => {
         try {
             setCargando(true);
             setError(null);
 
-            console.log('🔄 Cargando datos de lotes...', programaId ? `para programa ${programaId}` : 'todos');
+            let filtro = '';
+            if (programaId) filtro = `para programa ${programaId}`;
+            else if (cultivoId) filtro = `para cultivo ${cultivoId}`;
+            else filtro = 'todos';
+            
+            console.log(`🔄 Cargando datos de lotes... ${filtro}`);
             const loadingToast = toast.loading('Cargando datos de lotes...');
 
-            const promesas = [
-                programaId ? loteService.obtenerLotesPorPrograma(Number(programaId)) : loteService.obtenerLotes(),
+            // Obtener lotes según filtros
+            let datosLotes;
+            if (programaId) {
+                datosLotes = await loteService.obtenerLotesPorPrograma(Number(programaId));
+            } else if (cultivoId) {
+                datosLotes = await loteService.obtenerLotesPorCultivo(Number(cultivoId));
+            } else {
+                datosLotes = await loteService.obtenerLotes();
+            }
+
+            const [datosTiposLote, datosGranjas, datosProgramas] = await Promise.all([
                 loteService.obtenerTiposLote(),
                 granjaService.obtenerGranjas(),
                 programaService.obtenerProgramas()
-            ];
-
-            const [datosLotes, datosTiposLote, datosGranjas, datosProgramas] = await Promise.all(promesas);
+            ]);
 
             toast.dismiss(loadingToast);
             console.log(`✅ ${datosLotes.length} lotes cargados`);
@@ -142,7 +160,6 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
 
     const manejarCrear = async (e: React.FormEvent) => {
         e.preventDefault();
-
         try {
             setError(null);
             
@@ -235,12 +252,26 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
         });
     };
 
+    // Función para limpiar filtros
+    const limpiarFiltros = () => {
+        navigate('/lotes');
+    };
+
+    // Determinar título
+    const titulo = cultivoNombre 
+        ? `Lotes con cultivo: ${decodeURIComponent(cultivoNombre)}`
+        : programaId 
+            ? `Lotes del programa` 
+            : 'Gestión de Lotes';
+
     if (cargando) {
         return (
             <div className="flex justify-center items-center p-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
                 <span className="ml-4 text-gray-600">
-                    {programaId ? 'Cargando lotes del programa...' : 'Cargando lotes...'}
+                    {programaId ? 'Cargando lotes del programa...' : 
+                     cultivoId ? 'Cargando lotes del cultivo...' : 
+                     'Cargando lotes...'}
                 </span>
             </div>
         );
@@ -249,7 +280,19 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-gray-800">{titulo}</h1>
+                
                 <div className="flex items-center space-x-3">
+                    {(programaId || cultivoId) && (
+                        <button
+                            onClick={limpiarFiltros}
+                            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+                        >
+                            <i className="fas fa-times"></i>
+                            <span>Limpiar filtros</span>
+                        </button>
+                    )}
+
                     {exportMessage && (
                         <span className={`text-sm px-3 py-1 rounded ${exportMessage.includes('Error')
                             ? 'bg-red-100 text-red-600'
