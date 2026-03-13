@@ -10,7 +10,6 @@ import { DetallesPrograma } from "./DetallesPrograma";
 import { AsignarUsuarioModal } from "../Usuarios/AsignarUsuario";
 import { AsignarGranjaModal } from "../Granjas/AsignarGranja";
 import ProgramasTable from "./ProgramasTable";
-import DashboardHeader from "../Common/DashboardHeader";
 import { normalizarArray } from "../../utils/normalize";
 import type { Programa, Usuario, Granja } from "../../types/granjaTypes";
 
@@ -111,7 +110,7 @@ export default function GestionProgramas() {
     };
 
     cargarDatos();
-  }, [granjaId]); // Solo granjaId como dependencia
+  }, [granjaId]);
 
   const manejarCrear = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,6 +118,7 @@ export default function GestionProgramas() {
     
     try {
       setError(null);
+      
       if (editando && programaSeleccionado) {
         await programaService.actualizarPrograma(programaSeleccionado.id, datosFormulario);
       } else {
@@ -134,7 +134,9 @@ export default function GestionProgramas() {
         : await programaService.obtenerProgramasConGranjas();
       setProgramas(programasActualizados);
       
+      // 👇 CERRAR MODAL DESPUÉS DE CREAR EXITOSAMENTE
       cerrarModalCrear();
+      
     } catch (error: any) {
       console.error("❌ Error al guardar programa:", error);
       
@@ -149,7 +151,7 @@ export default function GestionProgramas() {
   };
 
   const cerrarModalCrear = () => {
-    setModalCrear(false);
+    setModalCrear(false);        // 👈 ESTO CIERRA EL MODAL
     setEditando(false);
     setDatosFormulario({
       nombre: "",
@@ -318,7 +320,7 @@ export default function GestionProgramas() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center space-x-3 m-2">
+      <div className="flex items-center space-x-3 m-2 mb-4">
         {exportMessage && (
           <span className={`text-sm px-3 py-1 rounded ${
             exportMessage.includes("Error") 
@@ -353,7 +355,7 @@ export default function GestionProgramas() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatsCard 
           icon="fas fa-clipboard-list" 
           color="bg-blue-600" 
