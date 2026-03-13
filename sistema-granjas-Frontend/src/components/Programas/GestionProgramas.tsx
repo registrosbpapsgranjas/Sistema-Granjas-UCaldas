@@ -221,7 +221,6 @@ export default function GestionProgramas() {
     if (!confirm("¿Estás seguro de eliminar este programa?")) return;
     try {
       await programaService.eliminarPrograma(id);
-      navigate(0)
       toast.success("Programa eliminado correctamente");
     } catch (error: any) {
       setError(error.message || "Error al eliminar el programa");
