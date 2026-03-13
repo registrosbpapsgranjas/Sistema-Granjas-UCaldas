@@ -102,9 +102,6 @@ const ProgramasTable: React.FC<ProgramasTableProps> = ({
                 <thead className="bg-gray-50">
                     <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            ID
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Programa
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -128,9 +125,6 @@ const ProgramasTable: React.FC<ProgramasTableProps> = ({
                             className="hover:bg-gray-50 transition-colors cursor-pointer"
                             onClick={() => onVerDetalles(programa)}
                         >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                #{programa.id}
-                            </td>
                             <td className="px-6 py-4">
                                 <div className="flex items-center">
                                     <div className={`flex-shrink-0 w-10 h-10 rounded-lg ${getTipoColor(programa.tipo)} flex items-center justify-center mr-3`}>
