@@ -134,7 +134,7 @@ export default function GestionCultivos() {
     const manejarCrear = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Limpiar errores de validación anteriores
+        // Limpiar errores anteriores
         setErroresValidacion({});
         setError(null);
 
@@ -161,38 +161,22 @@ export default function GestionCultivos() {
             resetFormulario();
 
         } catch (error: any) {
-            console.error('❌ Error completo:', error);
+            console.error('❌ Error:', error);
             
-            // Procesar errores de validación
-            if (error.detail && Array.isArray(error.detail)) {
-                const errores: Record<string, string> = {};
+            // Si tiene errores de validación estructurados
+            if (error.erroresValidacion) {
+                console.log('📌 Errores de validación:', error.erroresValidacion);
+                setErroresValidacion(error.erroresValidacion);
                 
-                error.detail.forEach((err: any) => {
-                    // El campo está en err.loc, ej: ['body', 'descripcion']
-                    // Tomamos el último elemento del array loc
-                    const campo = err.loc && err.loc.length > 1 ? err.loc[err.loc.length - 1] : 'general';
-                    errores[campo] = err.msg;
-                    console.log(`📌 Campo ${campo}: ${err.msg}`);
-                });
-                
-                setErroresValidacion(errores);
-                
-                // Mostrar mensaje más específico
-                const primerError = error.detail[0];
-                toast.error(primerError.msg, {
-                    duration: 5000,
-                    position: 'top-right'
-                });
-            } 
-            else if (error.validationErrors) {
-                const errores: Record<string, string> = {};
-                error.validationErrors.forEach((err: any) => {
-                    errores[err.field] = err.message;
-                });
-                setErroresValidacion(errores);
-                toast.error('Por favor corrige los errores en el formulario');
-            }
-            else {
+                // Mostrar el primer error como toast
+                const primerCampo = Object.keys(error.erroresValidacion)[0];
+                if (primerCampo) {
+                    toast.error(error.erroresValidacion[primerCampo], {
+                        duration: 5000,
+                        position: 'top-right'
+                    });
+                }
+            } else {
                 // Error general
                 setError(error.message || 'Error al guardar el cultivo');
                 toast.error(error.message || 'Error al guardar el cultivo');

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Modal from '../Common/Modal';
 import type { CultivoFormData } from '../../types/cultivoTypes';
 
@@ -23,6 +23,13 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
     granjas,
     erroresValidacion = {}
 }) => {
+    // Log para ver qué errores llegan
+    useEffect(() => {
+        if (Object.keys(erroresValidacion).length > 0) {
+            console.log('📌 Errores en formulario:', erroresValidacion);
+        }
+    }, [erroresValidacion]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
 
@@ -42,6 +49,11 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
         { value: 'inactivo', label: 'Inactivo' }
     ];
 
+    // Función para obtener el mensaje de error de un campo
+    const getError = (campo: string) => {
+        return erroresValidacion[campo] || '';
+    };
+
     return (
         <Modal
             isOpen={isOpen}
@@ -60,11 +72,15 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
                         <p className="font-bold mb-2">Por favor corrige los siguientes errores:</p>
                         <ul className="list-disc pl-5 text-sm">
-                            {Object.entries(erroresValidacion).map(([campo, mensaje]) => (
-                                <li key={campo}>
-                                    <span className="font-medium capitalize">{campo}:</span> {mensaje}
-                                </li>
-                            ))}
+                            {Object.entries(erroresValidacion).map(([campo, mensaje]) => {
+                                // Limpiar el mensaje para mostrarlo más amigable
+                                const mensajeLimpio = mensaje.replace('Value error, ', '');
+                                return (
+                                    <li key={campo}>
+                                        <span className="font-medium capitalize">{campo}:</span> {mensajeLimpio}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </div>
                 )}
@@ -82,13 +98,13 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                 value={datosFormulario.nombre}
                                 onChange={handleChange}
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                                    erroresValidacion.nombre ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    getError('nombre') ? 'border-red-500 bg-red-50' : 'border-gray-300'
                                 }`}
                                 required
                                 placeholder="Ej: Café Caturra, Ganado Lechero Holstein"
                             />
-                            {erroresValidacion.nombre && (
-                                <p className="text-red-500 text-xs mt-1">{erroresValidacion.nombre}</p>
+                            {getError('nombre') && (
+                                <p className="text-red-500 text-xs mt-1">{getError('nombre').replace('Value error, ', '')}</p>
                             )}
                         </div>
 
@@ -102,7 +118,7 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                 value={datosFormulario.tipo}
                                 onChange={handleChange}
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                                    erroresValidacion.tipo ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    getError('tipo') ? 'border-red-500 bg-red-50' : 'border-gray-300'
                                 }`}
                                 required
                             >
@@ -113,8 +129,8 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                     </option>
                                 ))}
                             </select>
-                            {erroresValidacion.tipo && (
-                                <p className="text-red-500 text-xs mt-1">{erroresValidacion.tipo}</p>
+                            {getError('tipo') && (
+                                <p className="text-red-500 text-xs mt-1">{getError('tipo').replace('Value error, ', '')}</p>
                             )}
                         </div>
 
@@ -128,7 +144,7 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                 value={datosFormulario.estado}
                                 onChange={handleChange}
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                                    erroresValidacion.estado ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    getError('estado') ? 'border-red-500 bg-red-50' : 'border-gray-300'
                                 }`}
                                 required
                             >
@@ -138,8 +154,8 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                     </option>
                                 ))}
                             </select>
-                            {erroresValidacion.estado && (
-                                <p className="text-red-500 text-xs mt-1">{erroresValidacion.estado}</p>
+                            {getError('estado') && (
+                                <p className="text-red-500 text-xs mt-1">{getError('estado').replace('Value error, ', '')}</p>
                             )}
                         </div>
 
@@ -153,7 +169,7 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                 value={datosFormulario.granja_id || ''}
                                 onChange={handleChange}
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                                    erroresValidacion.granja_id ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    getError('granja_id') ? 'border-red-500 bg-red-50' : 'border-gray-300'
                                 }`}
                                 required
                             >
@@ -164,8 +180,8 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                     </option>
                                 ))}
                             </select>
-                            {erroresValidacion.granja_id && (
-                                <p className="text-red-500 text-xs mt-1">{erroresValidacion.granja_id}</p>
+                            {getError('granja_id') && (
+                                <p className="text-red-500 text-xs mt-1">{getError('granja_id').replace('Value error, ', '')}</p>
                             )}
                         </div>
 
@@ -179,13 +195,13 @@ const CultivoForm: React.FC<CultivoFormProps> = ({
                                 value={datosFormulario.descripcion}
                                 onChange={handleChange}
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                                    erroresValidacion.descripcion ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                                    getError('descripcion') ? 'border-red-500 bg-red-50' : 'border-gray-300'
                                 }`}
                                 rows={3}
                                 placeholder="Descripción del cultivo o especie (mínimo 10 caracteres)..."
                             />
-                            {erroresValidacion.descripcion && (
-                                <p className="text-red-500 text-xs mt-1">{erroresValidacion.descripcion}</p>
+                            {getError('descripcion') && (
+                                <p className="text-red-500 text-xs mt-1">{getError('descripcion').replace('Value error, ', '')}</p>
                             )}
                         </div>
                     </div>

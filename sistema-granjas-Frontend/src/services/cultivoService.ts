@@ -22,18 +22,19 @@ const handleResponse = async (response: Response) => {
     
     // FastAPI devuelve errores de validación con este formato
     if (errorData.detail && Array.isArray(errorData.detail)) {
-      // Errores de validación de Pydantic
-      const validationErrors = errorData.detail.map((err: any) => {
+      // Creamos un objeto con los errores por campo
+      const erroresPorCampo: Record<string, string> = {};
+      
+      errorData.detail.forEach((err: any) => {
         // El campo está en err.loc, ej: ['body', 'descripcion']
-        // Tomamos el último elemento del array loc
-        const field = err.loc && err.loc.length > 1 ? err.loc[err.loc.length - 1] : 'general';
-        return { field, message: err.msg };
+        const campo = err.loc && err.loc.length > 1 ? err.loc[err.loc.length - 1] : 'general';
+        erroresPorCampo[campo] = err.msg;
       });
       
-      // Creamos un error con propiedad detail para poder procesarlo después
-      const error = new Error(validationErrors.map(e => `${e.field}: ${e.message}`).join('\n'));
-      (error as any).detail = errorData.detail;
-      (error as any).validationErrors = validationErrors;
+      // Creamos un error con la información estructurada
+      const error = new Error('Error de validación');
+      (error as any).erroresValidacion = erroresPorCampo;
+      (error as any).status = response.status;
       throw error;
     }
     
@@ -120,7 +121,8 @@ export const cultivoService = {
     });
 
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Error ${response.status}: ${response.statusText}`);
     }
   },
 
