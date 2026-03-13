@@ -167,3 +167,4 @@ class ProgramaWithRelations(ProgramaResponse):
                     raise ValueError('Granja sin ID en la respuesta')
         
         return self
+    
