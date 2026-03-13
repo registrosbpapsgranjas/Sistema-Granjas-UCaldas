@@ -123,11 +123,7 @@ export default function GestionProgramas() {
         await programaService.actualizarPrograma(programaSeleccionado.id, datosFormulario);
         toast.success("Programa actualizado correctamente");
       } else {
-        const nuevoPrograma = await programaService.crearPrograma(datosFormulario);
-
-        if (granjaId && nuevoPrograma) {
-          await programaService.asignarGranja(nuevoPrograma.id, Number(granjaId));
-        }
+        await programaService.crearPrograma(datosFormulario);
         toast.success("Programa creado correctamente");
       }
 
