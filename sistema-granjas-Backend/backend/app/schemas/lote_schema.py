@@ -70,16 +70,17 @@ class LoteBase(BaseModel):
     
     @field_validator('estado')
     def validar_estado(cls, v):
-        estados_permitidos = ['activo', 'inactivo']
-        
-        if v.lower() not in estados_permitidos:
-            raise ValueError(f'Estado no válido. Estados permitidos: {", ".join(estados_permitidos)}')
-        
-        return v.lower()
+        if v is not None:
+            estados_permitidos = ['activo', 'inactivo']
+            v_lower = v.lower()
+            if v_lower not in estados_permitidos:
+                raise ValueError(f'Estado no válido. Estados permitidos: {", ".join(estados_permitidos)}')
+            return v_lower
+        return v
 
     @model_validator(mode='after')
-    def validar_fechas_coherentes(cls, values):
-        fecha_inicio = values.fecha_inicio
+    def validar_fechas_coherentes(self):
+        fecha_inicio = self.fecha_inicio
         
         # Validar que la fecha de inicio no sea en el futuro muy lejano
         if fecha_inicio:
@@ -87,18 +88,19 @@ class LoteBase(BaseModel):
             if fecha_inicio > dt.now().replace(year=dt.now().year + 5):
                 raise ValueError('La fecha de inicio no puede ser más de 5 años en el futuro')
         
-        return values
+        return self
 
     @model_validator(mode='after')
-    def validar_cultivo_consistente(cls, values):
-        cultivo_id = values.cultivo_id
-        nombre_cultivo = values.nombre_cultivo
+    def validar_cultivo_consistente(self):
+        cultivo_id = self.cultivo_id
+        nombre_cultivo = self.nombre_cultivo
         
         # Si se proporciona cultivo_id, también debería tener nombre_cultivo
         if cultivo_id and not nombre_cultivo:
             raise ValueError('Si especifica cultivo_id, debe proporcionar nombre_cultivo')
         
-        return values
+        return self
+
 class LoteCreate(LoteBase):
     pass
 
@@ -121,34 +123,89 @@ class LoteUpdate(BaseModel):
             if len(v) > 100:
                 raise ValueError('El nombre del lote no puede tener más de 100 caracteres')
             
-            # CORREGIDO: Añadí paréntesis y puntos a los caracteres permitidos para mantener consistencia con LoteBase
             if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\_0-9.,()]+$', v):
                 raise ValueError('El nombre del lote contiene caracteres no permitidos')
             
+        return v
+
+    @field_validator('tipo_lote_id')
+    def validar_tipo_lote_id_update(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('El tipo_lote_id debe ser un número positivo')
+        return v
+
+    @field_validator('granja_id')
+    def validar_granja_id_update(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('La granja_id debe ser un número positivo')
+        return v
+
+    @field_validator('programa_id')
+    def validar_programa_id_update(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('El programa_id debe ser un número positivo')
+        return v
+
+    @field_validator('cultivo_id')
+    def validar_cultivo_id_update(cls, v):
+        if v is not None and v < 1:
+            raise ValueError('El cultivo_id debe ser un número positivo')
+        return v
+
+    @field_validator('nombre_cultivo')
+    def validar_nombre_cultivo_update(cls, v):
+        if v is not None:
+            if len(v.strip()) < 2:
+                raise ValueError('El nombre del cultivo debe tener al menos 2 caracteres')
+            
+            if len(v) > 150:
+                raise ValueError('El nombre del cultivo no puede tener más de 150 caracteres')
+            
+            if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.0-9]+$', v):
+                raise ValueError('El nombre del cultivo contiene caracteres no permitidos')
+        
         return v
 
     @field_validator('estado')
     def validar_estado_update(cls, v):
         if v is not None:
             estados_permitidos = ['activo', 'inactivo']
-            
-            if v.lower() not in estados_permitidos:
+            v_lower = v.lower()
+            if v_lower not in estados_permitidos:
                 raise ValueError(f'Estado no válido. Estados permitidos: {", ".join(estados_permitidos)}')
-        
+            return v_lower
         return v
 
     @model_validator(mode='after')
-    def validar_al_menos_un_campo(cls, values):
+    def validar_al_menos_un_campo(self):
+        """Validar que se envíe al menos un campo para actualizar"""
         campos = [
-            values.nombre, values.tipo_lote_id, values.granja_id, values.nombre_granja,
-            values.programa_id, values.cultivo_id, values.nombre_cultivo,
-            values.fecha_inicio, values.estado
+            'nombre', 'tipo_lote_id', 'granja_id', 'programa_id', 
+            'cultivo_id', 'nombre_cultivo', 'fecha_inicio', 'estado'
         ]
         
-        if all(campo is None for campo in campos):
+        tiene_campo = False
+        for campo in campos:
+            if getattr(self, campo, None) is not None:
+                tiene_campo = True
+                break
+        
+        if not tiene_campo:
             raise ValueError('Debe proporcionar al menos un campo para actualizar')
         
-        return values
+        return self
+
+    @model_validator(mode='after')
+    def validar_cultivo_consistente_update(self):
+        cultivo_id = self.cultivo_id
+        nombre_cultivo = self.nombre_cultivo
+        
+        # Si se actualiza cultivo_id sin nombre_cultivo
+        if cultivo_id is not None and nombre_cultivo is None:
+            # Esta validación se hará mejor en el servicio/endpoint
+            pass
+        
+        return self
 
 class LoteResponse(LoteBase):
     id: int
@@ -157,12 +214,37 @@ class LoteResponse(LoteBase):
     
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
-# Nota: Estos imports deben estar disponibles cuando se usen estas clases
-# from app.schemas.cultivo_schema import CultivoEspecieResponse
-# from app.schemas.tipo_lote_schema import TipoLoteResponse
-# from app.schemas.granja_schema import GranjaResponse
-# from app.schemas.programa_schema import ProgramaResponse
+# Definiciones adelantadas para las referencias circulares
+class CultivoEspecieResponse(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    class Config:
+        from_attributes = True
+
+class TipoLoteResponse(BaseModel):
+    id: int
+    nombre: str
+    class Config:
+        from_attributes = True
+
+class GranjaResponse(BaseModel):
+    id: int
+    nombre: str
+    ubicacion: str
+    class Config:
+        from_attributes = True
+
+class ProgramaResponse(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    class Config:
+        from_attributes = True
 
 class LoteWithRelations(LoteResponse):
     cultivo: Optional['CultivoEspecieResponse'] = None
