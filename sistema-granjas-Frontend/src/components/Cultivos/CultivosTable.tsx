@@ -109,9 +109,6 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                 Granja
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Duración
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Acciones
                             </th>
                         </tr>
@@ -141,9 +138,6 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {granjasMap[cultivo.granja_id] || cultivo.granja_nombre || `Granja ${cultivo.granja_id}`}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {cultivo.duracion_dias ? `${cultivo.duracion_dias} días` : '-'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex space-x-2">
