@@ -27,6 +27,7 @@ export default function GestionProgramas() {
   const [granjaActual, setGranjaActual] = useState<Granja | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [erroresValidacion, setErroresValidacion] = useState<Record<string, string>>({});
 
   // Modales
   const [modalCrear, setModalCrear] = useState(false);
@@ -66,6 +67,7 @@ export default function GestionProgramas() {
       try {
         setCargando(true);
         setError(null);
+        setErroresValidacion({});
 
         console.log("🆔 granjaId desde URL:", granjaId);
 
@@ -113,6 +115,8 @@ export default function GestionProgramas() {
 
   const manejarCrear = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErroresValidacion({});
+    
     try {
       setError(null);
       if (editando && programaSeleccionado) {
@@ -132,7 +136,15 @@ export default function GestionProgramas() {
       
       cerrarModalCrear();
     } catch (error: any) {
-      setError(error.message || "Error al guardar el programa");
+      console.error("❌ Error al guardar programa:", error);
+      
+      if (error.erroresValidacion) {
+        setErroresValidacion(error.erroresValidacion);
+        const primerError = Object.values(error.erroresValidacion)[0];
+        setError(primerError);
+      } else {
+        setError(error.message || "Error al guardar el programa");
+      }
     }
   };
 
@@ -147,6 +159,7 @@ export default function GestionProgramas() {
       granjas_ids: []
     });
     setProgramaSeleccionado(null);
+    setErroresValidacion({});
   };
 
   const abrirEditar = (programa: Programa) => {
@@ -161,6 +174,7 @@ export default function GestionProgramas() {
     setProgramaSeleccionado(programa);
     setEditando(true);
     setModalCrear(true);
+    setErroresValidacion({});
   };
 
   const abrirDetalles = async (programa: Programa) => {
@@ -397,6 +411,7 @@ export default function GestionProgramas() {
         onSubmit={manejarCrear}
         editando={editando}
         tiposPrograma={tiposPrograma}
+        erroresValidacion={erroresValidacion}
       />
 
       <DetallesPrograma

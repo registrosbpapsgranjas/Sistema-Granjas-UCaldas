@@ -17,6 +17,20 @@ const getHeaders = (): HeadersInit => {
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    
+    // Si es error de validación de FastAPI
+    if (errorData.detail && Array.isArray(errorData.detail)) {
+      const erroresPorCampo: Record<string, string> = {};
+      errorData.detail.forEach((err: any) => {
+        const campo = err.loc && err.loc.length > 1 ? err.loc[err.loc.length - 1] : 'general';
+        erroresPorCampo[campo] = err.msg;
+      });
+      
+      const error = new Error('Error de validación');
+      (error as any).erroresValidacion = erroresPorCampo;
+      throw error;
+    }
+    
     throw new Error(
       errorData.detail || errorData.message || `Error ${response.status}: ${response.statusText}`
     );
@@ -62,7 +76,10 @@ export const programaService = {
       method: 'DELETE',
       headers: getHeaders()
     });
-    if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Error ${response.status}`);
+    }
   },
 
   // Usuarios
@@ -72,7 +89,10 @@ export const programaService = {
       headers: getHeaders(),
       body: JSON.stringify({ usuario_id: usuarioId })
     });
-    if (!response.ok) throw new Error('Error al asignar usuario');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Error al asignar usuario');
+    }
   },
 
   async obtenerUsuariosPorPrograma(programaId: number): Promise<Usuario[]> {
@@ -87,7 +107,10 @@ export const programaService = {
       method: 'DELETE',
       headers: getHeaders()
     });
-    if (!response.ok) throw new Error('Error al remover usuario');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Error al remover usuario');
+    }
   },
 
   // Granjas
@@ -97,7 +120,10 @@ export const programaService = {
       headers: getHeaders(),
       body: JSON.stringify({ granja_id: granjaId })
     });
-    if (!response.ok) throw new Error('Error al asignar granja');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Error al asignar granja');
+    }
   },
 
   async obtenerGranjasPorPrograma(programaId: number): Promise<Granja[]> {
@@ -203,7 +229,18 @@ export const programaService = {
       method: 'DELETE',
       headers: getHeaders()
     });
-    if (!response.ok) throw new Error('Error al remover granja');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Error al remover granja');
+    }
+  },
+
+  // Obtener programas por granja (endpoint básico)
+  async obtenerProgramasPorGranja(granjaId: number): Promise<Programa[]> {
+    const response = await fetch(`${API_BASE_URL}/programas/granja/${granjaId}`, {
+      headers: getHeaders()
+    });
+    return handleResponse(response);
   }
 };
 

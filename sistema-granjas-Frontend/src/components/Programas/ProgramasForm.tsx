@@ -22,6 +22,7 @@ interface ProgramaFormProps {
     onSubmit: (e: React.FormEvent) => void;
     editando: boolean;
     tiposPrograma: TipoPrograma[];
+    erroresValidacion?: Record<string, string>;
 }
 
 export const ProgramaForm: React.FC<ProgramaFormProps> = ({
@@ -34,7 +35,8 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
     tiposPrograma = [
         { value: "agricola", label: "Agrícola", icon: "fas fa-seedling" },
         { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" }
-    ]
+    ],
+    erroresValidacion = {}
 }) => {
     const [granjas, setGranjas] = useState<any[]>([]);
     const [cargandoGranjas, setCargandoGranjas] = useState(false);
@@ -57,11 +59,24 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
         setDatosFormulario({ ...datosFormulario, granjas_ids: newIds });
     };
 
+    const getError = (campo: string) => erroresValidacion[campo] || '';
+
     return (
         <Modal isOpen={isOpen} onClose={onClose}>
             <h3 className="text-xl font-bold mb-4">
                 {editando ? "Editar Programa" : "Nuevo Programa"}
             </h3>
+
+            {Object.keys(erroresValidacion).length > 0 && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                    <p className="font-bold mb-2">Por favor corrige los siguientes errores:</p>
+                    <ul className="list-disc pl-5 text-sm">
+                        {Object.entries(erroresValidacion).map(([campo, msg]) => (
+                            <li key={campo}>{msg.replace('Value error, ', '')}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             <form onSubmit={onSubmit} className="space-y-4">
                 <div>
@@ -75,9 +90,14 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                         onChange={(e) =>
                             setDatosFormulario({ ...datosFormulario, nombre: e.target.value })
                         }
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            getError('nombre') ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                         placeholder="Ingrese el nombre del programa"
                     />
+                    {getError('nombre') && (
+                        <p className="text-red-500 text-sm mt-1">{getError('nombre').replace('Value error, ', '')}</p>
+                    )}
                 </div>
 
                 <div>
@@ -96,6 +116,8 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                                     datosFormulario.tipo === tipo.value
                                         ? "border-blue-500 bg-blue-50"
                                         : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                                } ${
+                                    getError('tipo') ? 'border-red-500' : ''
                                 }`}
                             >
                                 <i className={`${tipo.icon} text-lg mb-1 ${
@@ -105,6 +127,9 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                             </button>
                         ))}
                     </div>
+                    {getError('tipo') && (
+                        <p className="text-red-500 text-sm mt-1">{getError('tipo').replace('Value error, ', '')}</p>
+                    )}
                 </div>
 
                 <div>
@@ -116,10 +141,15 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                         onChange={(e) =>
                             setDatosFormulario({ ...datosFormulario, descripcion: e.target.value })
                         }
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Descripción del programa (opcional)"
+                        className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            getError('descripcion') ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
+                        placeholder="Descripción del programa (mínimo 10 caracteres)"
                         rows={3}
                     />
+                    {getError('descripcion') && (
+                        <p className="text-red-500 text-sm mt-1">{getError('descripcion').replace('Value error, ', '')}</p>
+                    )}
                 </div>
 
                 <div>
