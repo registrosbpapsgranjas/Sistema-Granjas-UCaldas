@@ -47,10 +47,6 @@ class GranjaBase(BaseModel):
         if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.\,0-9]+$', v):
             raise ValueError('La ubicación contiene caracteres no permitidos')
         
-        # Validar que tenga al menos una coma (separador ciudad/departamento)
-        if ',' not in v:
-            raise ValueError('La ubicación debe incluir ciudad y departamento separados por coma (ej: "Manizales, Caldas")')
-        
         partes = v.split(',')
         if len(partes) != 2:
             raise ValueError('Formato de ubicación inválido. Use: "Ciudad, Departamento"')
