@@ -134,7 +134,7 @@ export default function GestionProgramas() {
         : await programaService.obtenerProgramasConGranjas();
       setProgramas(programasActualizados);
       
-      // 👇 CERRAR MODAL DESPUÉS DE CREAR EXITOSAMENTE
+      // 👇 ESTO CIERRA EL MODAL DESPUÉS DE CREAR EXITOSAMENTE
       cerrarModalCrear();
       
     } catch (error: any) {
