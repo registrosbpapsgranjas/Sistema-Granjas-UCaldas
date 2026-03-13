@@ -2,35 +2,45 @@ import type { Granja, Usuario, Programa } from '../types/granjaTypes';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-// Función para obtener headers con token
 const getHeaders = (): HeadersInit => {
   const token = localStorage.getItem('token');
+
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   };
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+
   return headers;
 };
 
-// Función para manejar errores de respuesta
 const handleResponse = async (response: Response) => {
+  const data = await response.json().catch(() => null);
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.message || `Error ${response.status}: ${response.statusText}`
-    );
+    if (data?.detail) {
+      if (Array.isArray(data.detail)) {
+        const mensaje = data.detail.map((e: any) => e.msg).join(', ');
+        throw new Error(mensaje);
+      }
+
+      throw new Error(data.detail);
+    }
+
+    throw new Error(data?.message || `Error ${response.status}`);
   }
-  return response.json();
+
+  return data;
 };
 
 export const granjaService = {
-  // ========== OPERACIONES CRUD BÁSICAS ==========
   async obtenerGranjas(): Promise<Granja[]> {
     const response = await fetch(`${API_BASE_URL}/granjas`, {
       headers: getHeaders()
     });
+
     return handleResponse(response);
   },
 
@@ -38,24 +48,27 @@ export const granjaService = {
     const response = await fetch(`${API_BASE_URL}/granjas/${id}`, {
       headers: getHeaders()
     });
+
     return handleResponse(response);
   },
 
-  async crearGranja(datosGranja: Omit<Granja, 'id' | 'fecha_creacion'>): Promise<Granja> {
+  async crearGranja(datos: Omit<Granja, 'id' | 'fecha_creacion'>): Promise<Granja> {
     const response = await fetch(`${API_BASE_URL}/granjas`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(datosGranja)
+      body: JSON.stringify(datos)
     });
+
     return handleResponse(response);
   },
 
-  async actualizarGranja(id: number, datosGranja: Partial<Granja>): Promise<Granja> {
+  async actualizarGranja(id: number, datos: Partial<Granja>): Promise<Granja> {
     const response = await fetch(`${API_BASE_URL}/granjas/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify(datosGranja)
+      body: JSON.stringify(datos)
     });
+
     return handleResponse(response);
   },
 
@@ -64,16 +77,17 @@ export const granjaService = {
       method: 'DELETE',
       headers: getHeaders()
     });
+
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+      throw new Error(`Error ${response.status}`);
     }
   },
 
-  // ========== GESTIÓN DE USUARIOS ==========
   async obtenerUsuarios(): Promise<Usuario[]> {
     const response = await fetch(`${API_BASE_URL}/usuarios`, {
       headers: getHeaders()
     });
+
     return handleResponse(response);
   },
 
@@ -81,6 +95,7 @@ export const granjaService = {
     const response = await fetch(`${API_BASE_URL}/granjas/${granjaId}/usuarios`, {
       headers: getHeaders()
     });
+
     return handleResponse(response);
   },
 
@@ -90,28 +105,29 @@ export const granjaService = {
       headers: getHeaders(),
       body: JSON.stringify({ usuario_id: usuarioId })
     });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Error al asignar usuario');
-    }
+
+    await handleResponse(response);
   },
 
   async removerUsuario(granjaId: number, usuarioId: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/granjas/${granjaId}/usuarios/${usuarioId}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/granjas/${granjaId}/usuarios/${usuarioId}`,
+      {
+        method: 'DELETE',
+        headers: getHeaders()
+      }
+    );
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Error al remover usuario');
+      throw new Error('Error al remover usuario');
     }
   },
 
-  // ========== GESTIÓN DE PROGRAMAS ==========
   async obtenerProgramas(): Promise<Programa[]> {
     const response = await fetch(`${API_BASE_URL}/programas`, {
       headers: getHeaders()
     });
+
     return handleResponse(response);
   },
 
@@ -119,6 +135,7 @@ export const granjaService = {
     const response = await fetch(`${API_BASE_URL}/granjas/${granjaId}/programas`, {
       headers: getHeaders()
     });
+
     return handleResponse(response);
   },
 
@@ -128,20 +145,21 @@ export const granjaService = {
       headers: getHeaders(),
       body: JSON.stringify({ programa_id: programaId })
     });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Error al asignar programa');
-    }
+
+    await handleResponse(response);
   },
 
   async removerPrograma(granjaId: number, programaId: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/granjas/${granjaId}/programas/${programaId}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/granjas/${granjaId}/programas/${programaId}`,
+      {
+        method: 'DELETE',
+        headers: getHeaders()
+      }
+    );
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Error al remover programa');
+      throw new Error('Error al remover programa');
     }
   }
 };
