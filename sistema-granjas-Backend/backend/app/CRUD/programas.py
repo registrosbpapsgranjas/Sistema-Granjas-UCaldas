@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
 from app.db.models import Programa, Usuario, Granja
 from app.schemas.programa_schema import ProgramaCreate, ProgramaUpdate
@@ -15,8 +15,25 @@ def get_programa(db: Session, programa_id: int):
     """Obtener un programa por su ID"""
     return db.query(Programa).filter(Programa.id == programa_id).first()
 
+def get_programa_con_relaciones(db: Session, programa_id: int):
+    """Obtener un programa con sus relaciones (usuarios y granjas)"""
+    programa = db.query(Programa).options(
+        joinedload(Programa.usuarios),
+        joinedload(Programa.granjas)
+    ).filter(Programa.id == programa_id).first()
+    
+    if not programa:
+        raise HTTPException(status_code=404, detail="Programa no encontrado")
+    
+    return programa
+
 def create_programa(db: Session, data: ProgramaCreate):
     """Crear un nuevo programa"""
+    # Validar que el tipo sea correcto
+    tipos_permitidos = ['agricola', 'pecuario', 'prueba']
+    if data.tipo not in tipos_permitidos:
+        raise HTTPException(status_code=400, detail=f"Tipo no válido. Permitidos: {tipos_permitidos}")
+    
     programa = Programa(
         nombre=data.nombre,
         descripcion=data.descripcion,
@@ -46,12 +63,21 @@ def update_programa(db: Session, programa: Programa, data: ProgramaUpdate):
         if field != 'granjas_ids':
             setattr(programa, field, value)
 
+    # Validar tipo si se está actualizando
+    if 'tipo' in update_data and data.tipo:
+        tipos_permitidos = ['agricola', 'pecuario', 'prueba']
+        if data.tipo not in tipos_permitidos:
+            raise HTTPException(status_code=400, detail=f"Tipo no válido. Permitidos: {tipos_permitidos}")
+
     if 'granjas_ids' in update_data and data.granjas_ids is not None:
-        granjas = db.query(Granja).filter(Granja.id.in_(data.granjas_ids)).all()
-        if len(granjas) != len(data.granjas_ids):
-            db.rollback()
-            raise HTTPException(status_code=400, detail="Algunas granjas no existen")
-        programa.granjas = granjas
+        if data.granjas_ids:  # Si hay IDs, validar que existan
+            granjas = db.query(Granja).filter(Granja.id.in_(data.granjas_ids)).all()
+            if len(granjas) != len(data.granjas_ids):
+                db.rollback()
+                raise HTTPException(status_code=400, detail="Algunas granjas no existen")
+            programa.granjas = granjas
+        else:  # Si es lista vacía, remover todas las asignaciones
+            programa.granjas = []
 
     db.commit()
     db.refresh(programa)
@@ -61,7 +87,7 @@ def delete_programa(db: Session, programa: Programa):
     """Eliminar (desactivar) un programa"""
     programa.activo = False
     db.commit()
-    return {"message": "Programa eliminado correctamente"}
+    return {"message": "Programa desactivado correctamente"}
 
 # === ASIGNACIÓN DE USUARIOS ===
 def asignar_usuario_programa(db: Session, programa_id: int, usuario_id: int):
@@ -85,7 +111,7 @@ def asignar_usuario_programa(db: Session, programa_id: int, usuario_id: int):
     
     programa.usuarios.append(usuario)
     db.commit()
-    return {"message": "Usuario asignado correctamente", "usuario_id": usuario_id, "programa_id": programa_id}
+    return {"message": "Usuario asignado correctamente"}
 
 def desasignar_usuario_programa(db: Session, programa_id: int, usuario_id: int):
     """Desasignar un usuario de un programa"""
@@ -110,7 +136,6 @@ def listar_usuarios_programa(db: Session, programa_id: int):
     if not programa:
         raise HTTPException(status_code=404, detail="Programa no encontrado")
     
-    # Devolver los objetos directamente - SQLAlchemy los convertirá automáticamente
     return programa.usuarios
 
 # === ASIGNACIÓN DE GRANJAS ===
@@ -135,7 +160,7 @@ def asignar_granja_programa(db: Session, programa_id: int, granja_id: int):
     
     programa.granjas.append(granja)
     db.commit()
-    return {"message": "Granja asignada correctamente", "granja_id": granja_id, "programa_id": programa_id}
+    return {"message": "Granja asignada correctamente"}
 
 def desasignar_granja_programa(db: Session, programa_id: int, granja_id: int):
     """Desasignar una granja de un programa"""
@@ -160,10 +185,9 @@ def listar_granjas_programa(db: Session, programa_id: int):
     if not programa:
         raise HTTPException(status_code=404, detail="Programa no encontrado")
     
-    # Devolver los objetos directamente - SQLAlchemy los convertirá automáticamente
     return programa.granjas
 
-# === NUEVAS FUNCIONES ÚTILES ===
+# === FUNCIONES DE FILTRADO ===
 def get_programas_por_granja(db: Session, granja_id: int):
     """Obtener todos los programas asignados a una granja específica"""
     return db.query(Programa).join(
@@ -173,24 +197,23 @@ def get_programas_por_granja(db: Session, granja_id: int):
         Programa.activo == True
     ).all()
 
-def get_programas_con_relaciones(db: Session, programa_id: Optional[int] = None):
-    """Obtener programas con sus usuarios y granjas"""
-    if programa_id:
-        programa = get_programa(db, programa_id)
-        if not programa:
-            raise HTTPException(status_code=404, detail="Programa no encontrado")
-        return {
-            "programa": programa,
-            "usuarios": programa.usuarios,  # Usar directamente la relación
-            "granjas": programa.granjas      # Usar directamente la relación
-        }
-    else:
-        programas = get_programas(db)
-        return [
-            {
-                "programa": p,
-                "usuarios": p.usuarios,  # Usar directamente la relación
-                "granjas": p.granjas      # Usar directamente la relación
-            }
-            for p in programas
-        ]
+def get_programas_con_granjas(db: Session, skip: int = 0, limit: int = 100):
+    """Obtener programas con sus granjas asignadas"""
+    programas = db.query(Programa).options(
+        joinedload(Programa.granjas)
+    ).filter(Programa.activo == True).offset(skip).limit(limit).all()
+    
+    return programas
+
+def get_programas_por_granja_con_granjas(db: Session, granja_id: int):
+    """Obtener programas filtrados por granja con sus granjas asignadas"""
+    programas = db.query(Programa).options(
+        joinedload(Programa.granjas)
+    ).join(
+        Programa.granjas
+    ).filter(
+        Granja.id == granja_id,
+        Programa.activo == True
+    ).all()
+    
+    return programas
