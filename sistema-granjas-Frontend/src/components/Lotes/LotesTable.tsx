@@ -120,32 +120,6 @@ const LotesTable: React.FC<LotesTableProps> = ({
         }
     };
 
-    const calcularFechaFin = (fechaInicio: string | null | undefined, cultivoId: number | null | undefined) => {
-        if (!fechaInicio || !cultivoId) return '-';
-        try {
-            const cultivo = cultivosMap[cultivoId];
-            if (!cultivo || !cultivo.duracion_dias) return '-';
-            const fecha = new Date(fechaInicio);
-            fecha.setDate(fecha.getDate() + cultivo.duracion_dias);
-            return fecha.toLocaleDateString('es-ES');
-        } catch {
-            return '-';
-        }
-    };
-
-    const calcularDiasTranscurridos = (fechaInicio: string | null | undefined) => {
-        if (!fechaInicio) return null;
-        try {
-            const inicio = new Date(fechaInicio);
-            const hoy = new Date();
-            const diffTime = Math.abs(hoy.getTime() - inicio.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays;
-        } catch {
-            return null;
-        }
-    };
-
     const obtenerTipoGestion = (cultivoId: number | null | undefined) => {
         if (!cultivoId) return '-';
         const cultivo = cultivosMap[cultivoId];
@@ -181,15 +155,10 @@ const LotesTable: React.FC<LotesTableProps> = ({
                         {lotes.map((lote) => {
                             const cultivo = cultivosMap[lote.cultivo_id];
                             const granja = granjasMap[lote.granja_id];
-                            const diasTranscurridos = calcularDiasTranscurridos(lote.fecha_inicio);
-                            
                             return (
                                 <tr key={lote.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-gray-900">{lote.nombre}</div>
-                                        {lote.tipo_lote_id && (
-                                            <div className="text-xs text-gray-500">Tipo ID: {lote.tipo_lote_id}</div>
-                                        )}
                                     </td>
 
                                     <td className="px-6 py-4 whitespace-nowrap">
