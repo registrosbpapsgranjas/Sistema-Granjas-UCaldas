@@ -23,6 +23,7 @@ interface ProgramaFormProps {
     editando: boolean;
     tiposPrograma: TipoPrograma[];
     erroresValidacion?: Record<string, string>;
+    enviando?: boolean;  // 👑 NUEVA PROP
 }
 
 export const ProgramaForm: React.FC<ProgramaFormProps> = ({
@@ -36,7 +37,8 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
         { value: "agricola", label: "Agrícola", icon: "fas fa-seedling" },
         { value: "pecuario", label: "Pecuario", icon: "fas fa-paw" }
     ],
-    erroresValidacion = {}
+    erroresValidacion = {},
+    enviando = false  // 👑 VALOR POR DEFECTO
 }) => {
     const [granjas, setGranjas] = useState<any[]>([]);
     const [cargandoGranjas, setCargandoGranjas] = useState(false);
@@ -90,9 +92,10 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                         onChange={(e) =>
                             setDatosFormulario({ ...datosFormulario, nombre: e.target.value })
                         }
+                        disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
                         className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             getError('nombre') ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
+                        } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Ingrese el nombre del programa"
                     />
                     {getError('nombre') && (
@@ -112,13 +115,14 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                                 onClick={() =>
                                     setDatosFormulario({ ...datosFormulario, tipo: tipo.value })
                                 }
+                                disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
                                 className={`flex flex-col items-center justify-center p-3 rounded-md border-2 transition-all ${
                                     datosFormulario.tipo === tipo.value
                                         ? "border-blue-500 bg-blue-50"
                                         : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
                                 } ${
                                     getError('tipo') ? 'border-red-500' : ''
-                                }`}
+                                } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
                                 <i className={`${tipo.icon} text-lg mb-1 ${
                                     datosFormulario.tipo === tipo.value ? "text-blue-600" : "text-gray-500"
@@ -141,9 +145,10 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                         onChange={(e) =>
                             setDatosFormulario({ ...datosFormulario, descripcion: e.target.value })
                         }
+                        disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
                         className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             getError('descripcion') ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                        }`}
+                        } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
                         placeholder="Descripción del programa (mínimo 10 caracteres)"
                         rows={3}
                     />
@@ -166,6 +171,7 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                                         type="checkbox"
                                         checked={(datosFormulario.granjas_ids || []).includes(granja.id)}
                                         onChange={() => handleGranjaChange(granja.id)}
+                                        disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
                                         className="rounded text-blue-600 focus:ring-blue-500"
                                     />
                                     <span className="text-sm">{granja.nombre}</span>
@@ -188,6 +194,7 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                         onChange={(e) =>
                             setDatosFormulario({ ...datosFormulario, activo: e.target.checked })
                         }
+                        disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label className="ml-2 text-sm text-gray-900">Programa activo</label>
@@ -197,15 +204,21 @@ export const ProgramaForm: React.FC<ProgramaFormProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition"
+                        disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
+                        className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition disabled:opacity-50"
                     >
                         Cancelar
                     </button>
                     <button
                         type="submit"
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                        disabled={enviando}  // 👑 DESHABILITAR MIENTRAS ENVÍA
+                        className={`px-4 py-2 rounded-md transition ${
+                            enviando 
+                                ? "bg-blue-400 cursor-not-allowed" 
+                                : "bg-blue-600 hover:bg-blue-700 text-white"
+                        }`}
                     >
-                        {editando ? "Actualizar" : "Crear"}
+                        {enviando ? "Guardando..." : (editando ? "Actualizar" : "Crear")}
                     </button>
                 </div>
             </form>
