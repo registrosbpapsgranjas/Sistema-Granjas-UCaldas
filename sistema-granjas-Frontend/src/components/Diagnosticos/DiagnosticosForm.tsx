@@ -8,27 +8,19 @@ import { ArvensesSection } from './ArvensesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
 
-// 👇 PROGRAMAS DISPONIBLES
-const PROGRAMAS = [
-    { value: 'fcc', label: 'Frutales de Clima Cálido (FCC)' },
-    { value: 'fcf', label: 'Frutales de Clima Frío (FCF)' }
-];
-
-// 👇 MAPEO DE MONITOREOS POR PROGRAMA
-const MONITOREOS_POR_PROGRAMA: Record<string, { value: string; label: string }[]> = {
-    fcc: [
-        { value: 'citricos', label: 'MONITOREO EN CÍTRICOS' },
-        { value: 'aguacate', label: 'MONITOREO EN AGUACATE' }
-    ],
-    fcf: [
-        { value: 'manzano', label: 'MONITOREO EN MANZANO' },
-        { value: 'peral', label: 'MONITOREO EN PERAL' },
-        { value: 'durazno', label: 'MONITOREO EN DURAZNO' }
-    ]
-};
-
 interface PlantaBase {
     codigo: string;
+    label: string;
+}
+
+interface Programa {
+    id: string | number;
+    value: string;
+    label: string;
+}
+
+interface Monitoreo {
+    value: string;
     label: string;
 }
 
@@ -37,6 +29,7 @@ interface DiagnosticoFormProps {
     onSubmit: (data: any) => void;
     onCancel: () => void;
     lotes: any[];
+    programas: Programa[]; // 👈 NUEVO: programas desde el padre
     docentes: any[];
     estudiantes: any[];
     tipos: string[];
@@ -44,6 +37,7 @@ interface DiagnosticoFormProps {
     condiciones_dia: string[];
     currentUser: any;
     esEdicion?: boolean;
+    monitoreosPorPrograma?: Record<string, Monitoreo[]>; // 👈 NUEVO: monitoreos por programa
 }
 
 const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
@@ -51,17 +45,19 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     onSubmit,
     onCancel,
     lotes,
+    programas = [], // 👈 Valor por defecto array vacío
     docentes,
     estudiantes,
     tipos,
     estados = ['abierto', 'en_revision', 'cerrado'],
     condiciones_dia = ['Soleado', 'Nublado', 'Lluvia'],
     currentUser,
-    esEdicion = false
+    esEdicion = false,
+    monitoreosPorPrograma = {} // 👈 Valor por defecto objeto vacío
 }) => {
     // Estados del wizard
     const [paso, setPaso] = useState(1);
-    const [programaSeleccionado, setProgramaSeleccionado] = useState<string>('');  // 👈 NUEVO
+    const [programaSeleccionado, setProgramaSeleccionado] = useState<string>('');
     const [tipoMonitoreo, setTipoMonitoreo] = useState<string>('');
     const [loteSeleccionado, setLoteSeleccionado] = useState<string>('');
     const [plantasSeleccionadas, setPlantasSeleccionadas] = useState<PlantaBase[]>([]);
@@ -90,15 +86,21 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const esEstudiante = currentUser?.rol_id === 4;
 
     // Obtener monitoreos disponibles según el programa seleccionado
-    const monitoreosDisponibles = programaSeleccionado 
-        ? MONITOREOS_POR_PROGRAMA[programaSeleccionado] || []
+    const monitoreosDisponibles = programaSeleccionado && monitoreosPorPrograma[programaSeleccionado]
+        ? monitoreosPorPrograma[programaSeleccionado]
         : [];
 
     // Si es edición, cargar en paso 2 con datos existentes
     useEffect(() => {
         if (esEdicion && diagnostico) {
             setPaso(2);
-            // Aquí podrías cargar programa y tipo de monitoreo si vinieran en el diagnóstico
+            // Si el diagnóstico tiene programa y tipo_monitoreo guardados, cargarlos
+            if (diagnostico.programa) {
+                setProgramaSeleccionado(diagnostico.programa);
+            }
+            if (diagnostico.tipo_monitoreo) {
+                setTipoMonitoreo(diagnostico.tipo_monitoreo);
+            }
         }
     }, [esEdicion, diagnostico]);
 
@@ -251,8 +253,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             lote_id: parseInt(formData.lote_id as string),
             estudiante_id: formData.estudiante_id ? parseInt(formData.estudiante_id as string) : undefined,
             docente_id: formData.docente_id ? parseInt(formData.docente_id as string) : undefined,
-            programa: programaSeleccionado,        // 👈 Guardamos el programa
-            tipo_monitoreo: tipoMonitoreo,          // 👈 Guardamos el tipo de monitoreo
+            programa: programaSeleccionado,
+            tipo_monitoreo: tipoMonitoreo,
             plantas: plantasSeleccionadas,
             caracterizacion: caracterizacion,
             evidencias: evidencias.length > 0 ? evidencias : undefined
@@ -263,7 +265,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     };
 
     // Obtener label del programa seleccionado
-    const programaLabel = PROGRAMAS.find(p => p.value === programaSeleccionado)?.label;
+    const programaLabel = programas.find(p => p.value === programaSeleccionado)?.label || programaSeleccionado;
 
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
@@ -283,30 +285,36 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
             {paso === 1 && (
                 <div className="space-y-6">
-                    {/* 1. Selección de Programa */}
+                    {/* 1. Selección de Programa (desde props) */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Programa *
                         </label>
-                        <div className="grid grid-cols-2 gap-4">
-                            {PROGRAMAS.map(programa => (
-                                <button
-                                    key={programa.value}
-                                    type="button"
-                                    onClick={() => {
-                                        setProgramaSeleccionado(programa.value);
-                                        setTipoMonitoreo(''); // Resetear tipo de monitoreo al cambiar programa
-                                    }}
-                                    className={`p-4 border-2 rounded-lg text-center transition ${
-                                        programaSeleccionado === programa.value
-                                            ? 'border-blue-600 bg-blue-50'
-                                            : 'border-gray-200 hover:border-blue-300'
-                                    }`}
-                                >
-                                    <span className="font-medium">{programa.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                        {programas.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-4">
+                                {programas.map(programa => (
+                                    <button
+                                        key={programa.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setProgramaSeleccionado(programa.value);
+                                            setTipoMonitoreo(''); // Resetear tipo de monitoreo al cambiar programa
+                                        }}
+                                        className={`p-4 border-2 rounded-lg text-center transition ${
+                                            programaSeleccionado === programa.value
+                                                ? 'border-blue-600 bg-blue-50'
+                                                : 'border-gray-200 hover:border-blue-300'
+                                        }`}
+                                    >
+                                        <span className="font-medium">{programa.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-yellow-600 bg-yellow-50 p-4 rounded-lg">
+                                No hay programas disponibles. Contacte al administrador.
+                            </p>
+                        )}
                         {programaSeleccionado && (
                             <p className="text-sm text-green-600 mt-2">
                                 Programa seleccionado: {programaLabel}
@@ -397,7 +405,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 </p>
                                 <p className="text-sm text-gray-600">
                                     <span className="font-medium">Tipo monitoreo:</span> {
-                                        monitoreosDisponibles.find(m => m.value === tipoMonitoreo)?.label
+                                        monitoreosDisponibles.find(m => m.value === tipoMonitoreo)?.label || tipoMonitoreo
                                     }
                                 </p>
                                 <p className="text-sm text-gray-600">
@@ -513,7 +521,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         plantas={plantasSeleccionadas.map(p => ({ ...p, fase: '' }))}
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
-                                        onFaseChange={(idx, fase) => { }}
                                     />
                                 )}
                                 {formData.tipo === 'artropodos' && (
@@ -534,7 +541,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     <ArvensesSection
                                         plantas={plantasSeleccionadas}
                                         caracterizacion={caracterizacion}
-                                        onCampoChange={handleCaracterizacionChange} />
+                                        onCampoChange={handleCaracterizacionChange} 
+                                    />
                                 )}
                                 {formData.tipo === 'controladores_biologicos' && (
                                     <ControladoresSection
@@ -543,11 +551,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         onCampoChange={handleCaracterizacionChange}
                                     />
                                 )}
-                                {formData.tipo == 'polinizadores' && (
+                                {formData.tipo === 'polinizadores' && (
                                     <PolinizadoresSection
                                         plantas={plantasSeleccionadas}
                                         caracterizacion={caracterizacion}
-                                        onCampoChange={handleCaracterizacionChange} />
+                                        onCampoChange={handleCaracterizacionChange} 
+                                    />
                                 )}
                             </div>
                         )}
