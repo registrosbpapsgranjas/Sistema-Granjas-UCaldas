@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, Boolean, Text, Table
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, Boolean, Text, Table, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.database import Base
 
-# Tablas pivote con PK para evitar registros duplicados
+# Tablas pivote existentes
 usuario_granja = Table(
     'usuario_granja',
     Base.metadata,
@@ -18,11 +18,29 @@ usuario_programa = Table(
     Column('programa_id', Integer, ForeignKey('programas.id'), primary_key=True)
 )
 
-# Clase que representa la tabla pivote granja_programa (definida antes de las clases que la usan)
 class GranjaPrograma(Base):
     __tablename__ = 'granja_programa'
     granja_id = Column(Integer, ForeignKey('granjas.id'), primary_key=True)
     programa_id = Column(Integer, ForeignKey('programas.id'), primary_key=True)
+
+# 👇 NUEVA TABLA PIVOTE: Lote - Cultivo (muchos a muchos)
+class LoteCultivo(Base):
+    __tablename__ = "lote_cultivos"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    lote_id = Column(Integer, ForeignKey("lotes.id", ondelete="CASCADE"), nullable=False)
+    cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id", ondelete="CASCADE"), nullable=False)
+    fecha_siembra = Column(Date, nullable=True)
+    fecha_estimada_cosecha = Column(Date, nullable=True)
+    area_sembrada = Column(Float, nullable=True)  # hectáreas o metros cuadrados
+    densidad_siembra = Column(Integer, nullable=True)  # plantas por hectárea
+    observaciones = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relaciones
+    lote = relationship("Lote", back_populates="cultivos_asignados")
+    cultivo = relationship("CultivoEspecie", back_populates="lotes_asignados")
 
 
 class Rol(Base):
@@ -78,7 +96,6 @@ class Programa(Base):
     activo = Column(Boolean, default=True)
     fecha_creacion = Column(DateTime, default=datetime.utcnow)
 
-    # Usamos secondary="granja_programa" (string) para referirnos a la tabla definida por la clase GranjaPrograma
     granjas = relationship("Granja", secondary="granja_programa", back_populates="programas")
     usuarios = relationship("Usuario", secondary=usuario_programa, back_populates="programas")
     lotes = relationship("Lote", back_populates="programa")
@@ -97,7 +114,6 @@ class Granja(Base):
     cultivos = relationship("CultivoEspecie", back_populates="granja")
     usuarios = relationship("Usuario", secondary=usuario_granja, back_populates="granjas")
     programas = relationship("Programa", secondary="granja_programa", back_populates="granjas")
-
     lotes = relationship("Lote", back_populates="granja")
 
 
@@ -118,12 +134,21 @@ class Lote(Base):
     granja_id = Column(Integer, ForeignKey("granjas.id"))
     programa_id = Column(Integer, ForeignKey("programas.id"))
 
-    nombre_cultivo = Column(String(100))
+    # 👇 ELIMINAR o dejar como opcional (por compatibilidad)
+    nombre_cultivo = Column(String(100), nullable=True)  # Se puede eliminar después de migración
+    cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id"), nullable=True)  # Se puede eliminar después
+    
     fecha_inicio = Column(DateTime)
     estado = Column(String(50), default="activo")
-    cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id"))
     
-    cultivo = relationship("CultivoEspecie", back_populates="lotes")
+    # 👇 NUEVA RELACIÓN: muchos a muchos con cultivos
+    cultivos_asignados = relationship(
+        "LoteCultivo", 
+        back_populates="lote", 
+        cascade="all, delete-orphan"
+    )
+    
+    # Relaciones existentes
     tipo_lote = relationship("TipoLote")
     granja = relationship("Granja", back_populates="lotes")
     programa = relationship("Programa", back_populates="lotes")
@@ -189,7 +214,7 @@ class Recomendacion(Base):
     id = Column(Integer, primary_key=True, index=True)
     titulo = Column(String(200), nullable=False)
     descripcion = Column(Text)
-    tipo = Column(String(100), nullable=True)  # (riego, fertilización, etc.)
+    tipo = Column(String(100), nullable=True)
     estado = Column(String(50), default="pendiente")
 
     docente_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
@@ -210,7 +235,7 @@ class Evidencia(Base):
     __tablename__ = "evidencias"
     
     id = Column(Integer, primary_key=True, index=True)
-    tipo = Column(String(50), nullable=False)  # imagen, video, documento, audio, otro
+    tipo = Column(String(50), nullable=False)
     descripcion = Column(Text, nullable=False)
     url_archivo = Column(String(500), nullable=False)
     
@@ -325,11 +350,20 @@ class CultivoEspecie(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(150), nullable=False)
-    tipo = Column(String(50), nullable=False)  # agricola / pecuario
+    tipo = Column(String(50), nullable=False)
     descripcion = Column(Text)
+    duracion_dias = Column(Integer, nullable=True)
     estado = Column(String(50), default="activo")
 
     granja_id = Column(Integer, ForeignKey("granjas.id"), nullable=False)
     granja = relationship("Granja", back_populates="cultivos")
 
-    lotes = relationship("Lote", back_populates="cultivo")
+    # 👇 NUEVA RELACIÓN: muchos a muchos con lotes
+    lotes_asignados = relationship(
+        "LoteCultivo", 
+        back_populates="cultivo",
+        cascade="all, delete-orphan"
+    )
+    
+    # 👇 Relación antigua (opcional por compatibilidad)
+    lotes = relationship("Lote", back_populates="cultivo")  # Esta se puede eliminar después
