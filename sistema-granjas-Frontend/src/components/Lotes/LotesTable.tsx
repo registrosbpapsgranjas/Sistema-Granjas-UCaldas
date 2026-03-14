@@ -170,8 +170,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
             return <span className="text-gray-400 text-sm italic">—</span>;
         }
 
-        const cultivosVisibles = cultivosLote.slice(0, 2);
-        const restantes = cultivosLote.length - 2;
+        const cultivosVisibles = cultivosLote.slice(0, 100); // Mostrar solo los primeros 100 cultivos
 
         return (
             <div className="flex flex-wrap gap-1">
@@ -186,11 +185,6 @@ const LotesTable: React.FC<LotesTableProps> = ({
                         {cultivo.nombre}
                     </span>
                 ))}
-                {restantes > 0 && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200">
-                        +{restantes} más
-                    </span>
-                )}
             </div>
         );
     };
