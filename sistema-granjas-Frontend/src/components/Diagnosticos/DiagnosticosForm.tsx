@@ -90,7 +90,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const esEstudiante = currentUser?.rol_id === 4;
 
     // Obtener monitoreos disponibles según el programa seleccionado
-    const monitoreosDisponibles = programaSeleccionado 
+    const monitoreosDisponibles = programaSeleccionado
         ? MONITOREOS_POR_PROGRAMA[programaSeleccionado] || []
         : [];
 
@@ -297,11 +297,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         setProgramaSeleccionado(programa.value);
                                         setTipoMonitoreo(''); // Resetear tipo de monitoreo al cambiar programa
                                     }}
-                                    className={`p-4 border-2 rounded-lg text-center transition ${
-                                        programaSeleccionado === programa.value
+                                    className={`p-4 border-2 rounded-lg text-center transition ${programaSeleccionado === programa.value
                                             ? 'border-blue-600 bg-blue-50'
                                             : 'border-gray-200 hover:border-blue-300'
-                                    }`}
+                                        }`}
                                 >
                                     <span className="font-medium">{programa.label}</span>
                                 </button>
@@ -327,11 +326,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                             key={monitoreo.value}
                                             type="button"
                                             onClick={() => setTipoMonitoreo(monitoreo.value)}
-                                            className={`p-4 border-2 rounded-lg text-center transition ${
-                                                tipoMonitoreo === monitoreo.value
+                                            className={`p-4 border-2 rounded-lg text-center transition ${tipoMonitoreo === monitoreo.value
                                                     ? 'border-blue-600 bg-blue-50'
                                                     : 'border-gray-200 hover:border-blue-300'
-                                            }`}
+                                                }`}
                                         >
                                             <span className="font-medium">{monitoreo.label}</span>
                                         </button>
