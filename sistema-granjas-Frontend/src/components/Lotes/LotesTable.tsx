@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import programaService from '../../services/programaService';
 import cultivoService from '../../services/cultivoService';
 import granjaService from '../../services/granjaService';
@@ -21,6 +21,11 @@ const LotesTable: React.FC<LotesTableProps> = ({
     const [cultivosPorLote, setCultivosPorLote] = useState<Record<number, any[]>>({});
     
     const [cargando, setCargando] = useState(false);
+
+    // 👇 ORDENAR LOTES POR ID (de menor a mayor)
+    const lotesOrdenados = useMemo(() => {
+        return [...lotes].sort((a, b) => a.id - b.id);
+    }, [lotes]);
 
     useEffect(() => {
         const cargarDatosRelacionados = async () => {
@@ -190,8 +195,9 @@ const LotesTable: React.FC<LotesTableProps> = ({
         );
     };
 
-    // Agregar log para depuración
-    console.log('📋 Lotes recibidos:', lotes);
+    // Logs para depuración
+    console.log('📋 Lotes recibidos (original):', lotes);
+    console.log('📋 Lotes ordenados:', lotesOrdenados);
     console.log('🎯 Cultivos por lote en render:', cultivosPorLote);
 
     return (
@@ -208,6 +214,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Granja</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cultivos</th>
@@ -219,11 +226,14 @@ const LotesTable: React.FC<LotesTableProps> = ({
                     </thead>
 
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {lotes.map((lote) => {
+                        {lotesOrdenados.map((lote) => {
                             const granja = granjasMap[lote.granja_id];
                             
                             return (
                                 <tr key={lote.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-sm font-medium text-gray-500">#{lote.id}</span>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-gray-900">{lote.nombre}</div>
                                     </td>
