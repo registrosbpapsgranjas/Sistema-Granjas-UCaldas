@@ -32,12 +32,10 @@ const LotesTable: React.FC<LotesTableProps> = ({
                 // IDs únicos
                 const programasIds = Array.from(new Set(lotes.map(l => l.programa_id).filter(Boolean)));
                 const cultivosIdsSet = new Set<number>();
-                const cultivosPorLoteMap: Record<number, any[]> = {};
                 
-                // Recolectar todos los cultivos de todos los lotes (ahora son arrays)
+                // Recolectar todos los cultivos de todos los lotes
                 lotes.forEach(lote => {
                     if (lote.cultivos_ids && Array.isArray(lote.cultivos_ids)) {
-                        cultivosPorLoteMap[lote.id] = [];
                         lote.cultivos_ids.forEach((id: number) => {
                             cultivosIdsSet.add(id);
                         });
@@ -103,18 +101,24 @@ const LotesTable: React.FC<LotesTableProps> = ({
                 granjasResp.forEach(g => granMap[g.id] = g);
 
                 // Construir mapa de cultivos por lote
+                const nuevosCultivosPorLote: Record<number, any[]> = {};
+                
                 lotes.forEach(lote => {
                     if (lote.cultivos_ids && Array.isArray(lote.cultivos_ids)) {
-                        cultivosPorLoteMap[lote.id] = lote.cultivos_ids
+                        nuevosCultivosPorLote[lote.id] = lote.cultivos_ids
                             .map((id: number) => cultMap[id])
                             .filter(Boolean);
+                    } else {
+                        nuevosCultivosPorLote[lote.id] = [];
                     }
                 });
 
                 setProgramasMap(progMap);
                 setCultivosMap(cultMap);
                 setGranjasMap(granMap);
-                setCultivosPorLote(cultivosPorLoteMap);
+                setCultivosPorLote(nuevosCultivosPorLote);
+                
+                console.log('📊 Cultivos por lote:', nuevosCultivosPorLote);
                 
             } catch (error) {
                 console.error('Error cargando datos relacionados:', error);
@@ -185,6 +189,10 @@ const LotesTable: React.FC<LotesTableProps> = ({
             </div>
         );
     };
+
+    // Agregar log para depuración
+    console.log('📋 Lotes recibidos:', lotes);
+    console.log('🎯 Cultivos por lote en render:', cultivosPorLote);
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
