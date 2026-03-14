@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from sqlalchemy import func
 
 from app.db.database import get_db
 from app.core.dependencies import require_any_role
@@ -13,16 +12,15 @@ from app.CRUD.lotes import (
 )
 from app.CRUD import lote_cultivos
 from app.schemas.lote_schema import (
-    LoteCreate, LoteUpdate, LoteResponse, LoteWithRelations,
-    LoteCultivoResponse, LoteCultivoCreate, LoteCultivoUpdate
+    LoteCreate, LoteUpdate, LoteResponse, LoteWithRelations
 )
-from app.db.models import Lote, LoteCultivo
+from app.db.models import Lote, LoteCultivo, CultivoEspecie
 
 router = APIRouter(prefix="/lotes", tags=["Lotes"])
 
-# Roles permitidos
 role_required = Depends(require_any_role(["admin", "docente", "asesor", "talento_humano", "estudiante", "trabajador"]))
 
+# 👇 ENDPOINT PRINCIPAL CORREGIDO - Incluye cultivos_ids
 @router.get("/", response_model=List[LoteResponse])
 def listar_lotes(
     skip: int = Query(0, ge=0),
@@ -34,14 +32,7 @@ def listar_lotes(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """
-    Listar todos los lotes con filtros opcionales:
-    - programa_id: Filtrar por programa específico
-    - granja_id: Filtrar por granja específica
-    - cultivo_id: Filtrar por cultivo específico
-    - estado: Filtrar por estado (activo, inactivo, etc.)
-    """
-    return get_lotes(
+    lotes = get_lotes(
         db, 
         skip=skip, 
         limit=limit, 
@@ -50,31 +41,36 @@ def listar_lotes(
         cultivo_id=cultivo_id,
         estado=estado
     )
+    
+    # Convertir para incluir cultivos_ids
+    resultado = []
+    for lote in lotes:
+        lote_dict = {
+            "id": lote.id,
+            "nombre": lote.nombre,
+            "tipo_lote_id": lote.tipo_lote_id,
+            "granja_id": lote.granja_id,
+            "programa_id": lote.programa_id,
+            "fecha_inicio": lote.fecha_inicio,
+            "estado": lote.estado,
+            "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+            "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]  # 👈 AQUÍ
+        }
+        resultado.append(lote_dict)
+    
+    return resultado
 
+# 👇 ENDPOINT INDIVIDUAL CORREGIDO - Incluye cultivos_ids
 @router.get("/{lote_id}", response_model=LoteResponse)
 def obtener_lote(
     lote_id: int, 
     db: Session = Depends(get_db), 
     _=role_required
 ):
-    """Obtener un lote por su ID"""
-    lote = get_lote(db, lote_id)
-    if not lote:
-        raise HTTPException(status_code=404, detail="Lote no encontrado")
-    return lote
-
-@router.get("/{lote_id}/detalle", response_model=LoteWithRelations)
-def obtener_lote_detalle(
-    lote_id: int,
-    db: Session = Depends(get_db),
-    _=role_required
-):
-    """Obtener un lote con todas sus relaciones (cultivos, tipo, granja, programa)"""
     lote = get_lote(db, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
     
-    # Convertir a dict y agregar relaciones
     lote_dict = {
         "id": lote.id,
         "nombre": lote.nombre,
@@ -84,21 +80,38 @@ def obtener_lote_detalle(
         "fecha_inicio": lote.fecha_inicio,
         "estado": lote.estado,
         "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
-        "cultivos_asignados": [],
+        "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]  # 👈 AQUÍ
+    }
+    
+    return lote_dict
+
+@router.get("/{lote_id}/detalle", response_model=LoteWithRelations)
+def obtener_lote_detalle(
+    lote_id: int,
+    db: Session = Depends(get_db),
+    _=role_required
+):
+    lote = get_lote(db, lote_id)
+    if not lote:
+        raise HTTPException(status_code=404, detail="Lote no encontrado")
+    
+    lote_dict = {
+        "id": lote.id,
+        "nombre": lote.nombre,
+        "tipo_lote_id": lote.tipo_lote_id,
+        "granja_id": lote.granja_id,
+        "programa_id": lote.programa_id,
+        "fecha_inicio": lote.fecha_inicio,
+        "estado": lote.estado,
+        "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+        "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados],
         "cultivos_detalle": [],
         "tipo_lote": None,
         "granja": None,
         "programa": None
     }
     
-    # 👇 CORREGIDO: Acceder a través de cultivos_asignados
     for lc in lote.cultivos_asignados:
-        # Relación LoteCultivo (tabla pivote)
-        lote_dict["cultivos_asignados"].append({
-            "lote_id": lc.lote_id,
-            "cultivo_id": lc.cultivo_id
-        })
-        
         if lc.cultivo:
             lote_dict["cultivos_detalle"].append({
                 "id": lc.cultivo.id,
@@ -106,7 +119,6 @@ def obtener_lote_detalle(
                 "tipo": lc.cultivo.tipo
             })
     
-    # Agregar relaciones simples
     if lote.tipo_lote:
         lote_dict["tipo_lote"] = {
             "id": lote.tipo_lote.id,
@@ -135,7 +147,6 @@ def crear_lote(
     db: Session = Depends(get_db), 
     _=role_required
 ):
-    """Crear un nuevo lote con sus cultivos"""
     return create_lote(db, data)
 
 @router.put("/{lote_id}", response_model=LoteResponse)
@@ -145,7 +156,6 @@ def editar_lote(
     db: Session = Depends(get_db), 
     _=role_required
 ):
-    """Actualizar un lote existente y sus cultivos"""
     lote = get_lote(db, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
@@ -157,7 +167,6 @@ def eliminar_lote(
     db: Session = Depends(get_db), 
     _=role_required
 ):
-    """Eliminar (marcar como eliminado) un lote"""
     lote = get_lote(db, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
@@ -172,13 +181,10 @@ def listar_cultivos_del_lote(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Listar todos los cultivos asignados a un lote"""
-    # Verificar que el lote existe
     lote = get_lote(db, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
     
-    # Obtener cultivos a través de la tabla pivote
     resultados = []
     for lc in lote.cultivos_asignados:
         if lc.cultivo:
@@ -197,16 +203,12 @@ def agregar_cultivos_a_lote(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Agregar múltiples cultivos a un lote"""
-    # Verificar que el lote existe
     lote = get_lote(db, lote_id)
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
     
-    # Crear relaciones
     creados = []
     for cultivo_id in cultivos_ids:
-        # Verificar si ya existe
         existente = db.query(LoteCultivo).filter(
             LoteCultivo.lote_id == lote_id,
             LoteCultivo.cultivo_id == cultivo_id
@@ -217,7 +219,6 @@ def agregar_cultivos_a_lote(
             db.add(relacion)
             db.flush()
             
-            # Obtener información del cultivo
             cultivo = db.query(CultivoEspecie).filter(CultivoEspecie.id == cultivo_id).first()
             if cultivo:
                 creados.append({
@@ -236,8 +237,6 @@ def eliminar_cultivo_de_lote(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Eliminar un cultivo específico de un lote"""
-    # Buscar la relación
     relacion = db.query(LoteCultivo).filter(
         LoteCultivo.lote_id == lote_id,
         LoteCultivo.cultivo_id == cultivo_id
@@ -261,8 +260,24 @@ def listar_lotes_por_programa(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Listar todos los lotes de un programa específico"""
-    return get_lotes_por_programa(db, programa_id, skip=skip, limit=limit)
+    lotes = get_lotes_por_programa(db, programa_id, skip=skip, limit=limit)
+    
+    resultado = []
+    for lote in lotes:
+        lote_dict = {
+            "id": lote.id,
+            "nombre": lote.nombre,
+            "tipo_lote_id": lote.tipo_lote_id,
+            "granja_id": lote.granja_id,
+            "programa_id": lote.programa_id,
+            "fecha_inicio": lote.fecha_inicio,
+            "estado": lote.estado,
+            "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+            "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]
+        }
+        resultado.append(lote_dict)
+    
+    return resultado
 
 @router.get("/por-granja/{granja_id}", response_model=List[LoteResponse])
 def listar_lotes_por_granja(
@@ -272,8 +287,24 @@ def listar_lotes_por_granja(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Listar todos los lotes de una granja específica"""
-    return get_lotes_por_granja(db, granja_id, skip=skip, limit=limit)
+    lotes = get_lotes_por_granja(db, granja_id, skip=skip, limit=limit)
+    
+    resultado = []
+    for lote in lotes:
+        lote_dict = {
+            "id": lote.id,
+            "nombre": lote.nombre,
+            "tipo_lote_id": lote.tipo_lote_id,
+            "granja_id": lote.granja_id,
+            "programa_id": lote.programa_id,
+            "fecha_inicio": lote.fecha_inicio,
+            "estado": lote.estado,
+            "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+            "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]
+        }
+        resultado.append(lote_dict)
+    
+    return resultado
 
 @router.get("/por-cultivo/{cultivo_id}", response_model=List[LoteResponse])
 def listar_lotes_por_cultivo(
@@ -283,20 +314,31 @@ def listar_lotes_por_cultivo(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Listar todos los lotes de un cultivo específico"""
-    return get_lotes_por_cultivo(db, cultivo_id, skip=skip, limit=limit)
+    lotes = get_lotes_por_cultivo(db, cultivo_id, skip=skip, limit=limit)
+    
+    resultado = []
+    for lote in lotes:
+        lote_dict = {
+            "id": lote.id,
+            "nombre": lote.nombre,
+            "tipo_lote_id": lote.tipo_lote_id,
+            "granja_id": lote.granja_id,
+            "programa_id": lote.programa_id,
+            "fecha_inicio": lote.fecha_inicio,
+            "estado": lote.estado,
+            "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+            "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]
+        }
+        resultado.append(lote_dict)
+    
+    return resultado
 
 @router.get("/conteo/por-cultivo", response_model=List[dict])
 def contar_lotes_por_cultivo(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """
-    Retorna el conteo de lotes agrupados por cultivo_id
-    Útil para mostrar en la tabla de cultivos cuántos lotes usan cada cultivo
-    """
-    from app.CRUD.lote_cultivos import contar_lotes_por_cultivo
-    return contar_lotes_por_cultivo(db)
+    return lote_cultivos.contar_lotes_por_cultivo(db)
 
 @router.get("/estado/activos", response_model=List[LoteResponse])
 def listar_lotes_activos(
@@ -305,8 +347,24 @@ def listar_lotes_activos(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Listar solo lotes activos"""
-    return get_lotes_activos(db, skip=skip, limit=limit)
+    lotes = get_lotes_activos(db, skip=skip, limit=limit)
+    
+    resultado = []
+    for lote in lotes:
+        lote_dict = {
+            "id": lote.id,
+            "nombre": lote.nombre,
+            "tipo_lote_id": lote.tipo_lote_id,
+            "granja_id": lote.granja_id,
+            "programa_id": lote.programa_id,
+            "fecha_inicio": lote.fecha_inicio,
+            "estado": lote.estado,
+            "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+            "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]
+        }
+        resultado.append(lote_dict)
+    
+    return resultado
 
 @router.get("/buscar/{nombre}", response_model=List[LoteResponse])
 def buscar_lotes(
@@ -316,13 +374,28 @@ def buscar_lotes(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Buscar lotes por nombre (búsqueda parcial)"""
-    return buscar_lotes_por_nombre(db, nombre, skip=skip, limit=limit)
+    lotes = buscar_lotes_por_nombre(db, nombre, skip=skip, limit=limit)
+    
+    resultado = []
+    for lote in lotes:
+        lote_dict = {
+            "id": lote.id,
+            "nombre": lote.nombre,
+            "tipo_lote_id": lote.tipo_lote_id,
+            "granja_id": lote.granja_id,
+            "programa_id": lote.programa_id,
+            "fecha_inicio": lote.fecha_inicio,
+            "estado": lote.estado,
+            "fecha_creacion": lote.created_at if hasattr(lote, 'created_at') else None,
+            "cultivos_ids": [lc.cultivo_id for lc in lote.cultivos_asignados]
+        }
+        resultado.append(lote_dict)
+    
+    return resultado
 
 @router.get("/estadisticas/resumen")
 def obtener_estadisticas(
     db: Session = Depends(get_db),
     _=role_required
 ):
-    """Obtener estadísticas de lotes"""
     return get_estadisticas_lotes(db)

@@ -4,7 +4,6 @@ from datetime import datetime
 import re
 
 # ===== SCHEMAS PARA LA TABLA INTERMEDIA LOTE-CULTIVO =====
-# 👇 Versión simplificada (solo IDs, sin campos adicionales)
 
 class LoteCultivoBase(BaseModel):
     lote_id: int
@@ -13,11 +12,7 @@ class LoteCultivoBase(BaseModel):
 class LoteCultivoCreate(LoteCultivoBase):
     pass
 
-# 👇 NUEVO: Schema para actualizar relación (aunque rara vez se usa)
 class LoteCultivoUpdate(BaseModel):
-    """Schema para actualizar una relación lote-cultivo.
-    Como la tabla solo tiene IDs, no hay mucho que actualizar.
-    Este schema existe principalmente por completitud."""
     lote_id: Optional[int] = None
     cultivo_id: Optional[int] = None
 
@@ -97,7 +92,7 @@ class LoteBase(BaseModel):
         return self
 
 class LoteCreate(LoteBase):
-    cultivos_ids: List[int]  # Lista de IDs de cultivos a asignar
+    cultivos_ids: List[int]
 
     @field_validator('cultivos_ids')
     def validar_cultivos_ids(cls, v):
@@ -191,11 +186,11 @@ class LoteUpdate(BaseModel):
         
         return self
 
+# 👇 RESPONSE AHORA INCLUYE cultivos_ids
 class LoteResponse(LoteBase):
     id: int
     fecha_creacion: Optional[datetime] = None
-    # 👇 RELACIÓN SIMPLIFICADA: solo IDs de cultivos
-    cultivos_ids: List[int] = []
+    cultivos_ids: List[int] = []  # IDs de cultivos asignados
     
     class Config:
         from_attributes = True
@@ -236,7 +231,6 @@ class ProgramaSimpleResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# 👇 LoteWithRelations con datos completos (versión simplificada)
 class LoteWithRelations(LoteResponse):
     tipo_lote: Optional[TipoLoteSimpleResponse] = None
     granja: Optional[GranjaSimpleResponse] = None

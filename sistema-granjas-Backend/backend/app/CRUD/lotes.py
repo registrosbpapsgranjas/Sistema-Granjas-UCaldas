@@ -29,7 +29,6 @@ def get_lotes(
         query = query.filter(Lote.granja_id == granja_id)
     
     if cultivo_id:
-        # Filtrar por cultivo usando la tabla pivote
         query = query.join(Lote.cultivos_asignados).filter(LoteCultivo.cultivo_id == cultivo_id)
     
     if estado:
@@ -46,16 +45,13 @@ def get_lote(db: Session, lote_id: int) -> Optional[Lote]:
 
 def create_lote(db: Session, data: LoteCreate) -> Lote:
     """Crear un nuevo lote con sus cultivos"""
-    # Extraer cultivos del data
     cultivo_ids = data.cultivos_ids
     lote_data = data.model_dump(exclude={"cultivos_ids"})
     
-    # Crear el lote
     lote = Lote(**lote_data)
     db.add(lote)
-    db.flush()  # Para obtener el ID sin commit
+    db.flush()
     
-    # Crear relaciones con cultivos
     if cultivo_ids:
         lote_cultivos.create_lote_cultivos(db, lote.id, cultivo_ids)
     
@@ -67,15 +63,11 @@ def update_lote(db: Session, lote: Lote, data: LoteUpdate) -> Lote:
     """Actualizar un lote existente y sus cultivos"""
     update_data = data.model_dump(exclude_unset=True, exclude={"cultivos_ids"})
     
-    # Actualizar campos del lote
     for key, value in update_data.items():
         setattr(lote, key, value)
     
-    # Actualizar cultivos si se proporcionaron
     if hasattr(data, 'cultivos_ids') and data.cultivos_ids is not None:
-        # Eliminar relaciones existentes
         lote_cultivos.delete_lote_cultivos(db, lote.id)
-        # Crear nuevas relaciones
         if data.cultivos_ids:
             lote_cultivos.create_lote_cultivos(db, lote.id, data.cultivos_ids)
     
@@ -92,48 +84,41 @@ def delete_lote(db: Session, lote: Lote) -> dict:
 # === FUNCIONES ESPECÍFICAS ===
 
 def get_lotes_por_programa(db: Session, programa_id: int, skip: int = 0, limit: int = 100) -> List[Lote]:
-    """Obtener todos los lotes de un programa específico"""
     return db.query(Lote).filter(
         Lote.programa_id == programa_id,
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
 def get_lotes_por_granja(db: Session, granja_id: int, skip: int = 0, limit: int = 100) -> List[Lote]:
-    """Obtener todos los lotes de una granja específica"""
     return db.query(Lote).filter(
         Lote.granja_id == granja_id,
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
 def get_lotes_por_cultivo(db: Session, cultivo_id: int, skip: int = 0, limit: int = 100) -> List[Lote]:
-    """Obtener todos los lotes de un cultivo específico (usando tabla pivote)"""
     return db.query(Lote).join(Lote.cultivos_asignados).filter(
         LoteCultivo.cultivo_id == cultivo_id,
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
 def get_lotes_activos(db: Session, skip: int = 0, limit: int = 100) -> List[Lote]:
-    """Obtener solo lotes activos"""
     return db.query(Lote).filter(
         Lote.estado == "activo"
     ).offset(skip).limit(limit).all()
 
 def buscar_lotes_por_nombre(db: Session, nombre: str, skip: int = 0, limit: int = 100) -> List[Lote]:
-    """Buscar lotes por nombre (búsqueda parcial)"""
     return db.query(Lote).filter(
         Lote.nombre.ilike(f"%{nombre}%"),
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
 def contar_lotes_por_programa(db: Session, programa_id: int) -> int:
-    """Contar cuántos lotes tiene un programa"""
     return db.query(Lote).filter(
         Lote.programa_id == programa_id,
         Lote.estado != "eliminado"
     ).count()
 
 def get_estadisticas_lotes(db: Session) -> dict:
-    """Obtener estadísticas de lotes"""
     total = db.query(Lote).filter(Lote.estado != "eliminado").count()
     activos = db.query(Lote).filter(Lote.estado == "activo").count()
     inactivos = db.query(Lote).filter(Lote.estado == "inactivo").count()
@@ -141,7 +126,6 @@ def get_estadisticas_lotes(db: Session) -> dict:
     pendientes = db.query(Lote).filter(Lote.estado == "pendiente").count()
     eliminados = db.query(Lote).filter(Lote.estado == "eliminado").count()
     
-    # Estadísticas de cultivos por lote
     total_cultivos_asignados = db.query(LoteCultivo).count()
     
     return {

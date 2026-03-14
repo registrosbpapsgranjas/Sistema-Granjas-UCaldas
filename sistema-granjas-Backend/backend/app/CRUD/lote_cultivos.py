@@ -12,13 +12,9 @@ def get_cultivo_lotes(db: Session, cultivo_id: int) -> List[LoteCultivo]:
     return db.query(LoteCultivo).filter(LoteCultivo.cultivo_id == cultivo_id).all()
 
 def create_lote_cultivos(db: Session, lote_id: int, cultivo_ids: List[int]) -> List[LoteCultivo]:
-    """
-    Crear múltiples relaciones lote-cultivo
-    (versión simplificada sin ID propio, usando clave compuesta)
-    """
+    """Crear múltiples relaciones lote-cultivo"""
     items = []
     for cultivo_id in cultivo_ids:
-        # Verificar si ya existe
         existente = db.query(LoteCultivo).filter(
             LoteCultivo.lote_id == lote_id,
             LoteCultivo.cultivo_id == cultivo_id
@@ -31,7 +27,6 @@ def create_lote_cultivos(db: Session, lote_id: int, cultivo_ids: List[int]) -> L
     
     if items:
         db.commit()
-        # No necesitamos refresh porque la tabla no tiene ID propio
     return items
 
 def delete_lote_cultivos(db: Session, lote_id: int) -> None:
