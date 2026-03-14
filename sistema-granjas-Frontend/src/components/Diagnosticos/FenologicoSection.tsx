@@ -79,10 +79,6 @@ export const FenologicoSection: React.FC<Props> = ({
           de forma independiente, registrando la(s) fase(s) fenológica(s) predominante(s) y los parámetros
           correspondientes.
         </p>
-        <p className="text-sm text-blue-600 mt-2">
-          <i className="fas fa-info-circle mr-1"></i>
-          Puede seleccionar múltiples fases si la rama presenta más de una (ej: floración y fructificación).
-        </p>
       </div>
 
       <h3 className="text-xl font-bold text-gray-800 mb-4 mt-8">
