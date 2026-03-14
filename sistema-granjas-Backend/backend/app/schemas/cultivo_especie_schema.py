@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, field_validator, model_validator
+from typing import Optional, List
+from pydantic import BaseModel, field_validator
 import re
 
 class CultivoEspecieBase(BaseModel):
@@ -8,6 +8,7 @@ class CultivoEspecieBase(BaseModel):
     tipo: str
     granja_id: int
     descripcion: Optional[str] = None
+    duracion_dias: Optional[int] = None
     estado: Optional[str] = "activo"
 
     @field_validator('nombre')
@@ -21,11 +22,9 @@ class CultivoEspecieBase(BaseModel):
         if len(v) > 150:
             raise ValueError('El nombre del cultivo/especie no puede tener más de 150 caracteres')
         
-        # Validar formato del nombre (letras, números, espacios, guiones, paréntesis)
         if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.\(\)0-9]+$', v):
             raise ValueError('El nombre del cultivo/especie contiene caracteres no permitidos')
         
-        # Validar que no sea solo números
         if v.strip().replace(' ', '').isdigit():
             raise ValueError('El nombre del cultivo/especie no puede ser solo números')
         
@@ -58,6 +57,15 @@ class CultivoEspecieBase(BaseModel):
         
         return v
 
+    @field_validator('duracion_dias')
+    def validar_duracion_dias(cls, v):
+        if v is not None:
+            if v < 1:
+                raise ValueError('La duración en días debe ser un número positivo')
+            if v > 3650:  # 10 años máximo
+                raise ValueError('La duración en días no puede ser mayor a 3650 (10 años)')
+        return v
+
     @field_validator('estado')
     def validar_estado(cls, v):
         if v is not None:
@@ -75,6 +83,7 @@ class CultivoEspecieUpdate(BaseModel):
     nombre: Optional[str] = None
     tipo: Optional[str] = None
     descripcion: Optional[str] = None
+    duracion_dias: Optional[int] = None
     estado: Optional[str] = None
 
     @field_validator('nombre')
@@ -116,8 +125,25 @@ class CultivoEspecieUpdate(BaseModel):
         
         return v
 
+    @field_validator('duracion_dias')
+    def validar_duracion_dias_update(cls, v):
+        if v is not None:
+            if v < 1:
+                raise ValueError('La duración en días debe ser un número positivo')
+            if v > 3650:
+                raise ValueError('La duración en días no puede ser mayor a 3650 (10 años)')
+        return v
+
+# 👇 NUEVO: Schema con información de lotes asignados
 class CultivoEspecieResponse(CultivoEspecieBase):
     id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    lotes_count: Optional[int] = 0  # Conteo de lotes que usan este cultivo
 
     class Config:
         from_attributes = True
+
+# 👇 NUEVO: Schema detallado con lotes
+class CultivoEspecieDetailResponse(CultivoEspecieResponse):
+    lotes_asignados: List[dict] = []  # Lista simplificada de lotes
