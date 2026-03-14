@@ -13,6 +13,20 @@ class LoteCultivoBase(BaseModel):
 class LoteCultivoCreate(LoteCultivoBase):
     pass
 
+# 👇 NUEVO: Schema para actualizar relación (aunque rara vez se usa)
+class LoteCultivoUpdate(BaseModel):
+    """Schema para actualizar una relación lote-cultivo.
+    Como la tabla solo tiene IDs, no hay mucho que actualizar.
+    Este schema existe principalmente por completitud."""
+    lote_id: Optional[int] = None
+    cultivo_id: Optional[int] = None
+
+    @model_validator(mode='after')
+    def validar_al_menos_un_campo(self):
+        if self.lote_id is None and self.cultivo_id is None:
+            raise ValueError('Debe proporcionar al menos un campo para actualizar')
+        return self
+
 class LoteCultivoResponse(LoteCultivoBase):
     class Config:
         from_attributes = True
