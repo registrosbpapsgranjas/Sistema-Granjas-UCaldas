@@ -11,7 +11,7 @@ from app.CRUD.lotes import (
     buscar_lotes_por_nombre, get_estadisticas_lotes,
     get_lotes_por_cultivo
 )
-from app.CRUD import lote_cultivos  # 👈 NUEVO
+from app.CRUD import lote_cultivos
 from app.schemas.lote_schema import (
     LoteCreate, LoteUpdate, LoteResponse, LoteWithRelations,
     LoteCultivoResponse, LoteCultivoCreate, LoteCultivoUpdate
@@ -63,7 +63,6 @@ def obtener_lote(
         raise HTTPException(status_code=404, detail="Lote no encontrado")
     return lote
 
-# 👇 NUEVO ENDPOINT: Obtener lote con relaciones
 @router.get("/{lote_id}/detalle", response_model=LoteWithRelations)
 def obtener_lote_detalle(
     lote_id: int,
@@ -92,19 +91,12 @@ def obtener_lote_detalle(
         "programa": None
     }
     
-    # Agregar cultivos asignados
+    # 👇 CORREGIDO: Acceder a través de cultivos_asignados
     for lc in lote.cultivos_asignados:
+        # Relación LoteCultivo (tabla pivote)
         lote_dict["cultivos_asignados"].append({
-            "id": lc.id,
             "lote_id": lc.lote_id,
-            "cultivo_id": lc.cultivo_id,
-            "fecha_siembra": lc.fecha_siembra,
-            "fecha_estimada_cosecha": lc.fecha_estimada_cosecha,
-            "area_sembrada": lc.area_sembrada,
-            "densidad_siembra": lc.densidad_siembra,
-            "observaciones": lc.observaciones,
-            "created_at": lc.created_at,
-            "updated_at": lc.updated_at
+            "cultivo_id": lc.cultivo_id
         })
         
         if lc.cultivo:
@@ -174,7 +166,7 @@ def eliminar_lote(
 
 # === ENDPOINTS PARA GESTIÓN DE CULTIVOS DEL LOTE ===
 
-@router.get("/{lote_id}/cultivos", response_model=List[LoteCultivoResponse])
+@router.get("/{lote_id}/cultivos", response_model=List[dict])
 def listar_cultivos_del_lote(
     lote_id: int,
     db: Session = Depends(get_db),
@@ -186,9 +178,19 @@ def listar_cultivos_del_lote(
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
     
-    return lote_cultivos.get_lote_cultivos(db, lote_id)
+    # Obtener cultivos a través de la tabla pivote
+    resultados = []
+    for lc in lote.cultivos_asignados:
+        if lc.cultivo:
+            resultados.append({
+                "cultivo_id": lc.cultivo.id,
+                "nombre": lc.cultivo.nombre,
+                "tipo": lc.cultivo.tipo
+            })
+    
+    return resultados
 
-@router.post("/{lote_id}/cultivos", response_model=List[LoteCultivoResponse])
+@router.post("/{lote_id}/cultivos", response_model=List[dict])
 def agregar_cultivos_a_lote(
     lote_id: int,
     cultivos_ids: List[int],
@@ -201,7 +203,31 @@ def agregar_cultivos_a_lote(
     if not lote:
         raise HTTPException(status_code=404, detail="Lote no encontrado")
     
-    return lote_cultivos.create_lote_cultivos(db, lote_id, cultivos_ids)
+    # Crear relaciones
+    creados = []
+    for cultivo_id in cultivos_ids:
+        # Verificar si ya existe
+        existente = db.query(LoteCultivo).filter(
+            LoteCultivo.lote_id == lote_id,
+            LoteCultivo.cultivo_id == cultivo_id
+        ).first()
+        
+        if not existente:
+            relacion = LoteCultivo(lote_id=lote_id, cultivo_id=cultivo_id)
+            db.add(relacion)
+            db.flush()
+            
+            # Obtener información del cultivo
+            cultivo = db.query(CultivoEspecie).filter(CultivoEspecie.id == cultivo_id).first()
+            if cultivo:
+                creados.append({
+                    "cultivo_id": cultivo_id,
+                    "nombre": cultivo.nombre,
+                    "tipo": cultivo.tipo
+                })
+    
+    db.commit()
+    return creados
 
 @router.delete("/{lote_id}/cultivos/{cultivo_id}")
 def eliminar_cultivo_de_lote(
@@ -269,7 +295,8 @@ def contar_lotes_por_cultivo(
     Retorna el conteo de lotes agrupados por cultivo_id
     Útil para mostrar en la tabla de cultivos cuántos lotes usan cada cultivo
     """
-    return lote_cultivos.contar_lotes_por_cultivo(db)
+    from app.CRUD.lote_cultivos import contar_lotes_por_cultivo
+    return contar_lotes_por_cultivo(db)
 
 @router.get("/estado/activos", response_model=List[LoteResponse])
 def listar_lotes_activos(

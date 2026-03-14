@@ -4,31 +4,16 @@ from datetime import datetime
 import re
 
 # ===== SCHEMAS PARA LA TABLA INTERMEDIA LOTE-CULTIVO =====
+# 👇 Versión simplificada (solo IDs, sin campos adicionales)
 
 class LoteCultivoBase(BaseModel):
     lote_id: int
     cultivo_id: int
-    fecha_siembra: Optional[datetime] = None
-    fecha_estimada_cosecha: Optional[datetime] = None
-    area_sembrada: Optional[float] = None
-    densidad_siembra: Optional[int] = None
-    observaciones: Optional[str] = None
 
 class LoteCultivoCreate(LoteCultivoBase):
     pass
 
-class LoteCultivoUpdate(BaseModel):
-    fecha_siembra: Optional[datetime] = None
-    fecha_estimada_cosecha: Optional[datetime] = None
-    area_sembrada: Optional[float] = None
-    densidad_siembra: Optional[int] = None
-    observaciones: Optional[str] = None
-
 class LoteCultivoResponse(LoteCultivoBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    
     class Config:
         from_attributes = True
 
@@ -97,7 +82,6 @@ class LoteBase(BaseModel):
         
         return self
 
-# 👇 NUEVO: LoteCreate con lista de cultivos
 class LoteCreate(LoteBase):
     cultivos_ids: List[int]  # Lista de IDs de cultivos a asignar
 
@@ -112,7 +96,6 @@ class LoteCreate(LoteBase):
         
         return v
 
-# 👇 NUEVO: LoteUpdate con lista de cultivos
 class LoteUpdate(BaseModel):
     nombre: Optional[str] = None
     tipo_lote_id: Optional[int] = None
@@ -120,7 +103,7 @@ class LoteUpdate(BaseModel):
     programa_id: Optional[int] = None
     fecha_inicio: Optional[datetime] = None
     estado: Optional[str] = None
-    cultivos_ids: Optional[List[int]] = None  # Lista opcional de cultivos
+    cultivos_ids: Optional[List[int]] = None
 
     @field_validator('nombre')
     def validar_nombre_update(cls, v):
@@ -194,12 +177,11 @@ class LoteUpdate(BaseModel):
         
         return self
 
-# 👇 NUEVO: LoteResponse con cultivos_asignados
 class LoteResponse(LoteBase):
     id: int
-    estado: str
     fecha_creacion: Optional[datetime] = None
-    cultivos_asignados: List[LoteCultivoResponse] = []  # Lista de relaciones con cultivos
+    # 👇 RELACIÓN SIMPLIFICADA: solo IDs de cultivos
+    cultivos_ids: List[int] = []
     
     class Config:
         from_attributes = True
@@ -209,39 +191,40 @@ class LoteResponse(LoteBase):
 
 # ===== SCHEMAS AUXILIARES PARA RELACIONES =====
 
-class CultivoEspecieResponse(BaseModel):
+class CultivoEspecieSimpleResponse(BaseModel):
     id: int
     nombre: str
     tipo: str
-    class Config:
-        from_attributes = True
-
-class TipoLoteResponse(BaseModel):
-    id: int
-    nombre: str
-    class Config:
-        from_attributes = True
-
-class GranjaResponse(BaseModel):
-    id: int
-    nombre: str
-    ubicacion: str
-    class Config:
-        from_attributes = True
-
-class ProgramaResponse(BaseModel):
-    id: int
-    nombre: str
-    tipo: str
-    class Config:
-        from_attributes = True
-
-# 👇 NUEVO: LoteWithRelations con datos completos
-class LoteWithRelations(LoteResponse):
-    tipo_lote: Optional[TipoLoteResponse] = None
-    granja: Optional[GranjaResponse] = None
-    programa: Optional[ProgramaResponse] = None
-    cultivos_detalle: List[CultivoEspecieResponse] = []  # Detalles de los cultivos
     
     class Config:
         from_attributes = True
+
+class TipoLoteSimpleResponse(BaseModel):
+    id: int
+    nombre: str
+    
+    class Config:
+        from_attributes = True
+
+class GranjaSimpleResponse(BaseModel):
+    id: int
+    nombre: str
+    ubicacion: str
+    
+    class Config:
+        from_attributes = True
+
+class ProgramaSimpleResponse(BaseModel):
+    id: int
+    nombre: str
+    tipo: str
+    
+    class Config:
+        from_attributes = True
+
+# 👇 LoteWithRelations con datos completos (versión simplificada)
+class LoteWithRelations(LoteResponse):
+    tipo_lote: Optional[TipoLoteSimpleResponse] = None
+    granja: Optional[GranjaSimpleResponse] = None
+    programa: Optional[ProgramaSimpleResponse] = None
+    cultivos_detalle: List[CultivoEspecieSimpleResponse] = []

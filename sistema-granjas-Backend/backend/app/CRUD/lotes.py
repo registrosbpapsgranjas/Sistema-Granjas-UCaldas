@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Lote, LoteCultivo
 from app.schemas.lote_schema import LoteCreate, LoteUpdate
 from typing import List, Optional
-from . import lote_cultivos  # 👈 NUEVO
+from . import lote_cultivos
 
 def get_lotes(
     db: Session, 
@@ -12,7 +12,7 @@ def get_lotes(
     granja_id: Optional[int] = None,
     cultivo_id: Optional[int] = None,
     estado: Optional[str] = None
-):
+) -> List[Lote]:
     """
     Obtener todos los lotes con filtros opcionales
     - programa_id: Filtrar por programa
@@ -37,14 +37,14 @@ def get_lotes(
     
     return query.offset(skip).limit(limit).all()
 
-def get_lote(db: Session, lote_id: int):
+def get_lote(db: Session, lote_id: int) -> Optional[Lote]:
     """Obtener un lote por su ID (incluye cultivos asignados)"""
     return db.query(Lote).filter(
         Lote.id == lote_id, 
         Lote.estado != "eliminado"
     ).first()
 
-def create_lote(db: Session, data: LoteCreate):
+def create_lote(db: Session, data: LoteCreate) -> Lote:
     """Crear un nuevo lote con sus cultivos"""
     # Extraer cultivos del data
     cultivo_ids = data.cultivos_ids
@@ -63,7 +63,7 @@ def create_lote(db: Session, data: LoteCreate):
     db.refresh(lote)
     return lote
 
-def update_lote(db: Session, lote: Lote, data: LoteUpdate):
+def update_lote(db: Session, lote: Lote, data: LoteUpdate) -> Lote:
     """Actualizar un lote existente y sus cultivos"""
     update_data = data.model_dump(exclude_unset=True, exclude={"cultivos_ids"})
     
@@ -83,7 +83,7 @@ def update_lote(db: Session, lote: Lote, data: LoteUpdate):
     db.refresh(lote)
     return lote
 
-def delete_lote(db: Session, lote: Lote):
+def delete_lote(db: Session, lote: Lote) -> dict:
     """Eliminar (marcar como eliminado) un lote"""
     lote.estado = "eliminado"
     db.commit()
@@ -91,48 +91,48 @@ def delete_lote(db: Session, lote: Lote):
 
 # === FUNCIONES ESPECÍFICAS ===
 
-def get_lotes_por_programa(db: Session, programa_id: int, skip: int = 0, limit: int = 100):
+def get_lotes_por_programa(db: Session, programa_id: int, skip: int = 0, limit: int = 100) -> List[Lote]:
     """Obtener todos los lotes de un programa específico"""
     return db.query(Lote).filter(
         Lote.programa_id == programa_id,
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
-def get_lotes_por_granja(db: Session, granja_id: int, skip: int = 0, limit: int = 100):
+def get_lotes_por_granja(db: Session, granja_id: int, skip: int = 0, limit: int = 100) -> List[Lote]:
     """Obtener todos los lotes de una granja específica"""
     return db.query(Lote).filter(
         Lote.granja_id == granja_id,
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
-def get_lotes_por_cultivo(db: Session, cultivo_id: int, skip: int = 0, limit: int = 100):
+def get_lotes_por_cultivo(db: Session, cultivo_id: int, skip: int = 0, limit: int = 100) -> List[Lote]:
     """Obtener todos los lotes de un cultivo específico (usando tabla pivote)"""
     return db.query(Lote).join(Lote.cultivos_asignados).filter(
         LoteCultivo.cultivo_id == cultivo_id,
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
-def get_lotes_activos(db: Session, skip: int = 0, limit: int = 100):
+def get_lotes_activos(db: Session, skip: int = 0, limit: int = 100) -> List[Lote]:
     """Obtener solo lotes activos"""
     return db.query(Lote).filter(
         Lote.estado == "activo"
     ).offset(skip).limit(limit).all()
 
-def buscar_lotes_por_nombre(db: Session, nombre: str, skip: int = 0, limit: int = 100):
+def buscar_lotes_por_nombre(db: Session, nombre: str, skip: int = 0, limit: int = 100) -> List[Lote]:
     """Buscar lotes por nombre (búsqueda parcial)"""
     return db.query(Lote).filter(
         Lote.nombre.ilike(f"%{nombre}%"),
         Lote.estado != "eliminado"
     ).offset(skip).limit(limit).all()
 
-def contar_lotes_por_programa(db: Session, programa_id: int):
+def contar_lotes_por_programa(db: Session, programa_id: int) -> int:
     """Contar cuántos lotes tiene un programa"""
     return db.query(Lote).filter(
         Lote.programa_id == programa_id,
         Lote.estado != "eliminado"
     ).count()
 
-def get_estadisticas_lotes(db: Session):
+def get_estadisticas_lotes(db: Session) -> dict:
     """Obtener estadísticas de lotes"""
     total = db.query(Lote).filter(Lote.estado != "eliminado").count()
     activos = db.query(Lote).filter(Lote.estado == "activo").count()

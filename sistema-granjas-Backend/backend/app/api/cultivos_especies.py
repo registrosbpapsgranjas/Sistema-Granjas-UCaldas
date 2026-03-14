@@ -71,7 +71,7 @@ def obtener(
         "lotes_asignados": []
     }
     
-    # Agregar lotes asignados
+    # 👇 CORREGIDO: Acceder a través de lotes_asignados (relación muchos a muchos)
     for lc in item.lotes_asignados:
         lote_info = {
             "id": lc.lote.id,
@@ -79,11 +79,12 @@ def obtener(
             "programa_id": lc.lote.programa_id,
             "granja_id": lc.lote.granja_id,
             "estado": lc.lote.estado,
-            "fecha_inicio": lc.lote.fecha_inicio,
-            "fecha_siembra": lc.fecha_siembra,
-            "fecha_estimada_cosecha": lc.fecha_estimada_cosecha,
-            "area_sembrada": lc.area_sembrada,
-            "densidad_siembra": lc.densidad_siembra
+            "fecha_inicio": lc.lote.fecha_inicio
+            # 👇 ELIMINADOS: estos campos ya no existen en la tabla pivote
+            # "fecha_siembra": lc.fecha_siembra,
+            # "fecha_estimada_cosecha": lc.fecha_estimada_cosecha,
+            # "area_sembrada": lc.area_sembrada,
+            # "densidad_siembra": lc.densidad_siembra
         }
         item_dict["lotes_asignados"].append(lote_info)
     

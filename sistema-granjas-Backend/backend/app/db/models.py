@@ -23,20 +23,12 @@ class GranjaPrograma(Base):
     granja_id = Column(Integer, ForeignKey('granjas.id'), primary_key=True)
     programa_id = Column(Integer, ForeignKey('programas.id'), primary_key=True)
 
-# 👇 NUEVA TABLA PIVOTE: Lote - Cultivo (muchos a muchos)
+# 👇 TABLA PIVOTE CORREGIDA: Solo lote_id y cultivo_id (sin campos adicionales)
 class LoteCultivo(Base):
     __tablename__ = "lote_cultivos"
     
-    id = Column(Integer, primary_key=True, index=True)
-    lote_id = Column(Integer, ForeignKey("lotes.id", ondelete="CASCADE"), nullable=False)
-    cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id", ondelete="CASCADE"), nullable=False)
-    fecha_siembra = Column(Date, nullable=True)
-    fecha_estimada_cosecha = Column(Date, nullable=True)
-    area_sembrada = Column(Float, nullable=True)  # hectáreas o metros cuadrados
-    densidad_siembra = Column(Integer, nullable=True)  # plantas por hectárea
-    observaciones = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    lote_id = Column(Integer, ForeignKey("lotes.id", ondelete="CASCADE"), primary_key=True)
+    cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id", ondelete="CASCADE"), primary_key=True)
     
     # Relaciones
     lote = relationship("Lote", back_populates="cultivos_asignados")
@@ -134,9 +126,9 @@ class Lote(Base):
     granja_id = Column(Integer, ForeignKey("granjas.id"))
     programa_id = Column(Integer, ForeignKey("programas.id"))
 
-    # 👇 ELIMINAR o dejar como opcional (por compatibilidad)
-    nombre_cultivo = Column(String(100), nullable=True)  # Se puede eliminar después de migración
-    cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id"), nullable=True)  # Se puede eliminar después
+    # 👇 ELIMINADOS: nombre_cultivo y cultivo_id (causaban conflictos)
+    # nombre_cultivo = Column(String(100), nullable=True)  ← ELIMINADO
+    # cultivo_id = Column(Integer, ForeignKey("cultivos_especies.id"), nullable=True)  ← ELIMINADO
     
     fecha_inicio = Column(DateTime)
     estado = Column(String(50), default="activo")
@@ -358,12 +350,12 @@ class CultivoEspecie(Base):
     granja_id = Column(Integer, ForeignKey("granjas.id"), nullable=False)
     granja = relationship("Granja", back_populates="cultivos")
 
-    # 👇 NUEVA RELACIÓN: muchos a muchos con lotes
+    # 👇 NUEVA RELACIÓN: muchos a muchos con lotes (SIN la relación antigua)
     lotes_asignados = relationship(
         "LoteCultivo", 
         back_populates="cultivo",
         cascade="all, delete-orphan"
     )
     
-    # 👇 Relación antigua (opcional por compatibilidad)
-    lotes = relationship("Lote", back_populates="cultivo")  # Esta se puede eliminar después
+    # 👇 RELACIÓN ANTIGUA ELIMINADA (causaba conflictos)
+    # lotes = relationship("Lote", back_populates="cultivo")  ← ELIMINADO

@@ -49,10 +49,10 @@ class CultivoEspecieBase(BaseModel):
     @field_validator('descripcion')
     def validar_descripcion(cls, v):
         if v is not None:
-            if len(v.strip()) < 10:
-                raise ValueError('La descripción debe tener al menos 10 caracteres')
+            if v.strip() and len(v.strip()) < 10:
+                raise ValueError('La descripción debe tener al menos 10 caracteres si se proporciona')
             
-            if len(v) > 500:
+            if v and len(v) > 500:
                 raise ValueError('La descripción no puede tener más de 500 caracteres')
         
         return v
@@ -117,10 +117,10 @@ class CultivoEspecieUpdate(BaseModel):
     @field_validator('descripcion')
     def validar_descripcion_update(cls, v):
         if v is not None:
-            if len(v.strip()) < 10:
-                raise ValueError('La descripción debe tener al menos 10 caracteres')
+            if v.strip() and len(v.strip()) < 10:
+                raise ValueError('La descripción debe tener al menos 10 caracteres si se proporciona')
             
-            if len(v) > 500:
+            if v and len(v) > 500:
                 raise ValueError('La descripción no puede tener más de 500 caracteres')
         
         return v
@@ -134,7 +134,6 @@ class CultivoEspecieUpdate(BaseModel):
                 raise ValueError('La duración en días no puede ser mayor a 3650 (10 años)')
         return v
 
-# 👇 NUEVO: Schema con información de lotes asignados
 class CultivoEspecieResponse(CultivoEspecieBase):
     id: int
     created_at: Optional[datetime] = None
@@ -144,6 +143,6 @@ class CultivoEspecieResponse(CultivoEspecieBase):
     class Config:
         from_attributes = True
 
-# 👇 NUEVO: Schema detallado con lotes
+# 👇 Schema detallado con lotes (versión simplificada)
 class CultivoEspecieDetailResponse(CultivoEspecieResponse):
     lotes_asignados: List[dict] = []  # Lista simplificada de lotes
