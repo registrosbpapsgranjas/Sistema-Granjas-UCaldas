@@ -1,5 +1,3 @@
-// src/services/loteService.ts
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 // Función auxiliar para manejar errores
@@ -48,6 +46,7 @@ export const loteService = {
                 const params = new URLSearchParams();
                 if (filtros.granja_id) params.append('granja_id', filtros.granja_id.toString());
                 if (filtros.programa_id) params.append('programa_id', filtros.programa_id.toString());
+                if (filtros.cultivo_id) params.append('cultivo_id', filtros.cultivo_id.toString());
                 if (filtros.estado) params.append('estado', filtros.estado);
                 if (filtros.tipo_lote_id) params.append('tipo_lote_id', filtros.tipo_lote_id.toString());
                 if (filtros.skip !== undefined) params.append('skip', filtros.skip.toString());
@@ -202,12 +201,25 @@ export const loteService = {
         return handleResponse(response);
     },
 
-    // Obtener lotes por programa
+    // ✅ CORREGIDO: Usar el endpoint con filtro
     async obtenerLotesPorPrograma(programaId: number): Promise<any[]> {
         const response = await fetch(`${API_BASE_URL}/lotes/?programa_id=${programaId}`, {
             headers: getHeaders(),
         });
         return handleResponse(response);
+    },
+
+    // ✅ CORREGIDO: Usar el endpoint con filtro
+    async obtenerLotesPorCultivo(cultivoId: number): Promise<any[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/lotes/?cultivo_id=${cultivoId}`, {
+                headers: getHeaders()
+            });
+            return handleResponse(response);
+        } catch (error) {
+            console.error('Error obteniendo lotes por cultivo:', error);
+            return [];
+        }
     },
 
     // ===================== Funciones Adicionales =====================
@@ -223,19 +235,6 @@ export const loteService = {
         } catch (error) {
             console.error('Error al obtener estadísticas de lotes:', error);
             throw error;
-        }
-    },
-
-    // src/services/loteService.ts - Agregar este método
-    async obtenerLotesPorCultivo(cultivoId: number): Promise<any[]> {
-        try {
-            const response = await fetch(`${API_BASE_URL}/lotes?cultivo_id=${cultivoId}`, {
-                headers: getHeaders()
-            });
-            return handleResponse(response);
-        } catch (error) {
-            console.error('Error obteniendo lotes por cultivo:', error);
-            return [];
         }
     },
 

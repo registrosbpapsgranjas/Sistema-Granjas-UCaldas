@@ -96,17 +96,20 @@ export const cultivoService = {
     return handleResponse(response);
   },
 
+  // ✅ CORREGIDO: Usar cultivos_ids en lugar de cultivo_id
   async obtenerCultivosPorPrograma(programaId: number): Promise<CultivoEspecie[]> {
     try {
       const lotes = await loteService.obtenerLotesPorPrograma(programaId);
 
-      const cultivoIds = [
-        ...new Set(
-          lotes
-            .map(lote => lote.cultivo_id)
-            .filter(Boolean)
-        )
-      ];
+      // Extraer IDs únicos de cultivos de todos los lotes (usando cultivos_ids)
+      const cultivoIdsSet = new Set<number>();
+      lotes.forEach(lote => {
+        if (lote.cultivos_ids && Array.isArray(lote.cultivos_ids)) {
+          lote.cultivos_ids.forEach((id: number) => cultivoIdsSet.add(id));
+        }
+      });
+
+      const cultivoIds = Array.from(cultivoIdsSet);
 
       if (cultivoIds.length === 0) return [];
 

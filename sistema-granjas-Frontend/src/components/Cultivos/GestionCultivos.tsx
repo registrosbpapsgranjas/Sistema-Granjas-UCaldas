@@ -1,9 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import cultivoService from "../../services/cultivoService";
 import granjaService from "../../services/granjaService";
-import loteService from "../../services/loteService"; // 👈 IMPORTAR
 import { StatsCard } from "../Common/StatsCard";
 import CultivosTable from "./CultivosTable";
 import CultivoForm from "./CultivosForm";
@@ -12,6 +11,8 @@ import type { CultivoFormData, CultivoEspecie } from "../../types/cultivoTypes";
 export default function GestionCultivos() {
     const [searchParams] = useSearchParams();
     const programaId = searchParams.get("programaId");
+    
+    console.log('📍 GestionCultivos - programaId:', programaId); // 👈 LOG PARA DEBUG
 
     const [cultivos, setCultivos] = useState<CultivoEspecie[]>([]);
     const [granjas, setGranjas] = useState<any[]>([]);
@@ -19,13 +20,12 @@ export default function GestionCultivos() {
     const [error, setError] = useState<string | null>(null);
     const [erroresValidacion, setErroresValidacion] = useState<Record<string, string>>({});
 
-    // 👇 ESTADÍSTICAS CALCULADAS SOBRE LOS CULTIVOS FILTRADOS
-    const estadisticas = useMemo(() => ({
-        total: cultivos.length,
-        agricolas: cultivos.filter((c) => c.tipo === "agricola").length,
-        pecuarios: cultivos.filter((c) => c.tipo === "pecuario").length,
-        activos: cultivos.filter((c) => c.estado === "activo").length,
-    }), [cultivos]);
+    const [estadisticas, setEstadisticas] = useState({
+        total: 0,
+        agricolas: 0,
+        pecuarios: 0,
+        activos: 0,
+    });
 
     const [modalCrear, setModalCrear] = useState(false);
     const [cultivoSeleccionado, setCultivoSeleccionado] = useState<CultivoEspecie | null>(null);
@@ -48,38 +48,20 @@ export default function GestionCultivos() {
             setCargando(true);
             setError(null);
 
-            console.log("🔄 Cargando cultivos...", programaId ? `para programa ${programaId}` : "todos");
-
             let datosCultivos: CultivoEspecie[] = [];
 
             if (programaId) {
-                // 👇 OBTENER CULTIVOS A TRAVÉS DE LOS LOTES DEL PROGRAMA
-                // 1. Obtener todos los lotes del programa
-                const lotes = await loteService.obtenerLotesPorPrograma(Number(programaId));
-                console.log(`📋 Lotes del programa ${programaId}:`, lotes);
-                
-                // 2. Extraer IDs únicos de cultivos de esos lotes
-                const cultivoIds = new Set<number>();
-                lotes.forEach((lote: any) => {
-                    if (lote.cultivos_ids && Array.isArray(lote.cultivos_ids)) {
-                        lote.cultivos_ids.forEach((id: number) => cultivoIds.add(id));
-                    }
-                });
-                
-                console.log(`🔍 IDs de cultivos encontrados:`, Array.from(cultivoIds));
-                
-                // 3. Obtener los cultivos por sus IDs
-                const cultivosPromises = Array.from(cultivoIds).map(id => 
-                    cultivoService.obtenerCultivoPorId(id).catch(() => null)
-                );
-                
-                const cultivosResultados = await Promise.all(cultivosPromises);
-                datosCultivos = cultivosResultados.filter(Boolean) as CultivoEspecie[];
-                
-                console.log(`✅ ${datosCultivos.length} cultivos cargados para el programa`);
+                console.log(`🔍 Cargando cultivos para programa ${programaId}...`);
+                datosCultivos = await cultivoService.obtenerCultivosPorPrograma(Number(programaId));
+                console.log(`✅ Cultivos obtenidos:`, datosCultivos);
             } else {
-                // Vista general: todos los cultivos
+                console.log(`🔍 Cargando todos los cultivos...`);
                 datosCultivos = await cultivoService.obtenerCultivos();
+            }
+
+            // Si no hay cultivos, mostrar mensaje pero continuar
+            if (datosCultivos.length === 0) {
+                console.log('⚠️ No se encontraron cultivos');
             }
 
             const datosGranjas = await granjaService.obtenerGranjas();
@@ -87,7 +69,14 @@ export default function GestionCultivos() {
             setCultivos(datosCultivos);
             setGranjas(datosGranjas);
 
+            setEstadisticas({
+                total: datosCultivos.length,
+                agricolas: datosCultivos.filter((c) => c.tipo === "agricola").length,
+                pecuarios: datosCultivos.filter((c) => c.tipo === "pecuario").length,
+                activos: datosCultivos.filter((c) => c.estado === "activo").length,
+            });
         } catch (err: unknown) {
+            console.error('❌ Error en cargarDatos:', err);
             const mensaje = err instanceof Error ? err.message : "Error al cargar los datos";
             setError(mensaje);
             toast.error(mensaje);
@@ -178,8 +167,8 @@ export default function GestionCultivos() {
         return (
             <div className="flex justify-center items-center p-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-                <span className="ml-4 text-gray-600">
-                    {programaId ? "Cargando cultivos del programa..." : "Cargando cultivos..."}
+                <span className="ml-4">
+                    {programaId ? 'Cargando cultivos del programa...' : 'Cargando...'}
                 </span>
             </div>
         );
@@ -188,17 +177,16 @@ export default function GestionCultivos() {
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">
+                <h1 className="text-2xl font-bold">
                     {programaId ? "Cultivos del Programa" : "Gestión de Cultivos"}
                 </h1>
-                
                 {programaId && (
                     <button
                         onClick={() => window.history.back()}
                         className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
                     >
                         <i className="fas fa-arrow-left"></i>
-                        Volver a programas
+                        Volver
                     </button>
                 )}
             </div>
@@ -209,48 +197,44 @@ export default function GestionCultivos() {
                 </div>
             )}
 
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <StatsCard icon="fas fa-leaf" color="bg-green-600" value={estadisticas.total} label="Total Cultivos" />
+            <div className="grid grid-cols-4 gap-4 mb-6">
+                <StatsCard icon="fas fa-leaf" color="bg-green-600" value={estadisticas.total} label="Total" />
                 <StatsCard icon="fas fa-seedling" color="bg-emerald-600" value={estadisticas.agricolas} label="Agrícolas" />
                 <StatsCard icon="fas fa-paw" color="bg-amber-600" value={estadisticas.pecuarios} label="Pecuarios" />
                 <StatsCard icon="fas fa-check-circle" color="bg-blue-600" value={estadisticas.activos} label="Activos" />
             </div>
 
-            {/* Botón Crear - Deshabilitado si hay filtro de programa */}
-            <div className="mb-6">
-                <button
-                    onClick={() => {
-                        resetFormulario();
-                        setEditando(false);
-                        setModalCrear(true);
-                    }}
-                    disabled={!!programaId}
-                    className={`text-white px-4 py-2 rounded-lg transition flex items-center gap-2 ${
-                        programaId 
-                            ? "bg-gray-400 cursor-not-allowed" 
-                            : "bg-green-600 hover:bg-green-700"
-                    }`}
-                    title={programaId ? "No puedes crear cultivos desde la vista de programa" : "Nuevo cultivo"}
-                >
-                    <i className="fas fa-plus"></i>
-                    Nuevo Cultivo/Especie
-                </button>
-                {programaId && (
-                    <p className="text-sm text-gray-500 mt-2">
-                        ⚠️ Los cultivos se crean desde la vista general, no desde un programa específico.
-                    </p>
-                )}
-            </div>
+            <button
+                onClick={() => {
+                    resetFormulario();
+                    setEditando(false);
+                    setModalCrear(true);
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg mb-4"
+            >
+                <i className="fas fa-plus mr-2"></i>
+                Nuevo Cultivo
+            </button>
 
-            {/* Tabla de cultivos */}
+            {/* Mensaje si no hay cultivos */}
+            {!cargando && programaId && cultivos.length === 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4">
+                    <i className="fas fa-info-circle mr-2"></i>
+                    No se encontraron cultivos para este programa. Esto puede deberse a que:
+                    <ul className="list-disc ml-6 mt-2">
+                        <li>El programa no tiene lotes asignados</li>
+                        <li>Los lotes del programa no tienen cultivos asociados</li>
+                        <li>Los cultivos no están activos</li>
+                    </ul>
+                </div>
+            )}
+
             <CultivosTable
                 cultivos={cultivos}
                 onEditar={abrirEditar}
                 onEliminar={manejarEliminar}
             />
 
-            {/* Modal de formulario */}
             <CultivoForm
                 isOpen={modalCrear}
                 onClose={() => {
