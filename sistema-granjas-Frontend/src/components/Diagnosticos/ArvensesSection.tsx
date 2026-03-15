@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlantaBase } from '../../types/diagnosticoTypes';
+import { PlantaBase } from '../types';
 
 interface ArvensesSectionProps {
   plantas: PlantaBase[]; // 5 plantas seleccionadas (puntos de monitoreo)
@@ -10,40 +10,40 @@ interface ArvensesSectionProps {
 interface ArvenseNoble {
   id: string;
   nombre: string;
-  nombreCientifico: string;
+  nombreCientifico: React.ReactNode;
 }
 
 interface ArvenseAgresiva {
   id: string;
   nombre: string;
-  nombreCientifico: string;
+  nombreCientifico: React.ReactNode;
 }
 
 // Lista predefinida de arvenses nobles
 const ARVENSES_NOBLES: ArvenseNoble[] = [
-  { id: 'hyptis_atrorubens', nombre: 'Hyptis atrorubens', nombreCientifico: 'Hyptis atrorubens' },
-  { id: 'spermacoce_alata', nombre: 'Spermacoce alata', nombreCientifico: 'Spermacoce alata' },
-  { id: 'drymaria_cordata', nombre: 'Drymaria cordata', nombreCientifico: 'Drymaria cordata' },
-  { id: 'grona_adscendens', nombre: 'Grona adscendens', nombreCientifico: 'Grona adscendens (antes Desmodium ovalifolium)' },
-  { id: 'synedrella_nodiflora', nombre: 'Synedrella nodiflora', nombreCientifico: 'Synedrella nodiflora' },
-  { id: 'arachis_pintoi', nombre: 'Arachis pintoi', nombreCientifico: 'Arachis pintoi' },
-  { id: 'dichondra_repens', nombre: 'Dichondra repens', nombreCientifico: 'Dichondra repens' },
-  { id: 'euphorbia_hirta', nombre: 'Euphorbia hirta', nombreCientifico: 'Euphorbia hirta' },
-  { id: 'pseudoelephantopus_spicatus', nombre: 'Pseudoelephantopus spicatus', nombreCientifico: 'Pseudoelephantopus spicatus' },
+  { id: 'hyptis_atrorubens', nombre: 'Hyptis atrorubens', nombreCientifico: <em>Hyptis atrorubens</em> },
+  { id: 'spermacoce_alata', nombre: 'Spermacoce alata', nombreCientifico: <em>Spermacoce alata</em> },
+  { id: 'drymaria_cordata', nombre: 'Drymaria cordata', nombreCientifico: <em>Drymaria cordata</em> },
+  { id: 'grona_adscendens', nombre: 'Grona adscendens', nombreCientifico: <><em>Grona adscendens</em> (antes <em>Desmodium ovalifolium</em>)</> },
+  { id: 'synedrella_nodiflora', nombre: 'Synedrella nodiflora', nombreCientifico: <em>Synedrella nodiflora</em> },
+  { id: 'arachis_pintoi', nombre: 'Arachis pintoi', nombreCientifico: <em>Arachis pintoi</em> },
+  { id: 'dichondra_repens', nombre: 'Dichondra repens', nombreCientifico: <em>Dichondra repens</em> },
+  { id: 'euphorbia_hirta', nombre: 'Euphorbia hirta', nombreCientifico: <em>Euphorbia hirta</em> },
+  { id: 'pseudoelephantopus_spicatus', nombre: 'Pseudoelephantopus spicatus', nombreCientifico: <em>Pseudoelephantopus spicatus</em> },
 ];
 
 // Lista predefinida de arvenses agresivas
 const ARVENSES_AGRESIVAS: ArvenseAgresiva[] = [
-  { id: 'setaria_palmifolia', nombre: 'Setaria palmifolia', nombreCientifico: 'Setaria palmifolia' },
-  { id: 'oxalis_latifolia', nombre: 'Oxalis latifolia', nombreCientifico: 'Oxalis latifolia' },
-  { id: 'paspalum_dilatatum', nombre: 'Paspalum dilatatum', nombreCientifico: 'Paspalum dilatatum' },
-  { id: 'sorghum_halepense', nombre: 'Sorghum halepense', nombreCientifico: 'Sorghum halepense' },
-  { id: 'digitaria_sanguinalis', nombre: 'Digitaria sanguinalis', nombreCientifico: 'Digitaria sanguinalis' },
-  { id: 'cyperus_brevifolius', nombre: 'Cyperus brevifolius', nombreCientifico: 'Cyperus brevifolius' },
-  { id: 'bidens_pilosa', nombre: 'Bidens pilosa', nombreCientifico: 'Bidens pilosa' },
-  { id: 'drymaria_cordata_agresiva', nombre: 'Drymaria cordata', nombreCientifico: 'Drymaria cordata' },
-  { id: 'solanum_americanum', nombre: 'Solanum americanum', nombreCientifico: 'Solanum americanum' },
-  { id: 'talinum_paniculatum', nombre: 'Talinum paniculatum', nombreCientifico: 'Talinum paniculatum' },
+  { id: 'setaria_palmifolia', nombre: 'Setaria palmifolia', nombreCientifico: <em>Setaria palmifolia</em> },
+  { id: 'oxalis_latifolia', nombre: 'Oxalis latifolia', nombreCientifico: <em>Oxalis latifolia</em> },
+  { id: 'paspalum_dilatatum', nombre: 'Paspalum dilatatum', nombreCientifico: <em>Paspalum dilatatum</em> },
+  { id: 'sorghum_halepense', nombre: 'Sorghum halepense', nombreCientifico: <em>Sorghum halepense</em> },
+  { id: 'digitaria_sanguinalis', nombre: 'Digitaria sanguinalis', nombreCientifico: <em>Digitaria sanguinalis</em> },
+  { id: 'cyperus_brevifolius', nombre: 'Cyperus brevifolius', nombreCientifico: <em>Cyperus brevifolius</em> },
+  { id: 'bidens_pilosa', nombre: 'Bidens pilosa', nombreCientifico: <em>Bidens pilosa</em> },
+  { id: 'drymaria_cordata_agresiva', nombre: 'Drymaria cordata', nombreCientifico: <em>Drymaria cordata</em> },
+  { id: 'solanum_americanum', nombre: 'Solanum americanum', nombreCientifico: <em>Solanum americanum</em> },
+  { id: 'talinum_paniculatum', nombre: 'Talinum paniculatum', nombreCientifico: <em>Talinum paniculatum</em> },
 ];
 
 export const ArvensesSection: React.FC<ArvensesSectionProps> = ({

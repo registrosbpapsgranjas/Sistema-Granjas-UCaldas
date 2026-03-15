@@ -32,14 +32,16 @@ const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
   
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de Compsus sp. - Picudo</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        Monitoreo de <em>Compsus</em> sp. - Picudo
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Seleccione preferiblemente árboles de los linderos, de los bordes de carretera o los que están cerca de los centros de acopio de frutas. Sacuda de forma suave las ramas de arriba hacia abajo, dándole la vuelta al árbol. Observe en el suelo la presencia de adultos.
       </p>
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Adultos de Compsus sp. encontrados *
+          Adultos de <em>Compsus</em> sp. encontrados *
         </label>
         <input
           type="number"
@@ -84,7 +86,9 @@ const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama:
   
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de Diaphorina citri - Psílido asiático</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        Monitoreo de <em>Diaphorina citri</em> - Psílido asiático
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes nuevos, que son los preferidos por el insecto.
         {caracterizacion['lote_seleccionado'] && ['l5', 'l6', 'l8', 'l9'].includes(caracterizacion['lote_seleccionado']) && 
@@ -94,7 +98,7 @@ const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama:
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Número de Diaphorina citri encontrados *
+          Número de <em>Diaphorina citri</em> encontrados *
         </label>
         <input
           type="number"
@@ -151,14 +155,16 @@ const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; ra
   
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de Phyllocnistis sp. - Minador de los cítricos</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        Monitoreo de <em>Phyllocnistis</em> sp. - Minador de los cítricos
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes nuevos. Observar: Galerías serpenteantes plateadas en el envés de la hoja, enrollamiento del borde foliar, presencia de larvas o pupa al final de la galería.
       </p>
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Galerías activas hechas por Phyllocnistis sp. *
+          Galerías activas hechas por <em>Phyllocnistis</em> sp. *
         </label>
         <input
           type="number"
@@ -203,12 +209,14 @@ const ToxopteraSection: React.FC<{ basePrefix: string; cuadrante: number; rama: 
   
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de Toxoptera citricidus - Pulgón negro</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        Monitoreo de <em>Toxoptera citricidus</em> - Pulgón negro
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">Revisar brotes nuevos, que son los preferidos por el insecto.</p>
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Adultos de Toxoptera citricidus encontrados *
+          Adultos de <em>Toxoptera citricidus</em> encontrados *
         </label>
         <input
           type="number"
@@ -275,14 +283,16 @@ const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: numb
   
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de Polyphagotarsonemus sp. - Ácaro blanco</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        Monitoreo de <em>Polyphagotarsonemus</em> sp. - Ácaro blanco
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes tiernos y frutos en formación. Observar: Coloración plateada, enrollamiento de hojas jóvenes.
       </p>
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Número de frutos afectados por Polyphagotarsonemus sp. *
+          Número de frutos afectados por <em>Polyphagotarsonemus</em> sp. *
         </label>
         <input
           type="number"
@@ -327,14 +337,16 @@ const PhyllocoptrutaSection: React.FC<{ basePrefix: string; cuadrante: number; r
   
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de Phyllocoptruta sp. - Ácaro tostador</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        Monitoreo de <em>Phyllocoptruta</em> sp. - Ácaro tostador
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes tiernos y frutos en formación. Observar: Bronceado café oscuro, enrollamiento de hojas jóvenes, rugosidad y corchosidad en frutos.
       </p>
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Número de frutos afectados por Phyllocoptruta sp. *
+          Número de frutos afectados por <em>Phyllocoptruta</em> sp. *
         </label>
         <input
           type="number"
@@ -513,15 +525,15 @@ const CuadranteArthropod: React.FC<{
   };
 
   const insectoTiposDisponibles = [
-    { value: 'compsus', label: 'Compsus sp. – Picudo' },
-    { value: 'diaphorina', label: 'Diaphorina citri - Psílido asiático' },
-    { value: 'phyllocnistis', label: 'Phyllocnistis sp. - Minador de la hoja' },
-    { value: 'toxoptera', label: 'Toxoptera citricidus - Pulgón negro' },
+    { value: 'compsus', label: <><em>Compsus</em> sp. – Picudo</> },
+    { value: 'diaphorina', label: <><em>Diaphorina citri</em> - Psílido asiático</> },
+    { value: 'phyllocnistis', label: <><em>Phyllocnistis</em> sp. - Minador de la hoja</> },
+    { value: 'toxoptera', label: <><em>Toxoptera citricidus</em> - Pulgón negro</> },
   ];
 
   const acaroTiposDisponibles = [
-    { value: 'polyphagotarsonemus', label: 'Polyphagotarsonemus sp. - Ácaro blanco' },
-    { value: 'phyllocoptruta', label: 'Phyllocoptruta sp. - Ácaro tostador' },
+    { value: 'polyphagotarsonemus', label: <><em>Polyphagotarsonemus</em> sp. - Ácaro blanco</> },
+    { value: 'phyllocoptruta', label: <><em>Phyllocoptruta</em> sp. - Ácaro tostador</> },
   ];
 
   return (
@@ -780,7 +792,7 @@ export const ArthropodSection: React.FC<Props> = ({ plantas, caracterizacion, on
         <p className="font-medium mb-1">📝 Nota importante - Variedad Swingle:</p>
         <p>
           Si el lote monitoreado tiene o linda con plantas de la variedad Swingle (Lotes: 5, 6, 8 y 9), 
-          debe monitorear mínimo 2 árboles adicionales de esta variedad para el monitoreo de Diaphorina citri.
+          debe monitorear mínimo 2 árboles adicionales de esta variedad para el monitoreo de <em>Diaphorina citri</em>.
         </p>
       </div>
     </div>

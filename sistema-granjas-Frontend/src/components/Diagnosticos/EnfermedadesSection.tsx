@@ -1,5 +1,11 @@
 import React from 'react';
-import { PlantaBase } from '../types/index';
+import { PlantaBase } from '../types';
+
+interface EnfermedadesSectionProps {
+  plantas: PlantaBase[];
+  caracterizacion: Record<string, string>;
+  onCampoChange: (campo: string, valor: string) => void;
+}
 
 // Constantes
 const AGENTES = [
@@ -12,21 +18,21 @@ const AGENTES = [
 
 const ENFERMEDADES_POR_AGENTE = {
   hongo: [
-    { id: 'antracnosis', label: 'Colletotrichum gloeosporioides – Antracnosis' },
-    { id: 'mancha_grasienta', label: 'Mycosphaerella citri - Mancha grasienta de los cítricos' },
+    { id: 'antracnosis', label: <><em>Colletotrichum gloeosporioides</em> – Antracnosis</> },
+    { id: 'mancha_grasienta', label: <><em>Mycosphaerella citri</em> - Mancha grasienta de los cítricos</> },
   ],
   bacteria: [
-    { id: 'hlb', label: 'Huanglongbing (HLB) – Enverdecimiento' },
-    { id: 'xylella', label: 'Xylella fastidiosa - Clorosis de los cítricos' },
+    { id: 'hlb', label: <>Huanglongbing (HLB) – Enverdecimiento</> },
+    { id: 'xylella', label: <><em>Xylella fastidiosa</em> - Clorosis de los cítricos</> },
   ],
   oomiceto: [
-    { id: 'phytophthora', label: 'Phytophthora sp. - Gomosis o pudrición radicular' },
+    { id: 'phytophthora', label: <><em>Phytophthora</em> sp. - Gomosis o pudrición radicular</> },
   ],
   virus: [
-    { id: 'ctv', label: 'Virus de la Tristeza de los Cítricos (CTV)' },
+    { id: 'ctv', label: <>Virus de la Tristeza de los Cítricos (CTV)</> },
   ],
   nematodo: [
-    { id: 'nematodos', label: 'Nematodos' },
+    { id: 'nematodos', label: <>Nematodos</> },
   ],
 };
 
@@ -90,7 +96,9 @@ const AntracnosisSection: React.FC<{ basePrefix: string; cuadrante: number; rama
 
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Colletotrichum gloeosporioides — Antracnosis</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        <em>Colletotrichum gloeosporioides</em> — Antracnosis
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Síntomas: Manchas cloróticas irregulares, de bordes definidos con halo clorótico; coalescen, provocan quemado de ápices y defoliación cuando hay alta humedad. Sobre hojas y ramas afectadas pueden verse puntos/velos oscuros (masas de esporas) en tejido muerto.
         Umbral de acción: &gt;5% de árboles con síntomas activos.
@@ -153,7 +161,9 @@ const ManchaGrasientaSection: React.FC<{ basePrefix: string; cuadrante: number; 
 
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Mycosphaerella citri - Mancha grasienta de los cítricos</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        <em>Mycosphaerella citri</em> - Mancha grasienta de los cítricos
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Síntomas: En el envés de hojas maduras, manchas irregulares café claro con zona clorótica; al avanzar, se oscurecen y toman apariencia grasienta.
         Umbral de acción: &gt;5% de árboles con lesiones activas.
@@ -264,7 +274,7 @@ const HLBSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          ¿Hay presencia del vector Diaphorina citri? *
+          ¿Hay presencia del vector <em>Diaphorina citri</em>? *
         </label>
         <div className="flex gap-4">
           {["Si", "No"].map((opcion) => (
@@ -297,7 +307,9 @@ const XylellaSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
 
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Xylella fastidiosa - Clorosis de los cítricos</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        <em>Xylella fastidiosa</em> - Clorosis de los cítricos
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Síntomas: Amarilleamiento irregular de hojas ("clorosis variegada"), marchitez y reducción del vigor.
         Umbral de acción: Presencia confirmada de un árbol positivo es umbral crítico para manejo de cuarentena.
@@ -360,7 +372,9 @@ const PhytophthoraSection: React.FC<{ basePrefix: string; cuadrante: number; ram
 
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Phytophthora sp. - Gomosis o pudrición radicular</h6>
+      <h6 className="font-semibold mb-2 text-sm">
+        <em>Phytophthora</em> sp. - Gomosis o pudrición radicular
+      </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Síntomas: Goma exudativa de tronco; lesiones oscuras en collar y raíces, necrosis de tejidos, declive general del árbol.
         Umbral de acción: &gt;5% de árboles con lesiones activas.
@@ -454,7 +468,7 @@ const CTVSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          ¿Hay presencia del vector Toxoptera citricidus? *
+          ¿Hay presencia del vector <em>Toxoptera citricidus</em>? *
         </label>
         <div className="flex gap-4">
           {["Si", "No"].map((opcion) => (
@@ -930,7 +944,7 @@ const CuadranteEnfermedades: React.FC<{
                     className="border rounded px-2 py-1 w-full text-sm"
                   >
                     <option value="">-- Seleccione --</option>
-                    <option value="meloidogyne">Meloidogyne sp. / Tylenchulus sp.</option>
+                    <option value="meloidogyne"><em>Meloidogyne</em> sp. / <em>Tylenchulus</em> sp.</option>
                     <option value="otro">Otro</option>
                   </select>
                 </div>
@@ -1042,8 +1056,8 @@ export const EnfermedadesSection: React.FC<EnfermedadesSectionProps> = ({
         <p className="font-medium mb-1">📝 Umbrales de acción:</p>
         <ul className="list-disc list-inside space-y-1">
           <li><span className="font-medium">Antracnosis y Mancha grasienta:</span> &gt;5% de árboles con síntomas activos</li>
-          <li><span className="font-medium">Xylella fastidiosa:</span> Cualquier árbol positivo requiere manejo cuarentenario</li>
-          <li><span className="font-medium">Phytophthora:</span> &gt;5% de árboles con lesiones activas</li>
+          <li><span className="font-medium"><em>Xylella fastidiosa</em>:</span> Cualquier árbol positivo requiere manejo cuarentenario</li>
+          <li><span className="font-medium"><em>Phytophthora</em>:</span> &gt;5% de árboles con lesiones activas</li>
           <li><span className="font-medium">CTV:</span> Cualquier árbol positivo requiere manejo cuarentenario</li>
         </ul>
       </div>
