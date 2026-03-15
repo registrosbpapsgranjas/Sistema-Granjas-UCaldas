@@ -163,7 +163,7 @@ const GestionGranjas: React.FC = () => {
         <div className="flex space-x-3">
           <button
             onClick={abrirModalNueva}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-grren-700"
           >
             <i className="fas fa-plus mr-2"></i>
             Nueva Granja
