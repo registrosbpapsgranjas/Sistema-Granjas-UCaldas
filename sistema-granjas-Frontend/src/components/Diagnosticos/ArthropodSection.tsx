@@ -33,7 +33,7 @@ const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
-        Monitoreo de <em>Compsus</em> sp. - Picudo
+        Monitoreo de <em>Compsus sp.</em> - Picudo
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Seleccione preferiblemente árboles de los linderos, de los bordes de carretera o los que están cerca de los centros de acopio de frutas. Sacuda de forma suave las ramas de arriba hacia abajo, dándole la vuelta al árbol. Observe en el suelo la presencia de adultos.
