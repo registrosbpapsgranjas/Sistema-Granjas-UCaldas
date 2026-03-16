@@ -41,7 +41,7 @@ const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Adultos de <em>Compsus</em> sp. encontrados *
+          Adultos de <em>Compsus sp.</em> encontrados *
         </label>
         <input
           type="number"
@@ -164,7 +164,7 @@ const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; ra
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Galerías activas hechas por <em>Phyllocnistis</em> sp. *
+          Galerías activas hechas por <em>Phyllocnistis sp.</em> *
         </label>
         <input
           type="number"
@@ -284,7 +284,7 @@ const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: numb
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
-        Monitoreo de <em>Polyphagotarsonemus</em> sp. - Ácaro blanco
+        Monitoreo de <em>Polyphagotarsonemus sp.</em> - Ácaro blanco
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes tiernos y frutos en formación. Observar: Coloración plateada, enrollamiento de hojas jóvenes.
@@ -292,7 +292,7 @@ const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: numb
       
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Número de frutos afectados por <em>Polyphagotarsonemus</em> sp. *
+          Número de frutos afectados por <em>Polyphagotarsonemus sp</em> *
         </label>
         <input
           type="number"
@@ -525,15 +525,15 @@ const CuadranteArthropod: React.FC<{
   };
 
   const insectoTiposDisponibles = [
-    { value: 'compsus', label: <><em>Compsus</em> sp. – Picudo</> },
+    { value: 'compsus', label: <><em>Compsus sp.</em> – Picudo</> },
     { value: 'diaphorina', label: <><em>Diaphorina citri</em> - Psílido asiático</> },
-    { value: 'phyllocnistis', label: <><em>Phyllocnistis</em> sp. - Minador de la hoja</> },
+    { value: 'phyllocnistis', label: <><em>Phyllocnistis sp.</em> - Minador de la hoja</> },
     { value: 'toxoptera', label: <><em>Toxoptera citricidus</em> - Pulgón negro</> },
   ];
 
   const acaroTiposDisponibles = [
-    { value: 'polyphagotarsonemus', label: <><em>Polyphagotarsonemus</em> sp. - Ácaro blanco</> },
-    { value: 'phyllocoptruta', label: <><em>Phyllocoptruta</em> sp. - Ácaro tostador</> },
+    { value: 'polyphagotarsonemus', label: <><em>Polyphagotarsonemus sp.</em> - Ácaro blanco</> },
+    { value: 'phyllocoptruta', label: <><em>Phyllocoptruta sp.</em> - Ácaro tostador</> },
   ];
 
   return (
