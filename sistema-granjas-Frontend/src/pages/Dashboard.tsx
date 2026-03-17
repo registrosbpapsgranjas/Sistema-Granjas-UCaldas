@@ -7,6 +7,7 @@ import programaService from '../services/programaService';
 import loteService from '../services/loteService';
 import { normalizarArray } from '../utils/normalize';
 import type { Granja, Programa, Lote } from '../types/granjaTypes';
+import cultivoService from '../services/cultivoService';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const Dashboard: React.FC = () => {
     granjas: 0,
     programas: 0,
     lotes: 0,
-    usuarios: 0
+    cultivos: 0
   });
   const [nombreUsuario, setNombreUsuario] = useState('Usuario');
 
@@ -32,17 +33,18 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      const [granjasResp, programasResp, lotesResp] = await Promise.all([
+      const [granjasResp, programasResp, lotesResp, cultivosResp] = await Promise.all([
         granjaService.obtenerGranjas().catch(() => []),
         programaService.obtenerProgramas().catch(() => []),
-        loteService.obtenerLotes().catch(() => [])
+        loteService.obtenerLotes().catch(() => []),
+        cultivoService.obtenerCultivos().catch(() => [])
       ]);
 
       setStats({
         granjas: normalizarArray(granjasResp).length,
         programas: normalizarArray(programasResp).length,
         lotes: normalizarArray(lotesResp).length,
-        usuarios: 7 // Valor fijo por ahora
+        cultivos: normalizarArray(cultivosResp).length
       });
 
     } catch (error) {
@@ -239,7 +241,7 @@ const Dashboard: React.FC = () => {
               icono="leaf"
               color="bg-amber-600"
               ruta="/gestion/cultivos"
-              stats="En desarrollo"
+              stats={`${stats.cultivos} registrados`}
               features={[
                 "Catálogo de cultivos y especies",
                 "Variedades por cultivo",
