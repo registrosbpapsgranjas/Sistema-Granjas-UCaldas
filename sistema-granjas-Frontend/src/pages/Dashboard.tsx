@@ -233,20 +233,21 @@ const Dashboard: React.FC = () => {
             ]}
           />
           
-          <ModuloCard
-            titulo="Usuarios"
-            descripcion="Administra roles, permisos y acceso al sistema"
-            icono="users"
-            color="bg-amber-600"
-            ruta="/gestion/usuarios"
-            stats={`${stats.usuarios} usuarios`}
-            features={[
-              "Gestión de usuarios del sistema",
-              "Asignación de roles",
-              "Vinculación a granjas",
-              "Vinculación a programas"
-            ]}
-          />
+           <ModuloCard
+              titulo="Cultivos"
+              descripcion="Gestiona cultivos, especies y variedades"
+              icono="leaf"
+              color="bg-amber-600"
+              ruta="/gestion/cultivos"
+              stats="En desarrollo"
+              features={[
+                "Catálogo de cultivos y especies",
+                "Variedades por cultivo",
+                "Ciclos de crecimiento",
+                "Requerimientos de suelo y clima",
+                "Asociación con lotes"
+              ]}
+            />
         </div>
 
         {/* Flujos de Trabajo */}
