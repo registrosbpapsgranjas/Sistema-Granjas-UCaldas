@@ -322,11 +322,6 @@ const Dashboard: React.FC = () => {
               <span className="font-semibold">{stats.lotes}</span> lotes ·{' '}
               <span className="font-semibold">{stats.cultivos}</span> cultivos
             </div>
-            {stats.granjasActivas !== undefined && (
-              <div className="bg-green-500 bg-opacity-30 rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm lg:text-base">
-                <span className="font-semibold">{stats.granjasActivas}</span> activas
-              </div>
-            )}
           </div>
         </section>
 
