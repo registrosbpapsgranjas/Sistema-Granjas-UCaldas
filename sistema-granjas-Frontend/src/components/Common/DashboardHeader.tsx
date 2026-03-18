@@ -156,7 +156,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
                     {/* Información de usuario */}
                     {user ? (
-                        <div className="flex items-center space-x-2 sm:space-x-4">
+                        <div className="flex items-center space-x-2">
                             <div className="hidden sm:block text-right">
                                 <div className="text-sm text-gray-500">{greeting},</div>
                                 <div className="font-semibold text-gray-800">
