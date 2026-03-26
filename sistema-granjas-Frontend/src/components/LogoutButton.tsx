@@ -36,6 +36,7 @@ export default function LogoutButton({ className = "", variant = "default" }: Pr
             <button
                 onClick={() => {
                     handleLogout();
+                    navigate("/login");
                     navigate(0);
                 }}
                 disabled={loading}
