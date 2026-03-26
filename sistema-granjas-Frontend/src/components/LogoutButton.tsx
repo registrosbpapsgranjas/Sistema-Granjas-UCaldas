@@ -49,7 +49,10 @@ export default function LogoutButton({ className = "", variant = "default" }: Pr
     if (variant === "icon-only") {
         return (
             <button
-                onClick={handleLogout}
+                onClick={() => {
+                    handleLogout();
+                    navigate("/login");
+                }}
                 disabled={loading}
                 className={`p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ${className}`}
                 title="Cerrar sesión"
@@ -66,7 +69,10 @@ export default function LogoutButton({ className = "", variant = "default" }: Pr
     // Variante default - estilo que coincide con tus otros botones
     return (
         <button
-            onClick={handleLogout}
+            onClick={() => {
+                    handleLogout();
+                    navigate("/login");
+                }}
             disabled={loading}
             className={`
                 flex items-center justify-center
