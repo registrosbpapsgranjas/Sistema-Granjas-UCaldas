@@ -8,12 +8,6 @@ import { ArvensesSection } from './ArvensesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
 
-// 👇 PROGRAMAS DISPONIBLES
-const PROGRAMAS = [
-    { value: 'fcc', label: 'Frutales de Clima Cálido (FCC)' },
-    { value: 'fcf', label: 'Frutales de Clima Frío (FCF)' }
-];
-
 // 👇 MAPEO DE MONITOREOS POR PROGRAMA
 const MONITOREOS_POR_PROGRAMA: Record<string, { value: string; label: string }[]> = {
     fcc: [
@@ -61,7 +55,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 }) => {
     // Estados del wizard
     const [paso, setPaso] = useState(1);
-    const [programaSeleccionado, setProgramaSeleccionado] = useState<string>('');  // 👈 NUEVO
+    const [PROGRAMAS, setPROGRAMAS] = useState<{ value: string; label: string }[]>([]); // 👈 AHORA VIENE DE BD
+    const [programaSeleccionado, setProgramaSeleccionado] = useState<string>('');
     const [tipoMonitoreo, setTipoMonitoreo] = useState<string>('');
     const [loteSeleccionado, setLoteSeleccionado] = useState<string>('');
     const [plantasSeleccionadas, setPlantasSeleccionadas] = useState<PlantaBase[]>([]);
@@ -88,6 +83,29 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const esAdmin = currentUser?.rol_id === 1;
     const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
     const esEstudiante = currentUser?.rol_id === 4;
+
+    // 👇 CARGAR PROGRAMAS DESDE LA BD
+    useEffect(() => {
+        const cargarProgramas = async () => {
+            try {
+                // Aquí llamas a tu API para obtener los programas
+                const response = await fetch('/api/programas'); // Ajusta la URL según tu API
+                const data = await response.json();
+                
+                // Asumiendo que la API devuelve un array con { value: string, label: string }
+                setPROGRAMAS(data);
+            } catch (error) {
+                console.error('Error cargando programas:', error);
+                // Opcional: puedes mantener un fallback
+                setPROGRAMAS([
+                    { value: 'fcc', label: 'Frutales de Clima Cálido (FCC)' },
+                    { value: 'fcf', label: 'Frutales de Clima Frío (FCF)' }
+                ]);
+            }
+        };
+
+        cargarProgramas();
+    }, []);
 
     // Obtener monitoreos disponibles según el programa seleccionado
     const monitoreosDisponibles = programaSeleccionado
