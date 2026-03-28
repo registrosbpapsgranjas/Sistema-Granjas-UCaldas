@@ -92,6 +92,7 @@ class Programa(Base):
     usuarios = relationship("Usuario", secondary=usuario_programa, back_populates="programas")
     lotes = relationship("Lote", back_populates="programa")
     insumos = relationship("Insumo", back_populates="programa")
+    monitoreos = relationship("Monitoreo", back_populates="programa", cascade="all, delete-orphan")
 
 
 class Granja(Base):
@@ -336,6 +337,16 @@ class AsignacionHerramienta(Base):
 
     herramienta = relationship("Herramienta", back_populates="asignaciones")
 
+class Monitoreo(Base):
+    __tablename__ = "monitoreos"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    programa_id = Column(Integer, ForeignKey("programas.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relación inversa con Programa
+    programa = relationship("Programa", back_populates="monitoreos")
 
 class CultivoEspecie(Base):
     __tablename__ = "cultivos_especies"
