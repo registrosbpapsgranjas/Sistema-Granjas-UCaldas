@@ -8,8 +8,10 @@ import { ArvensesSection } from './ArvensesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
 
-// 👇 MAPEO DE MONITOREOS POR PROGRAMA
-const MONITOREOS_POR_PROGRAMA: Record<number, { value: string; label: string }[]> = {
+// 👇 MAPEO DE MONITOREOS POR PROGRAMA (esto podría venir de BD también)
+const MONITOREOS_POR_PROGRAMA: Record<string, { value: string; label: string }[]> = {
+    // Estos IDs deberían coincidir con los programa_id de la BD
+    // Ejemplo: si en BD el programa Frutales de Clima Cálido tiene id 5
     5: [  // ID del programa FCC
         { value: 'citricos', label: 'MONITOREO EN CÍTRICOS' },
         { value: 'aguacate', label: 'MONITOREO EN AGUACATE' }
@@ -36,7 +38,7 @@ interface Lote {
     id: number;
     nombre: string;
     granja_nombre?: string;
-    programa_id: number;
+    programa_id: number; // 👈 Ahora es un número que referencia al programa
 }
 
 interface DiagnosticoFormProps {
@@ -44,7 +46,7 @@ interface DiagnosticoFormProps {
     onSubmit: (data: any) => void;
     onCancel: () => void;
     lotes: Lote[];
-    programas: Programa[]; // 👈 Este podría venir undefined
+    programas: Programa[]; // 👈 NUEVO: Recibir programas desde la BD
     docentes: any[];
     estudiantes: any[];
     tipos: string[];
@@ -58,11 +60,11 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     diagnostico,
     onSubmit,
     onCancel,
-    lotes = [], // 👈 Valor por defecto
-    programas = [], // 👈 Valor por defecto para evitar undefined
-    docentes = [],
-    estudiantes = [],
-    tipos = [],
+    lotes,
+    programas, // 👈 Recibimos programas desde la BD
+    docentes,
+    estudiantes,
+    tipos,
     estados = ['abierto', 'en_revision', 'cerrado'],
     condiciones_dia = ['Soleado', 'Nublado', 'Lluvia'],
     currentUser,
@@ -75,7 +77,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [loteSeleccionado, setLoteSeleccionado] = useState<string>('');
     const [plantasSeleccionadas, setPlantasSeleccionadas] = useState<PlantaBase[]>([]);
     const [caracterizacion, setCaracterizacion] = useState<Record<string, string>>({});
-    const [error, setError] = useState<string | null>(null); // 👈 Estado para errores
 
     // Estados originales del formulario
     const [formData, setFormData] = useState({
@@ -99,122 +100,91 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
     const esEstudiante = currentUser?.rol_id === 4;
 
-    // 👇 Filtrar lotes por programa seleccionado (con validación)
+    // 👇 Filtrar lotes por programa seleccionado
     const lotesFiltrados = useMemo(() => {
-        if (!programaSeleccionadoId || !lotes || lotes.length === 0) return [];
+        if (!programaSeleccionadoId) return [];
+        
         return lotes.filter(lote => lote.programa_id === programaSeleccionadoId);
     }, [lotes, programaSeleccionadoId]);
 
     // Obtener monitoreos disponibles según el programa seleccionado
-    const monitoreosDisponibles = useMemo(() => {
-        if (!programaSeleccionadoId) return [];
-        return MONITOREOS_POR_PROGRAMA[programaSeleccionadoId] || [];
-    }, [programaSeleccionadoId]);
+    const monitoreosDisponibles = programaSeleccionadoId
+        ? MONITOREOS_POR_PROGRAMA[programaSeleccionadoId.toString()] || []
+        : [];
 
-    // Obtener el programa seleccionado (con validación)
-    const programaSeleccionado = useMemo(() => {
-        if (!programaSeleccionadoId || !programas || programas.length === 0) return null;
-        return programas.find(p => p.id === programaSeleccionadoId);
-    }, [programas, programaSeleccionadoId]);
+    // Obtener el programa seleccionado
+    const programaSeleccionado = programas.find(p => p.id === programaSeleccionadoId);
 
     // Si es edición, cargar en paso 2 con datos existentes
     useEffect(() => {
-        try {
-            if (esEdicion && diagnostico) {
-                setPaso(2);
-                if (diagnostico.programa_id) {
-                    setProgramaSeleccionadoId(diagnostico.programa_id);
-                }
-                if (diagnostico.tipo_monitoreo) {
-                    setTipoMonitoreo(diagnostico.tipo_monitoreo);
-                }
+        if (esEdicion && diagnostico) {
+            setPaso(2);
+            // Si el diagnóstico tiene programa_id, lo seleccionamos
+            if (diagnostico.programa_id) {
+                setProgramaSeleccionadoId(diagnostico.programa_id);
             }
-        } catch (err) {
-            console.error("Error al cargar diagnóstico en edición:", err);
-            setError("Error al cargar los datos del diagnóstico");
+            if (diagnostico.tipo_monitoreo) {
+                setTipoMonitoreo(diagnostico.tipo_monitoreo);
+            }
         }
     }, [esEdicion, diagnostico]);
 
     // Auto-seleccionar lote si solo hay uno disponible después del filtro
     useEffect(() => {
-        try {
-            if (lotesFiltrados.length === 1 && !formData.lote_id && !loteSeleccionado) {
-                const loteUnico = lotesFiltrados[0];
-                setFormData(prev => ({ ...prev, lote_id: loteUnico.id.toString() }));
-                setLoteSeleccionado(loteUnico.id.toString());
-                const nuevas = generarPlantas(5);
-                setPlantasSeleccionadas(nuevas);
-            }
-        } catch (err) {
-            console.error("Error al auto-seleccionar lote:", err);
+        if (lotesFiltrados.length === 1 && !formData.lote_id && !loteSeleccionado) {
+            const loteUnico = lotesFiltrados[0];
+            setFormData(prev => ({ ...prev, lote_id: loteUnico.id.toString() }));
+            setLoteSeleccionado(loteUnico.id.toString());
+            const nuevas = generarPlantas(5);
+            setPlantasSeleccionadas(nuevas);
         }
     }, [lotesFiltrados]);
 
     // Autoseleccionar estudiante según rol
     useEffect(() => {
-        try {
-            if (!formData.estudiante_id && esEstudiante && currentUser?.id) {
-                setFormData(prev => ({ ...prev, estudiante_id: currentUser.id }));
-            }
-        } catch (err) {
-            console.error("Error al auto-seleccionar estudiante:", err);
+        if (!formData.estudiante_id && esEstudiante) {
+            setFormData(prev => ({ ...prev, estudiante_id: currentUser.id }));
         }
-    }, [currentUser, esEstudiante]);
+    }, [currentUser, esEdicion]);
 
     // Generar plantas aleatorias
     const generarPlantas = useCallback((cantidad: number): PlantaBase[] => {
-        try {
-            const pares = new Set<string>();
-            while (pares.size < cantidad) {
-                const surco = Math.floor(Math.random() * 20) + 1;
-                const planta = Math.floor(Math.random() * 20) + 1;
-                pares.add(`${surco}-${planta}`);
-            }
-            return Array.from(pares).map((par) => {
-                const [surco, planta] = par.split("-");
-                return {
-                    codigo: par,
-                    label: `Surco ${surco}, Planta ${planta}`,
-                };
-            });
-        } catch (err) {
-            console.error("Error al generar plantas:", err);
-            return [];
+        const pares = new Set<string>();
+        while (pares.size < cantidad) {
+            const surco = Math.floor(Math.random() * 20) + 1;
+            const planta = Math.floor(Math.random() * 20) + 1;
+            pares.add(`${surco}-${planta}`);
         }
+        return Array.from(pares).map((par) => {
+            const [surco, planta] = par.split("-");
+            return {
+                codigo: par,
+                label: `Surco ${surco}, Planta ${planta}`,
+            };
+        });
     }, []);
 
     // Manejar cambio de lote
     const handleLoteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        try {
-            const loteId = e.target.value;
-            setLoteSeleccionado(loteId);
-            setFormData(prev => ({ ...prev, lote_id: loteId }));
-            if (loteId) {
-                const nuevas = generarPlantas(5);
-                setPlantasSeleccionadas(nuevas);
-            } else {
-                setPlantasSeleccionadas([]);
-            }
-        } catch (err) {
-            console.error("Error al cambiar lote:", err);
-            setError("Error al seleccionar el lote");
+        const loteId = e.target.value;
+        setLoteSeleccionado(loteId);
+        setFormData(prev => ({ ...prev, lote_id: loteId }));
+        if (loteId) {
+            const nuevas = generarPlantas(5);
+            setPlantasSeleccionadas(nuevas);
+        } else {
+            setPlantasSeleccionadas([]);
         }
     };
 
     // Manejar cambio de programa
     const handleProgramaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        try {
-            const programaId = e.target.value ? parseInt(e.target.value) : null;
-            setProgramaSeleccionadoId(programaId);
-            setTipoMonitoreo('');
-            setLoteSeleccionado('');
-            setFormData(prev => ({ ...prev, lote_id: '' }));
-            setPlantasSeleccionadas([]);
-            setError(null);
-        } catch (err) {
-            console.error("Error al cambiar programa:", err);
-            setError("Error al seleccionar el programa");
-        }
+        const programaId = e.target.value ? parseInt(e.target.value) : null;
+        setProgramaSeleccionadoId(programaId);
+        setTipoMonitoreo(''); // Resetear tipo de monitoreo al cambiar programa
+        setLoteSeleccionado(''); // Resetear lote seleccionado al cambiar programa
+        setFormData(prev => ({ ...prev, lote_id: '' })); // Resetear lote en formData
+        setPlantasSeleccionadas([]); // Resetear plantas
     };
 
     // Ir al paso 2
@@ -306,54 +276,31 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        try {
-            const estadoFinal = esEdicion ? formData.estado : 'abierto';
+        const estadoFinal = esEdicion ? formData.estado : 'abierto';
 
-            const evidencias = archivos.map((file, index) => ({
-                file,
-                descripcion: descripcionesEvidencias[index],
-                tipo: tiposEvidencia[index]
-            })).filter(ev => ev.file);
+        const evidencias = archivos.map((file, index) => ({
+            file,
+            descripcion: descripcionesEvidencias[index],
+            tipo: tiposEvidencia[index]
+        })).filter(ev => ev.file);
 
-            const datosSubmit = {
-                ...formData,
-                estado: estadoFinal,
-                lote_id: parseInt(formData.lote_id as string),
-                estudiante_id: formData.estudiante_id ? parseInt(formData.estudiante_id as string) : undefined,
-                docente_id: formData.docente_id ? parseInt(formData.docente_id as string) : undefined,
-                programa_id: programaSeleccionadoId,
-                tipo_monitoreo: tipoMonitoreo,
-                plantas: plantasSeleccionadas,
-                caracterizacion: caracterizacion,
-                evidencias: evidencias.length > 0 ? evidencias : undefined
-            };
+        // Construir datos finales
+        const datosSubmit = {
+            ...formData,
+            estado: estadoFinal,
+            lote_id: parseInt(formData.lote_id as string),
+            estudiante_id: formData.estudiante_id ? parseInt(formData.estudiante_id as string) : undefined,
+            docente_id: formData.docente_id ? parseInt(formData.docente_id as string) : undefined,
+            programa_id: programaSeleccionadoId, // 👈 Guardamos el ID del programa
+            tipo_monitoreo: tipoMonitoreo,
+            plantas: plantasSeleccionadas,
+            caracterizacion: caracterizacion,
+            evidencias: evidencias.length > 0 ? evidencias : undefined
+        };
 
-            console.log("📤 Enviando datos:", datosSubmit);
-            onSubmit(datosSubmit);
-        } catch (err) {
-            console.error("Error al enviar formulario:", err);
-            setError("Error al guardar el diagnóstico");
-            alert("Ocurrió un error al guardar el diagnóstico. Por favor, intenta de nuevo.");
-        }
+        console.log("📤 Enviando datos:", datosSubmit);
+        onSubmit(datosSubmit);
     };
-
-    // Mostrar error si existe
-    if (error) {
-        return (
-            <div className="p-6">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <h3 className="text-red-800 font-semibold mb-2">Error</h3>
-                    <p className="text-red-600">{error}</p>
-                    <button
-                        onClick={() => setError(null)}
-                        className="mt-3 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200"
-                    >
-                        Cerrar
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
@@ -373,7 +320,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
             {paso === 1 && (
                 <div className="space-y-6">
-                    {/* 1. Selección de Programa */}
+                    {/* 1. Selección de Programa - DESDE BASE DE DATOS */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Programa *
@@ -385,15 +332,11 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             required
                         >
                             <option value="">Seleccionar programa</option>
-                            {programas && programas.length > 0 ? (
-                                programas.map(programa => (
-                                    <option key={programa.id} value={programa.id}>
-                                        {programa.nombre}
-                                    </option>
-                                ))
-                            ) : (
-                                <option disabled>Cargando programas...</option>
-                            )}
+                            {programas.map(programa => (
+                                <option key={programa.id} value={programa.id}>
+                                    {programa.nombre}
+                                </option>
+                            ))}
                         </select>
                         {programaSeleccionado && (
                             <p className="text-sm text-green-600 mt-2">
@@ -402,7 +345,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         )}
                     </div>
 
-                    {/* 2. Selección de Tipo de Monitoreo */}
+                    {/* 2. Selección de Tipo de Monitoreo (solo visible si hay programa) */}
                     {programaSeleccionadoId && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -432,7 +375,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </div>
                     )}
 
-                    {/* 3. Selección de Lote */}
+                    {/* 3. Selección de Lote (solo visible si hay monitoreo y hay lotes disponibles) */}
                     {tipoMonitoreo && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -486,22 +429,21 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
             {paso === 2 && (
                 <form onSubmit={handleSubmit}>
-                    {/* ... resto del formulario ... */}
                     <div className="space-y-6">
                         {/* Resumen de selección */}
                         <div className="bg-gray-100 p-4 rounded-lg flex justify-between items-center">
                             <div>
                                 <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Programa:</span> {programaSeleccionado?.nombre || 'No seleccionado'}
+                                    <span className="font-medium">Programa:</span> {programaSeleccionado?.nombre}
                                 </p>
                                 <p className="text-sm text-gray-600">
                                     <span className="font-medium">Tipo monitoreo:</span> {
-                                        monitoreosDisponibles.find(m => m.value === tipoMonitoreo)?.label || tipoMonitoreo
+                                        monitoreosDisponibles.find(m => m.value === tipoMonitoreo)?.label
                                     }
                                 </p>
                                 <p className="text-sm text-gray-600">
                                     <span className="font-medium">Lote:</span> {
-                                        lotesFiltrados.find(l => l.id.toString() === loteSeleccionado)?.nombre || 'No seleccionado'
+                                        lotesFiltrados.find(l => l.id.toString() === loteSeleccionado)?.nombre
                                     }
                                 </p>
                             </div>
@@ -556,8 +498,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {/* Tipo y Condiciones del día */}
+                        {/* Tipo y Condiciones del día en grid de 2 columnas */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Tipo */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
                                 <select
@@ -576,6 +519,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 </select>
                             </div>
 
+                            {/* Condiciones del día */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Condiciones del día *</label>
                                 <select
