@@ -12,7 +12,7 @@ export const api = axios.create({
 // Interceptor para agregar el token a cada request
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -31,7 +31,7 @@ api.interceptors.response.use(
         
         // Si el error es 401 (no autenticado), podrías redirigir al login
         if (error.response?.status === 401) {
-            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
             // window.location.href = '/login'; // Descomenta si quieres redirigir
         }
         
