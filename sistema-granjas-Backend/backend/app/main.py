@@ -26,7 +26,7 @@ from app.api import (
     monitoreos
 )
 from app.db.database import engine, Base
-from app.db.models import Usuario, Granja, Programa, Lote, Labor, Rol
+from app.db.models import Usuario, Granja, Programa, Lote, Labor, Rol, Monitoreo
 import logging
 import time
 import sys

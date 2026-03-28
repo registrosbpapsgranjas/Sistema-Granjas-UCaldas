@@ -339,14 +339,10 @@ class AsignacionHerramienta(Base):
 
 class Monitoreo(Base):
     __tablename__ = "monitoreos"
-    
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
     programa_id = Column(Integer, ForeignKey("programas.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relación inversa con Programa
-    programa = relationship("Programa", back_populates="monitoreos")
+    created_at = Column(Date, default=datetime.utcnow().date())  # Cambiar DateTime -> Date
 
 class CultivoEspecie(Base):
     __tablename__ = "cultivos_especies"

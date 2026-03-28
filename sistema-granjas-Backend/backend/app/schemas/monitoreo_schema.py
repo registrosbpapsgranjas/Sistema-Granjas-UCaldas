@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 import re
 
@@ -53,7 +53,7 @@ class MonitoreoUpdate(BaseModel):
 
 class MonitoreoResponse(MonitoreoBase):
     id: int
-    created_at: datetime
+    created_at: date
 
     class Config:
         from_attributes = True
