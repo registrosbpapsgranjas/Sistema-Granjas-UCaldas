@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { DiagnosticoItem } from '../../types/diagnosticoTypes';
 import { CensoSection } from './CensoSection';
 import { FenologicoSection } from './FenologicoSection';
@@ -7,14 +7,17 @@ import { EnfermedadesSection } from './EnfermedadesSection';
 import { ArvensesSection } from './ArvensesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
+import { toast } from 'react-toastify';
 
-// 👇 MAPEO DE MONITOREOS POR PROGRAMA
-const MONITOREOS_POR_PROGRAMA: Record<string, { value: string; label: string }[]> = {
-    fcc: [
+// 👇 MAPEO DE MONITOREOS POR PROGRAMA (esto debería venir de BD idealmente)
+const MONITOREOS_POR_PROGRAMA: Record<number, { value: string; label: string }[]> = {
+    // Estos IDs deben coincidir con los programa_id de la BD
+    // Ajusta estos IDs según los programas reales en tu BD
+    5: [  // ID del programa Frutales de Clima Cálido (FCC)
         { value: 'citricos', label: 'MONITOREO EN CÍTRICOS' },
         { value: 'aguacate', label: 'MONITOREO EN AGUACATE' }
     ],
-    fcf: [
+    6: [  // ID del programa Frutales de Clima Frío (FCF)
         { value: 'manzano', label: 'MONITOREO EN MANZANO' },
         { value: 'peral', label: 'MONITOREO EN PERAL' },
         { value: 'durazno', label: 'MONITOREO EN DURAZNO' }
@@ -26,11 +29,31 @@ interface PlantaBase {
     label: string;
 }
 
+interface Programa {
+    id: number;
+    nombre: string;
+    tipo?: string;
+    descripcion?: string;
+    activo?: boolean;
+}
+
+interface Lote {
+    id: number;
+    nombre: string;
+    granja_id?: number;
+    granja_nombre?: string;
+    programa_id: number;
+    estado?: string;
+    fecha_inicio?: string;
+    cultivos_ids?: number[];
+}
+
 interface DiagnosticoFormProps {
     diagnostico?: DiagnosticoItem;
     onSubmit: (data: any) => void;
     onCancel: () => void;
-    lotes: any[];
+    lotes: Lote[];
+    programas: Programa[];
     docentes: any[];
     estudiantes: any[];
     tipos: string[];
@@ -44,10 +67,11 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     diagnostico,
     onSubmit,
     onCancel,
-    lotes,
-    docentes,
-    estudiantes,
-    tipos,
+    lotes = [],
+    programas = [],
+    docentes = [],
+    estudiantes = [],
+    tipos = [],
     estados = ['abierto', 'en_revision', 'cerrado'],
     condiciones_dia = ['Soleado', 'Nublado', 'Lluvia'],
     currentUser,
@@ -55,10 +79,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 }) => {
     // Estados del wizard
     const [paso, setPaso] = useState(1);
-    const [PROGRAMAS, setPROGRAMAS] = useState<{ value: string; label: string }[]>([]); // 👈 AHORA VIENE DE BD
-    const [programaSeleccionado, setProgramaSeleccionado] = useState<string>('');
+    const [programaSeleccionadoId, setProgramaSeleccionadoId] = useState<number | null>(null);
     const [tipoMonitoreo, setTipoMonitoreo] = useState<string>('');
-    const [loteSeleccionado, setLoteSeleccionado] = useState<string>('');
+    const [loteSeleccionadoId, setLoteSeleccionadoId] = useState<number | null>(null);
     const [plantasSeleccionadas, setPlantasSeleccionadas] = useState<PlantaBase[]>([]);
     const [caracterizacion, setCaracterizacion] = useState<Record<string, string>>({});
 
@@ -84,101 +107,167 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
     const esEstudiante = currentUser?.rol_id === 4;
 
-    // 👇 CARGAR PROGRAMAS DESDE LA BD
-    useEffect(() => {
-        const cargarProgramas = async () => {
-            try {
-                // Aquí llamas a tu API para obtener los programas
-                const response = await fetch('/api/programas'); // Ajusta la URL según tu API
-                const data = await response.json();
-                
-                // Asumiendo que la API devuelve un array con { value: string, label: string }
-                setPROGRAMAS(data);
-            } catch (error) {
-                console.error('Error cargando programas:', error);
-                // Opcional: puedes mantener un fallback
-                setPROGRAMAS([
-                    { value: 'fcc', label: 'Frutales de Clima Cálido (FCC)' },
-                    { value: 'fcf', label: 'Frutales de Clima Frío (FCF)' }
-                ]);
-            }
-        };
-
-        cargarProgramas();
-    }, []);
+    // 👇 Filtrar lotes por programa seleccionado
+    const lotesFiltrados = useMemo(() => {
+        if (!programaSeleccionadoId || !lotes || lotes.length === 0) return [];
+        return lotes.filter(lote => lote.programa_id === programaSeleccionadoId);
+    }, [lotes, programaSeleccionadoId]);
 
     // Obtener monitoreos disponibles según el programa seleccionado
-    const monitoreosDisponibles = programaSeleccionado
-        ? MONITOREOS_POR_PROGRAMA[programaSeleccionado] || []
-        : [];
+    const monitoreosDisponibles = useMemo(() => {
+        if (!programaSeleccionadoId) return [];
+        return MONITOREOS_POR_PROGRAMA[programaSeleccionadoId] || [];
+    }, [programaSeleccionadoId]);
 
-    // Si es edición, cargar en paso 2 con datos existentes
+    // Obtener el programa seleccionado
+    const programaSeleccionado = useMemo(() => {
+        if (!programaSeleccionadoId || !programas || programas.length === 0) return null;
+        return programas.find(p => p.id === programaSeleccionadoId);
+    }, [programas, programaSeleccionadoId]);
+
+    // Obtener el lote seleccionado
+    const loteSeleccionado = useMemo(() => {
+        if (!loteSeleccionadoId || !lotesFiltrados.length) return null;
+        return lotesFiltrados.find(l => l.id === loteSeleccionadoId);
+    }, [lotesFiltrados, loteSeleccionadoId]);
+
+    // Si es edición, cargar datos existentes
     useEffect(() => {
         if (esEdicion && diagnostico) {
             setPaso(2);
-            // Aquí podrías cargar programa y tipo de monitoreo si vinieran en el diagnóstico
+            
+            // Cargar programa si existe
+            if (diagnostico.programa_id) {
+                setProgramaSeleccionadoId(diagnostico.programa_id);
+            }
+            
+            // Cargar tipo de monitoreo si existe
+            if (diagnostico.tipo_monitoreo) {
+                setTipoMonitoreo(diagnostico.tipo_monitoreo);
+            }
+            
+            // Cargar lote si existe
+            if (diagnostico.lote_id) {
+                setLoteSeleccionadoId(diagnostico.lote_id);
+            }
+            
+            // Cargar plantas si existen
+            if (diagnostico.plantas && diagnostico.plantas.length > 0) {
+                setPlantasSeleccionadas(diagnostico.plantas);
+            } else if (diagnostico.lote_id) {
+                // Si no hay plantas pero hay lote, generar plantas
+                const nuevas = generarPlantas(5);
+                setPlantasSeleccionadas(nuevas);
+            }
+            
+            // Cargar caracterización si existe
+            if (diagnostico.caracterizacion) {
+                setCaracterizacion(diagnostico.caracterizacion);
+            }
         }
     }, [esEdicion, diagnostico]);
 
-    // Auto-seleccionar lote si solo hay uno
+    // Auto-seleccionar lote si solo hay uno disponible después del filtro
     useEffect(() => {
-        if (lotes.length === 1 && !formData.lote_id) {
-            setFormData(prev => ({ ...prev, lote_id: lotes[0].id }));
-            setLoteSeleccionado(lotes[0].id.toString());
+        if (!esEdicion && lotesFiltrados.length === 1 && !loteSeleccionadoId && !formData.lote_id) {
+            const loteUnico = lotesFiltrados[0];
+            setLoteSeleccionadoId(loteUnico.id);
+            setFormData(prev => ({ ...prev, lote_id: loteUnico.id.toString() }));
+            const nuevas = generarPlantas(5);
+            setPlantasSeleccionadas(nuevas);
+            toast.info(`Se ha seleccionado automáticamente el lote: ${loteUnico.nombre}`);
         }
-    }, [lotes]);
+    }, [lotesFiltrados, esEdicion]);
 
     // Autoseleccionar estudiante según rol
     useEffect(() => {
-        if (!formData.estudiante_id && esEstudiante) {
+        if (!esEdicion && !formData.estudiante_id && esEstudiante && currentUser?.id) {
             setFormData(prev => ({ ...prev, estudiante_id: currentUser.id }));
         }
-    }, [currentUser, esEdicion]);
+    }, [currentUser, esEstudiante, esEdicion]);
 
     // Generar plantas aleatorias
     const generarPlantas = useCallback((cantidad: number): PlantaBase[] => {
-        const pares = new Set<string>();
-        while (pares.size < cantidad) {
-            const surco = Math.floor(Math.random() * 20) + 1;
-            const planta = Math.floor(Math.random() * 20) + 1;
-            pares.add(`${surco}-${planta}`);
+        try {
+            const pares = new Set<string>();
+            while (pares.size < cantidad) {
+                const surco = Math.floor(Math.random() * 20) + 1;
+                const planta = Math.floor(Math.random() * 20) + 1;
+                pares.add(`${surco}-${planta}`);
+            }
+            return Array.from(pares).map((par) => {
+                const [surco, planta] = par.split("-");
+                return {
+                    codigo: par,
+                    label: `Surco ${surco}, Planta ${planta}`,
+                };
+            });
+        } catch (err) {
+            console.error("Error al generar plantas:", err);
+            return [];
         }
-        return Array.from(pares).map((par) => {
-            const [surco, planta] = par.split("-");
-            return {
-                codigo: par,
-                label: `Surco ${surco}, Planta ${planta}`,
-            };
-        });
     }, []);
 
     // Manejar cambio de lote
     const handleLoteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const loteId = e.target.value;
-        setLoteSeleccionado(loteId);
-        setFormData(prev => ({ ...prev, lote_id: loteId }));
-        if (loteId) {
-            const nuevas = generarPlantas(5);
-            setPlantasSeleccionadas(nuevas);
-        } else {
+        try {
+            const loteId = e.target.value ? parseInt(e.target.value) : null;
+            setLoteSeleccionadoId(loteId);
+            setFormData(prev => ({ ...prev, lote_id: loteId?.toString() || '' }));
+            
+            if (loteId) {
+                const nuevas = generarPlantas(5);
+                setPlantasSeleccionadas(nuevas);
+            } else {
+                setPlantasSeleccionadas([]);
+            }
+        } catch (err) {
+            console.error("Error al cambiar lote:", err);
+            toast.error("Error al seleccionar el lote");
+        }
+    };
+
+    // Manejar cambio de programa
+    const handleProgramaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        try {
+            const programaId = e.target.value ? parseInt(e.target.value) : null;
+            setProgramaSeleccionadoId(programaId);
+            setTipoMonitoreo('');
+            setLoteSeleccionadoId(null);
+            setFormData(prev => ({ ...prev, lote_id: '' }));
             setPlantasSeleccionadas([]);
+            
+            if (programaId) {
+                toast.info(`Programa seleccionado: ${programas.find(p => p.id === programaId)?.nombre}`);
+            }
+        } catch (err) {
+            console.error("Error al cambiar programa:", err);
+            toast.error("Error al seleccionar el programa");
         }
     };
 
     // Ir al paso 2
     const handleSiguiente = () => {
-        if (!programaSeleccionado) {
-            alert('Debe seleccionar un programa');
+        if (!programaSeleccionadoId) {
+            toast.warning('Debe seleccionar un programa');
             return;
         }
         if (!tipoMonitoreo) {
-            alert('Debe seleccionar un tipo de monitoreo');
+            toast.warning('Debe seleccionar un tipo de monitoreo');
             return;
         }
-        if (!loteSeleccionado) {
-            alert('Debe seleccionar un lote');
+        if (!loteSeleccionadoId) {
+            toast.warning('Debe seleccionar un lote');
             return;
         }
+        
+        // Validar que el lote seleccionado pertenezca al programa
+        const loteValido = lotesFiltrados.find(l => l.id === loteSeleccionadoId);
+        if (!loteValido) {
+            toast.error('El lote seleccionado no pertenece al programa elegido');
+            return;
+        }
+        
         setPaso(2);
     };
 
@@ -254,34 +343,65 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const estadoFinal = esEdicion ? formData.estado : 'abierto';
+        try {
+            // Validaciones finales
+            if (!formData.tipo) {
+                toast.error('Debe seleccionar un tipo de diagnóstico');
+                return;
+            }
+            
+            if (!formData.condiciones_dia) {
+                toast.error('Debe seleccionar las condiciones del día');
+                return;
+            }
+            
+            if (!loteSeleccionadoId) {
+                toast.error('Debe seleccionar un lote');
+                return;
+            }
 
-        const evidencias = archivos.map((file, index) => ({
-            file,
-            descripcion: descripcionesEvidencias[index],
-            tipo: tiposEvidencia[index]
-        })).filter(ev => ev.file);
+            const estadoFinal = esEdicion ? formData.estado : 'abierto';
 
-        // Construir datos finales
-        const datosSubmit = {
-            ...formData,
-            estado: estadoFinal,
-            lote_id: parseInt(formData.lote_id as string),
-            estudiante_id: formData.estudiante_id ? parseInt(formData.estudiante_id as string) : undefined,
-            docente_id: formData.docente_id ? parseInt(formData.docente_id as string) : undefined,
-            programa: programaSeleccionado,        // 👈 Guardamos el programa
-            tipo_monitoreo: tipoMonitoreo,          // 👈 Guardamos el tipo de monitoreo
-            plantas: plantasSeleccionadas,
-            caracterizacion: caracterizacion,
-            evidencias: evidencias.length > 0 ? evidencias : undefined
-        };
+            const evidencias = archivos
+                .map((file, index) => ({
+                    file,
+                    descripcion: descripcionesEvidencias[index],
+                    tipo: tiposEvidencia[index]
+                }))
+                .filter(ev => ev.file);
 
-        console.log("📤 Enviando datos:", datosSubmit);
-        onSubmit(datosSubmit);
+            // Construir datos finales
+            const datosSubmit = {
+                ...formData,
+                estado: estadoFinal,
+                lote_id: loteSeleccionadoId,
+                estudiante_id: formData.estudiante_id ? parseInt(formData.estudiante_id as string) : undefined,
+                docente_id: formData.docente_id ? parseInt(formData.docente_id as string) : undefined,
+                programa_id: programaSeleccionadoId,
+                tipo_monitoreo: tipoMonitoreo,
+                plantas: plantasSeleccionadas,
+                caracterizacion: caracterizacion,
+                evidencias: evidencias.length > 0 ? evidencias : undefined
+            };
+
+            console.log("📤 Enviando datos:", datosSubmit);
+            onSubmit(datosSubmit);
+            toast.success(esEdicion ? 'Diagnóstico actualizado' : 'Diagnóstico creado');
+        } catch (err) {
+            console.error("Error al enviar formulario:", err);
+            toast.error("Error al guardar el diagnóstico");
+        }
     };
 
-    // Obtener label del programa seleccionado
-    const programaLabel = PROGRAMAS.find(p => p.value === programaSeleccionado)?.label;
+    // Debug logs
+    console.log('🔍 Debug - DiagnosticoForm:', {
+        programas: programas.length,
+        lotes: lotes.length,
+        programasIds: programas.map(p => p.id),
+        lotesProgramaIds: [...new Set(lotes.map(l => l.programa_id))],
+        programaSeleccionadoId,
+        lotesFiltrados: lotesFiltrados.length
+    });
 
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
@@ -291,10 +411,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
             {/* Indicador de pasos */}
             <div className="flex mb-6">
-                <div className={`flex-1 text-center py-2 ${paso === 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                <div className={`flex-1 text-center py-2 rounded-l-lg ${paso === 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
                     Paso 1: Seleccionar programa, monitoreo y lote
                 </div>
-                <div className={`flex-1 text-center py-2 ${paso === 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                <div className={`flex-1 text-center py-2 rounded-r-lg ${paso === 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
                     Paso 2: Completar formulario
                 </div>
             </div>
@@ -306,33 +426,37 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Programa *
                         </label>
-                        <div className="grid grid-cols-2 gap-4">
-                            {PROGRAMAS.map(programa => (
-                                <button
-                                    key={programa.value}
-                                    type="button"
-                                    onClick={() => {
-                                        setProgramaSeleccionado(programa.value);
-                                        setTipoMonitoreo(''); // Resetear tipo de monitoreo al cambiar programa
-                                    }}
-                                    className={`p-4 border-2 rounded-lg text-center transition ${programaSeleccionado === programa.value
-                                            ? 'border-blue-600 bg-blue-50'
-                                            : 'border-gray-200 hover:border-blue-300'
-                                        }`}
-                                >
-                                    <span className="font-medium">{programa.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <select
+                            value={programaSeleccionadoId?.toString() || ''}
+                            onChange={handleProgramaChange}
+                            className="w-full border rounded-lg p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
+                        >
+                            <option value="">Seleccionar programa</option>
+                            {programas && programas.length > 0 ? (
+                                programas.map(programa => (
+                                    <option key={programa.id} value={programa.id}>
+                                        {programa.nombre}
+                                    </option>
+                                ))
+                            ) : (
+                                <option disabled>Cargando programas...</option>
+                            )}
+                        </select>
                         {programaSeleccionado && (
                             <p className="text-sm text-green-600 mt-2">
-                                Programa seleccionado: {programaLabel}
+                                ✓ Programa seleccionado: {programaSeleccionado.nombre}
+                            </p>
+                        )}
+                        {programas.length === 0 && (
+                            <p className="text-sm text-yellow-600 mt-2">
+                                ⚠️ No hay programas disponibles. Contacta al administrador.
                             </p>
                         )}
                     </div>
 
-                    {/* 2. Selección de Tipo de Monitoreo (solo visible si hay programa) */}
-                    {programaSeleccionado && (
+                    {/* 2. Selección de Tipo de Monitoreo */}
+                    {programaSeleccionadoId && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Tipo de Monitoreo *
@@ -344,59 +468,87 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                             key={monitoreo.value}
                                             type="button"
                                             onClick={() => setTipoMonitoreo(monitoreo.value)}
-                                            className={`p-4 border-2 rounded-lg text-center transition ${tipoMonitoreo === monitoreo.value
-                                                    ? 'border-blue-600 bg-blue-50'
-                                                    : 'border-gray-200 hover:border-blue-300'
-                                                }`}
+                                            className={`p-4 border-2 rounded-lg text-center transition ${
+                                                tipoMonitoreo === monitoreo.value
+                                                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                            }`}
                                         >
+                                            <i className="fas fa-chart-line mr-2"></i>
                                             <span className="font-medium">{monitoreo.label}</span>
                                         </button>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-yellow-600 bg-yellow-50 p-4 rounded-lg">
-                                    Este programa no tiene tipos de monitoreo configurados.
-                                </p>
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                                    <p className="text-sm text-yellow-700">
+                                        <i className="fas fa-exclamation-triangle mr-2"></i>
+                                        Este programa no tiene tipos de monitoreo configurados.
+                                    </p>
+                                </div>
                             )}
                         </div>
                     )}
 
-                    {/* 3. Selección de Lote (solo visible si hay monitoreo) */}
+                    {/* 3. Selección de Lote */}
                     {tipoMonitoreo && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Lote *
                             </label>
-                            <select
-                                value={loteSeleccionado}
-                                onChange={handleLoteChange}
-                                className="w-full border rounded-lg p-3"
-                                required
-                            >
-                                <option value="">Seleccionar lote</option>
-                                {lotes.map(lote => (
-                                    <option key={lote.id} value={lote.id}>
-                                        {lote.nombre} ({lote.granja_nombre || 'Sin granja'})
-                                    </option>
-                                ))}
-                            </select>
-                            {loteSeleccionado && plantasSeleccionadas.length > 0 && (
-                                <p className="text-sm text-green-600 mt-2">
-                                    Se han generado 5 plantas aleatorias para el lote seleccionado.
-                                </p>
+                            {lotesFiltrados.length > 0 ? (
+                                <>
+                                    <select
+                                        value={loteSeleccionadoId?.toString() || ''}
+                                        onChange={handleLoteChange}
+                                        className="w-full border rounded-lg p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        required
+                                    >
+                                        <option value="">Seleccionar lote</option>
+                                        {lotesFiltrados.map(lote => (
+                                            <option key={lote.id} value={lote.id}>
+                                                {lote.nombre} {lote.granja_nombre ? `(${lote.granja_nombre})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {loteSeleccionado && (
+                                        <div className="mt-2 space-y-1">
+                                            <p className="text-sm text-green-600">
+                                                ✓ Lote seleccionado: {loteSeleccionado.nombre}
+                                            </p>
+                                            {plantasSeleccionadas.length > 0 && (
+                                                <p className="text-sm text-blue-600">
+                                                    <i className="fas fa-seedling mr-1"></i>
+                                                    Se han generado {plantasSeleccionadas.length} plantas aleatorias
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                                    <p className="text-sm text-yellow-700">
+                                        <i className="fas fa-exclamation-triangle mr-2"></i>
+                                        No hay lotes disponibles para el programa {programaSeleccionado?.nombre}.
+                                    </p>
+                                    <p className="text-xs text-yellow-600 mt-1">
+                                        Por favor, contacta al administrador para registrar lotes en este programa.
+                                    </p>
+                                </div>
                             )}
                         </div>
                     )}
 
                     {/* Botones */}
-                    <div className="flex justify-end">
+                    <div className="flex justify-end pt-4">
                         <button
                             type="button"
                             onClick={handleSiguiente}
-                            disabled={!programaSeleccionado || !tipoMonitoreo || !loteSeleccionado}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            disabled={!programaSeleccionadoId || !tipoMonitoreo || !loteSeleccionadoId}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center gap-2"
                         >
-                            Siguiente
+                            <span>Siguiente</span>
+                            <i className="fas fa-arrow-right"></i>
                         </button>
                     </div>
                 </div>
@@ -406,29 +558,42 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-6">
                         {/* Resumen de selección */}
-                        <div className="bg-gray-100 p-4 rounded-lg flex justify-between items-center">
-                            <div>
-                                <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Programa:</span> {programaLabel}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Tipo monitoreo:</span> {
-                                        monitoreosDisponibles.find(m => m.value === tipoMonitoreo)?.label
-                                    }
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Lote:</span> {
-                                        lotes.find(l => l.id.toString() === loteSeleccionado)?.nombre
-                                    }
-                                </p>
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                            <div className="flex justify-between items-start">
+                                <div className="space-y-2">
+                                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Resumen de selección</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <i className="fas fa-tag text-blue-500"></i>
+                                            <span className="text-sm text-gray-600">
+                                                <strong>Programa:</strong> {programaSeleccionado?.nombre || 'No seleccionado'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <i className="fas fa-chart-line text-green-500"></i>
+                                            <span className="text-sm text-gray-600">
+                                                <strong>Tipo monitoreo:</strong> {
+                                                    monitoreosDisponibles.find(m => m.value === tipoMonitoreo)?.label || tipoMonitoreo
+                                                }
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <i className="fas fa-map-marker-alt text-purple-500"></i>
+                                            <span className="text-sm text-gray-600">
+                                                <strong>Lote:</strong> {loteSeleccionado?.nombre || 'No seleccionado'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleAtras}
+                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                                >
+                                    <i className="fas fa-edit"></i>
+                                    Cambiar selección
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={handleAtras}
-                                className="text-blue-600 hover:underline text-sm"
-                            >
-                                Cambiar selección
-                            </button>
                         </div>
 
                         {/* Sección de estado (solo edición) */}
@@ -473,16 +638,17 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {/* Tipo y Condiciones del día en grid de 2 columnas */}
+                        {/* Tipo y Condiciones del día */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Tipo */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tipo de Diagnóstico *
+                                </label>
                                 <select
                                     name="tipo"
                                     value={formData.tipo}
                                     onChange={handleChange}
-                                    className="w-full border rounded-lg p-3"
+                                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     required
                                 >
                                     <option value="">Seleccionar tipo</option>
@@ -494,14 +660,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 </select>
                             </div>
 
-                            {/* Condiciones del día */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Condiciones del día *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Condiciones del día *
+                                </label>
                                 <select
                                     name="condiciones_dia"
                                     value={formData.condiciones_dia}
                                     onChange={handleChange}
-                                    className="w-full border rounded-lg p-3"
+                                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     required
                                 >
                                     <option value="">Seleccionar condiciones</option>
@@ -515,7 +682,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </div>
 
                         {/* Secciones específicas según el tipo de diagnóstico */}
-                        {formData.tipo && (
+                        {formData.tipo && plantasSeleccionadas.length > 0 && (
                             <div className="mt-4">
                                 {formData.tipo === 'censo_poblacional' && (
                                     <CensoSection
@@ -529,7 +696,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         plantas={plantasSeleccionadas.map(p => ({ ...p, fase: '' }))}
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
-                                        onFaseChange={(idx, fase) => { }}
+                                        onFaseChange={(idx, fase) => {}}
                                     />
                                 )}
                                 {formData.tipo === 'artropodos' && (
@@ -550,7 +717,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     <ArvensesSection
                                         plantas={plantasSeleccionadas}
                                         caracterizacion={caracterizacion}
-                                        onCampoChange={handleCaracterizacionChange} />
+                                        onCampoChange={handleCaracterizacionChange}
+                                    />
                                 )}
                                 {formData.tipo === 'controladores_biologicos' && (
                                     <ControladoresSection
@@ -559,11 +727,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         onCampoChange={handleCaracterizacionChange}
                                     />
                                 )}
-                                {formData.tipo == 'polinizadores' && (
+                                {formData.tipo === 'polinizadores' && (
                                     <PolinizadoresSection
                                         plantas={plantasSeleccionadas}
                                         caracterizacion={caracterizacion}
-                                        onCampoChange={handleCaracterizacionChange} />
+                                        onCampoChange={handleCaracterizacionChange}
+                                    />
                                 )}
                             </div>
                         )}
@@ -571,11 +740,21 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         {(!formData.tipo || !formData.condiciones_dia) && (
                             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
                                 <p className="text-sm text-yellow-700">
+                                    <i className="fas fa-info-circle mr-2"></i>
                                     {!formData.tipo && !formData.condiciones_dia
                                         ? "Selecciona un tipo de diagnóstico y las condiciones del día"
                                         : !formData.tipo
                                             ? "Selecciona un tipo de diagnóstico"
                                             : "Selecciona las condiciones del día"}
+                                </p>
+                            </div>
+                        )}
+
+                        {formData.tipo && plantasSeleccionadas.length === 0 && (
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
+                                <p className="text-sm text-yellow-700">
+                                    <i className="fas fa-exclamation-triangle mr-2"></i>
+                                    No hay plantas generadas para este lote. Por favor, selecciona un lote válido.
                                 </p>
                             </div>
                         )}
@@ -586,14 +765,17 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="px-5 py-2.5 border rounded-lg hover:bg-gray-100"
+                            className="px-5 py-2.5 border rounded-lg hover:bg-gray-100 transition flex items-center gap-2"
                         >
+                            <i className="fas fa-times"></i>
                             Cancelar
                         </button>
                         <button
                             type="submit"
-                            className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700"
+                            disabled={!formData.tipo || !formData.condiciones_dia || plantasSeleccionadas.length === 0}
+                            className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center gap-2"
                         >
+                            <i className="fas fa-save"></i>
                             {esEdicion ? 'Actualizar' : 'Crear'} Diagnóstico
                         </button>
                     </div>
