@@ -38,11 +38,11 @@ const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = (
 };
 
 // Subsecciones para cada tipo de insecto (POR CUADRANTE)
-const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_compsus`;
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
@@ -51,7 +51,7 @@ const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
       <p className="text-xs text-gray-600 mb-2 italic">
         Seleccione preferiblemente árboles de los linderos, de los bordes de carretera o los que están cerca de los centros de acopio de frutas. Sacuda de forma suave las ramas de arriba hacia abajo, dándole la vuelta al árbol. Observe en el suelo la presencia de adultos.
       </p>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Adultos de <em>Compsus sp.</em> encontrados *
@@ -68,7 +68,7 @@ const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de daño en hojas *
@@ -86,17 +86,17 @@ const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: nu
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse daño del insecto, colocar 0</p>
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
-const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_diaphorina`;
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
@@ -104,11 +104,11 @@ const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama:
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes nuevos, que son los preferidos por el insecto.
-        {caracterizacion['lote_seleccionado'] && ['l5', 'l6', 'l8', 'l9'].includes(caracterizacion['lote_seleccionado']) && 
+        {caracterizacion['lote_seleccionado'] && ['l5', 'l6', 'l8', 'l9'].includes(caracterizacion['lote_seleccionado']) &&
           " NOTA: Este lote tiene variedad Swingle. Debe monitorear mínimo 2 árboles adicionales."
         }
       </p>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Número de <em>Diaphorina citri</em> encontrados *
@@ -125,7 +125,7 @@ const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama:
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Estados del insecto observados *
@@ -155,17 +155,17 @@ const DiaphorinaSection: React.FC<{ basePrefix: string; cuadrante: number; rama:
           ))}
         </div>
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
-const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_phyllocnistis`;
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
@@ -174,7 +174,7 @@ const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; ra
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes nuevos. Observar: Galerías serpenteantes plateadas en el envés de la hoja, enrollamiento del borde foliar, presencia de larvas o pupa al final de la galería.
       </p>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Galerías activas hechas por <em>Phyllocnistis sp.</em> *
@@ -191,7 +191,7 @@ const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; ra
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de daño *
@@ -209,24 +209,24 @@ const PhyllocnistisSection: React.FC<{ basePrefix: string; cuadrante: number; ra
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse daño del insecto, colocar 0</p>
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
-const ToxopteraSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const ToxopteraSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_toxoptera`;
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
         Monitoreo de <em>Toxoptera citricidus</em> - Pulgón negro
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">Revisar brotes nuevos, que son los preferidos por el insecto.</p>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Adultos de <em>Toxoptera citricidus</em> encontrados *
@@ -243,7 +243,7 @@ const ToxopteraSection: React.FC<{ basePrefix: string; cuadrante: number; rama: 
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           ¿Se observó presencia de mielecilla y fumagina? *
@@ -264,7 +264,7 @@ const ToxopteraSection: React.FC<{ basePrefix: string; cuadrante: number; rama: 
           ))}
         </div>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de Fumagina o Mielecilla observada *
@@ -282,18 +282,18 @@ const ToxopteraSection: React.FC<{ basePrefix: string; cuadrante: number; rama: 
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse daño, colocar 0</p>
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
 // Subsecciones para ácaros (POR CUADRANTE)
-const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_polyphagotarsonemus`;
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
@@ -302,7 +302,7 @@ const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: numb
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes tiernos y frutos en formación. Observar: Coloración plateada, enrollamiento de hojas jóvenes.
       </p>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Número de frutos afectados por <em>Polyphagotarsonemus sp</em> *
@@ -319,7 +319,7 @@ const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: numb
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del ácaro, colocar 0</p>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de daño en frutos observado *
@@ -337,17 +337,17 @@ const PolyphagotarsonemusSection: React.FC<{ basePrefix: string; cuadrante: numb
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse daño, colocar 0</p>
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
-const PhyllocoptrutaSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const PhyllocoptrutaSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_phyllocoptruta`;
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">
@@ -356,7 +356,7 @@ const PhyllocoptrutaSection: React.FC<{ basePrefix: string; cuadrante: number; r
       <p className="text-xs text-gray-600 mb-2 italic">
         Revisar brotes tiernos y frutos en formación. Observar: Bronceado café oscuro, enrollamiento de hojas jóvenes, rugosidad y corchosidad en frutos.
       </p>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Número de frutos afectados por <em>Phyllocoptruta</em> sp. *
@@ -373,7 +373,7 @@ const PhyllocoptrutaSection: React.FC<{ basePrefix: string; cuadrante: number; r
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del ácaro, colocar 0</p>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de daño en frutos observado *
@@ -391,23 +391,23 @@ const PhyllocoptrutaSection: React.FC<{ basePrefix: string; cuadrante: number; r
         />
         <p className="text-xs text-gray-500 mt-1">De no encontrarse daño, colocar 0</p>
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
 // Sección para "Otro artrópodo"
-const OtroArthropodSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  basePrefix, cuadrante, rama, caracterizacion, onCampoChange 
+const OtroArthropodSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange
 }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro`;
   const claseSeleccionada = caracterizacion[`${prefix}_clase`] || "";
-  
+
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">Otro artrópodo observado</h6>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Síntomas observados
@@ -420,7 +420,7 @@ const OtroArthropodSection: React.FC<{ basePrefix: string; cuadrante: number; ra
           placeholder="Describa los síntomas observados"
         />
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Clase de artrópodo observado *
@@ -441,7 +441,7 @@ const OtroArthropodSection: React.FC<{ basePrefix: string; cuadrante: number; ra
           ))}
         </div>
       </div>
-      
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Nombre del artrópodo observado (mínimo hasta género)
@@ -454,24 +454,24 @@ const OtroArthropodSection: React.FC<{ basePrefix: string; cuadrante: number; ra
           placeholder="Ej: Atta sp."
         />
       </div>
-      
+
       <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
     </div>
   );
 };
 
 // Componente para un cuadrante de una planta
-const CuadranteArthropod: React.FC<{ 
-  plantaIdx: number; 
-  cuadrante: number; 
-  rama: number; 
-  planta: PlantaBase; 
-  caracterizacion: Record<string, string>; 
+const CuadranteArthropod: React.FC<{
+  plantaIdx: number;
+  cuadrante: number;
+  rama: number;
+  planta: PlantaBase;
+  caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
   onOpenImage: (imageName: string) => void;
 }> = ({ plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange, onOpenImage }) => {
   const basePrefix = `artropodo_planta_${plantaIdx + 1}`;
-  
+
   // Clases seleccionadas para este cuadrante/rama
   const clasesKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_clases`;
   const clasesSeleccionadas = caracterizacion[clasesKey] || "";
@@ -622,42 +622,42 @@ const CuadranteArthropod: React.FC<{
           </div>
 
           {insectoTiposArray.includes('compsus') && (
-            <CompsusSection 
-              basePrefix={basePrefix} 
-              cuadrante={cuadrante} 
-              rama={rama} 
-              caracterizacion={caracterizacion} 
-              onCampoChange={onCampoChange} 
+            <CompsusSection
+              basePrefix={basePrefix}
+              cuadrante={cuadrante}
+              rama={rama}
+              caracterizacion={caracterizacion}
+              onCampoChange={onCampoChange}
             />
           )}
-          
+
           {insectoTiposArray.includes('diaphorina') && (
-            <DiaphorinaSection 
-              basePrefix={basePrefix} 
-              cuadrante={cuadrante} 
-              rama={rama} 
-              caracterizacion={caracterizacion} 
-              onCampoChange={onCampoChange} 
+            <DiaphorinaSection
+              basePrefix={basePrefix}
+              cuadrante={cuadrante}
+              rama={rama}
+              caracterizacion={caracterizacion}
+              onCampoChange={onCampoChange}
             />
           )}
-          
+
           {insectoTiposArray.includes('phyllocnistis') && (
-            <PhyllocnistisSection 
-              basePrefix={basePrefix} 
-              cuadrante={cuadrante} 
-              rama={rama} 
-              caracterizacion={caracterizacion} 
-              onCampoChange={onCampoChange} 
+            <PhyllocnistisSection
+              basePrefix={basePrefix}
+              cuadrante={cuadrante}
+              rama={rama}
+              caracterizacion={caracterizacion}
+              onCampoChange={onCampoChange}
             />
           )}
-          
+
           {insectoTiposArray.includes('toxoptera') && (
-            <ToxopteraSection 
-              basePrefix={basePrefix} 
-              cuadrante={cuadrante} 
-              rama={rama} 
-              caracterizacion={caracterizacion} 
-              onCampoChange={onCampoChange} 
+            <ToxopteraSection
+              basePrefix={basePrefix}
+              cuadrante={cuadrante}
+              rama={rama}
+              caracterizacion={caracterizacion}
+              onCampoChange={onCampoChange}
             />
           )}
         </div>
@@ -671,20 +671,21 @@ const CuadranteArthropod: React.FC<{
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
             {acaroTiposDisponibles.map(tipo => (
-              <div key={tipo.value} className="flex items-center gap-2">
-                <label className="inline-flex items-center">
+              <div key={tipo.value} className="flex items-start justify-between gap-2">
+                <label className="inline-flex items-start flex-1">
                   <input
                     type="checkbox"
                     checked={acaroTiposArray.includes(tipo.value)}
                     onChange={(e) => handleAcaroTipoChange(tipo.value, e.target.checked)}
-                    className="mr-2"
+                    className="mr-2 mt-1"
                   />
                   {tipo.label}
                 </label>
+
                 <button
                   type="button"
                   onClick={() => onOpenImage(tipo.image)}
-                  className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded"
+                  className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded whitespace-nowrap"
                 >
                   Ver imagen
                 </button>
@@ -711,22 +712,22 @@ const CuadranteArthropod: React.FC<{
           </div>
 
           {acaroTiposArray.includes('polyphagotarsonemus') && (
-            <PolyphagotarsonemusSection 
-              basePrefix={basePrefix} 
-              cuadrante={cuadrante} 
-              rama={rama} 
-              caracterizacion={caracterizacion} 
-              onCampoChange={onCampoChange} 
+            <PolyphagotarsonemusSection
+              basePrefix={basePrefix}
+              cuadrante={cuadrante}
+              rama={rama}
+              caracterizacion={caracterizacion}
+              onCampoChange={onCampoChange}
             />
           )}
-          
+
           {acaroTiposArray.includes('phyllocoptruta') && (
-            <PhyllocoptrutaSection 
-              basePrefix={basePrefix} 
-              cuadrante={cuadrante} 
-              rama={rama} 
-              caracterizacion={caracterizacion} 
-              onCampoChange={onCampoChange} 
+            <PhyllocoptrutaSection
+              basePrefix={basePrefix}
+              cuadrante={cuadrante}
+              rama={rama}
+              caracterizacion={caracterizacion}
+              onCampoChange={onCampoChange}
             />
           )}
         </div>
@@ -743,14 +744,14 @@ const CuadranteArthropod: React.FC<{
           />
           <span className="text-sm font-medium text-gray-700">Registrar otro artrópodo no listado</span>
         </label>
-        
+
         {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`] === 'true' && (
-          <OtroArthropodSection 
-            basePrefix={basePrefix} 
-            cuadrante={cuadrante} 
-            rama={rama} 
-            caracterizacion={caracterizacion} 
-            onCampoChange={onCampoChange} 
+          <OtroArthropodSection
+            basePrefix={basePrefix}
+            cuadrante={cuadrante}
+            rama={rama}
+            caracterizacion={caracterizacion}
+            onCampoChange={onCampoChange}
           />
         )}
       </div>
@@ -759,8 +760,8 @@ const CuadranteArthropod: React.FC<{
 };
 
 // Componente para una planta completa (4 cuadrantes)
-const PlantaArthropod: React.FC<{ index: number; planta: PlantaBase; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void; onOpenImage: (imageName: string) => void }> = ({ 
-  index, planta, caracterizacion, onCampoChange, onOpenImage 
+const PlantaArthropod: React.FC<{ index: number; planta: PlantaBase; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void; onOpenImage: (imageName: string) => void }> = ({
+  index, planta, caracterizacion, onCampoChange, onOpenImage
 }) => {
   return (
     <div className="border rounded-lg p-4 mb-8 bg-white shadow-sm">
@@ -807,7 +808,7 @@ export const ArthropodSection: React.FC<Props> = ({ plantas, caracterizacion, on
 
       <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
         <p className="text-sm text-gray-700">
-          <span className="font-bold">Metodología de monitoreo:</span> Para cada árbol seleccionado, divida la copa en 4 cuadrantes. 
+          <span className="font-bold">Metodología de monitoreo:</span> Para cada árbol seleccionado, divida la copa en 4 cuadrantes.
           Seleccione una rama al azar de cada cuadrante. Observe: daño en hojas, frutos, puntos de crecimiento y presencia de artrópodos.
         </p>
       </div>
@@ -834,7 +835,7 @@ export const ArthropodSection: React.FC<Props> = ({ plantas, caracterizacion, on
       <div className="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-sm text-gray-700">
         <p className="font-medium mb-1">📝 Nota importante - Variedad Swingle:</p>
         <p>
-          Si el lote monitoreado tiene o linda con plantas de la variedad Swingle (Lotes: 5, 6, 8 y 9), 
+          Si el lote monitoreado tiene o linda con plantas de la variedad Swingle (Lotes: 5, 6, 8 y 9),
           debe monitorear mínimo 2 árboles adicionales de esta variedad para el monitoreo de <em>Diaphorina citri</em>.
         </p>
       </div>
