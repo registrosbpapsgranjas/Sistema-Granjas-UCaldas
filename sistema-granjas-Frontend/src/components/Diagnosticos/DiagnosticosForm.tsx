@@ -625,19 +625,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Descripción *</label>
-                                <textarea
-                                    name="descripcion"
-                                    value={formData.descripcion}
-                                    onChange={handleChange}
-                                    rows={4}
-                                    className="w-full border rounded-lg p-3"
-                                    placeholder="Describa el diagnóstico realizado..."
-                                    required
-                                />
-                            </div>
-
                             {esEdicion && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Observaciones</label>
