@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PlantaBase } from '../types';
 
 interface EnfermedadesSectionProps {
@@ -7,13 +7,58 @@ interface EnfermedadesSectionProps {
   onCampoChange: (campo: string, valor: string) => void;
 }
 
-// Modal para mostrar imágenes (igual que en ArthropodSection)
-const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = ({ imageUrl, onClose }) => {
+const splitValues = (value?: string): string[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+};
+
+const joinValues = (values: string[]): string => values.join(',');
+
+const toggleOptionWithNoAplica = (
+  currentValue: string | undefined,
+  option: string,
+  checked: boolean,
+  noAplicaValue = 'No aplica'
+): string[] => {
+  const current = splitValues(currentValue);
+
+  if (option === noAplicaValue) {
+    return checked ? [noAplicaValue] : [];
+  }
+
+  if (checked) {
+    return [...current.filter((v) => v !== noAplicaValue && v !== option), option];
+  }
+
+  return current.filter((v) => v !== option);
+};
+
+// Modal para mostrar imágenes
+const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = ({
+  imageUrl,
+  onClose,
+}) => {
   if (!imageUrl) return null;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white p-4 rounded-lg max-w-lg max-h-full overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <button className="float-right text-gray-600 hover:text-gray-900 text-xl font-bold" onClick={onClose}>×</button>
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-4 rounded-lg max-w-lg max-h-full overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="float-right text-gray-600 hover:text-gray-900 text-xl font-bold"
+          onClick={onClose}
+        >
+          ×
+        </button>
         <img src={imageUrl} alt="Vista previa" className="max-w-full h-auto" />
       </div>
     </div>
@@ -23,15 +68,20 @@ const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = (
 // Componente de subida REAL de fotos — usado en "Otra enfermedad"
 const RealFotosSection: React.FC<{
   prefix: string;
-  caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
-}> = ({ prefix, caracterizacion, onCampoChange }) => {
+}> = ({ prefix, onCampoChange }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const MAX_FILES = 5;
   const MAX_SIZE_MB = 10;
 
   const [previews, setPreviews] = useState<{ name: string; url: string }[]>([]);
   const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    return () => {
+      previews.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [previews]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
@@ -48,7 +98,6 @@ const RealFotosSection: React.FC<{
       return;
     }
 
-    // Revocar URLs anteriores para liberar memoria
     previews.forEach((p) => URL.revokeObjectURL(p.url));
 
     const newPreviews = files.map((f) => ({
@@ -57,8 +106,6 @@ const RealFotosSection: React.FC<{
     }));
 
     setPreviews(newPreviews);
-
-    // Guardamos los nombres como referencia en caracterizacion
     onCampoChange(prefix, files.map((f) => f.name).join(','));
   };
 
@@ -68,7 +115,6 @@ const RealFotosSection: React.FC<{
     setPreviews(updated);
     onCampoChange(prefix, updated.map((p) => p.name).join(','));
 
-    // Resetear el input para permitir volver a seleccionar los mismos archivos
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -98,18 +144,16 @@ const RealFotosSection: React.FC<{
         onChange={handleFileChange}
       />
 
-      {error && (
-        <p className="text-xs text-red-600 mt-2">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
       {previews.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3">
           {previews.map((preview, idx) => (
-            <div key={idx} className="relative group w-24 h-24">
+            <div key={idx} className="relative group w-24">
               <img
                 src={preview.url}
                 alt={preview.name}
-                className="w-full h-full object-cover rounded border border-gray-300"
+                className="w-24 h-24 object-cover rounded border border-gray-300"
               />
               <button
                 type="button"
@@ -139,21 +183,65 @@ const AGENTES = [
 
 const ENFERMEDADES_POR_AGENTE = {
   hongo: [
-    { id: 'antracnosis', label: <><em>Colletotrichum gloeosporioides</em> – Antracnosis</>, image: 'antracnosis.png' },
-    { id: 'mancha_grasienta', label: <><em>Mycosphaerella citri</em> - Mancha grasienta de los cítricos</>, image: 'manchagrasienta.png' },
+    {
+      id: 'antracnosis',
+      label: (
+        <>
+          <em>Colletotrichum gloeosporioides</em> – Antracnosis
+        </>
+      ),
+      image: 'antracnosis.png',
+    },
+    {
+      id: 'mancha_grasienta',
+      label: (
+        <>
+          <em>Mycosphaerella citri</em> - Mancha grasienta de los cítricos
+        </>
+      ),
+      image: 'manchagrasienta.png',
+    },
   ],
   bacteria: [
-    { id: 'hlb', label: <>Huanglongbing (HLB) – Enverdecimiento</>, image: 'hlb.png' },
-    { id: 'xylella', label: <><em>Xylella fastidiosa</em> - Clorosis de los cítricos</>, image: 'xylella.png' },
+    {
+      id: 'hlb',
+      label: <>Huanglongbing (HLB) – Enverdecimiento</>,
+      image: 'hlb.png',
+    },
+    {
+      id: 'xylella',
+      label: (
+        <>
+          <em>Xylella fastidiosa</em> - Clorosis de los cítricos
+        </>
+      ),
+      image: 'xylella.png',
+    },
   ],
   oomiceto: [
-    { id: 'phytophthora', label: <><em>Phytophthora</em> sp. - Gomosis o pudrición radicular</>, image: 'phytophthorasp.png' },
+    {
+      id: 'phytophthora',
+      label: (
+        <>
+          <em>Phytophthora</em> sp. - Gomosis o pudrición radicular
+        </>
+      ),
+      image: 'phytophthorasp.png',
+    },
   ],
   virus: [
-    { id: 'ctv', label: <>Virus de la Tristeza de los Cítricos (CTV)</>, image: 'ctv.png' },
+    {
+      id: 'ctv',
+      label: <>Virus de la Tristeza de los Cítricos (CTV)</>,
+      image: 'ctv.png',
+    },
   ],
   nematodo: [
-    { id: 'nematodos', label: <>Nematodos</>, image: 'nematodos.png' },
+    {
+      id: 'nematodos',
+      label: <>Nematodos</>,
+      image: 'nematodos.png',
+    },
   ],
 };
 
@@ -216,7 +304,7 @@ const AntracnosisSection: React.FC<{
 }> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_hongo_antracnosis`;
   const sintomasKey = `${prefix}_sintomas`;
-  const sintomasActuales = caracterizacion[sintomasKey] ? caracterizacion[sintomasKey].split(',') : [];
+  const sintomasActuales = splitValues(caracterizacion[sintomasKey]);
   const hojasKey = `${prefix}_hojas`;
 
   return (
@@ -225,11 +313,16 @@ const AntracnosisSection: React.FC<{
         <em>Colletotrichum gloeosporioides</em> — Antracnosis
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
-        Síntomas: Manchas cloróticas irregulares, de bordes definidos con halo clorótico; coalescen, provocan quemado de ápices y defoliación cuando hay alta humedad. Sobre hojas y ramas afectadas pueden verse puntos/velos oscuros (masas de esporas) en tejido muerto.
-        Umbral de acción: &gt;5% de árboles con síntomas activos.
+        Síntomas: Manchas cloróticas irregulares, de bordes definidos con halo clorótico; coalescen,
+        provocan quemado de ápices y defoliación cuando hay alta humedad. Sobre hojas y ramas
+        afectadas pueden verse puntos/velos oscuros (masas de esporas) en tejido muerto. Umbral de
+        acción: &gt;5% de árboles con síntomas activos.
       </p>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">% de hojas afectadas *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          % de hojas afectadas *
+        </label>
         <input
           type="number"
           min="0"
@@ -241,10 +334,15 @@ const AntracnosisSection: React.FC<{
           placeholder="Ej: 30 (0 si no hay)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia de la enfermedad, colocar 0</p>
+        <p className="text-xs text-gray-500 mt-1">
+          De no encontrarse presencia de la enfermedad, colocar 0
+        </p>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Síntomas observados *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Síntomas observados *
+        </label>
         <div className="space-y-1">
           {SINTOMAS_POR_ENFERMEDAD.antracnosis.map((sintoma) => (
             <label key={sintoma} className="flex items-center text-sm">
@@ -253,10 +351,12 @@ const AntracnosisSection: React.FC<{
                 value={sintoma}
                 checked={sintomasActuales.includes(sintoma)}
                 onChange={(e) => {
-                  const nuevos = e.target.checked
-                    ? [...sintomasActuales, sintoma]
-                    : sintomasActuales.filter(s => s !== sintoma);
-                  onCampoChange(sintomasKey, nuevos.join(','));
+                  const nuevos = toggleOptionWithNoAplica(
+                    caracterizacion[sintomasKey],
+                    sintoma,
+                    e.target.checked
+                  );
+                  onCampoChange(sintomasKey, joinValues(nuevos));
                 }}
                 className="mr-2"
               />
@@ -279,7 +379,7 @@ const ManchaGrasientaSection: React.FC<{
 }> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_hongo_mancha_grasienta`;
   const sintomasKey = `${prefix}_sintomas`;
-  const sintomasActuales = caracterizacion[sintomasKey] ? caracterizacion[sintomasKey].split(',') : [];
+  const sintomasActuales = splitValues(caracterizacion[sintomasKey]);
   const hojasKey = `${prefix}_hojas`;
 
   return (
@@ -288,11 +388,15 @@ const ManchaGrasientaSection: React.FC<{
         <em>Mycosphaerella citri</em> - Mancha grasienta de los cítricos
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
-        Síntomas: En el envés de hojas maduras, manchas irregulares café claro con zona clorótica; al avanzar, se oscurecen y toman apariencia grasienta.
-        Umbral de acción: &gt;5% de árboles con lesiones activas.
+        Síntomas: En el envés de hojas maduras, manchas irregulares café claro con zona clorótica;
+        al avanzar, se oscurecen y toman apariencia grasienta. Umbral de acción: &gt;5% de árboles
+        con lesiones activas.
       </p>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">% de hojas afectadas *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          % de hojas afectadas *
+        </label>
         <input
           type="number"
           min="0"
@@ -304,10 +408,15 @@ const ManchaGrasientaSection: React.FC<{
           placeholder="Ej: 30 (0 si no hay)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia de la enfermedad, colocar 0</p>
+        <p className="text-xs text-gray-500 mt-1">
+          De no encontrarse presencia de la enfermedad, colocar 0
+        </p>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Síntomas observados *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Síntomas observados *
+        </label>
         <div className="space-y-1">
           {SINTOMAS_POR_ENFERMEDAD.mancha_grasienta.map((sintoma) => (
             <label key={sintoma} className="flex items-center text-sm">
@@ -316,10 +425,12 @@ const ManchaGrasientaSection: React.FC<{
                 value={sintoma}
                 checked={sintomasActuales.includes(sintoma)}
                 onChange={(e) => {
-                  const nuevos = e.target.checked
-                    ? [...sintomasActuales, sintoma]
-                    : sintomasActuales.filter(s => s !== sintoma);
-                  onCampoChange(sintomasKey, nuevos.join(','));
+                  const nuevos = toggleOptionWithNoAplica(
+                    caracterizacion[sintomasKey],
+                    sintoma,
+                    e.target.checked
+                  );
+                  onCampoChange(sintomasKey, joinValues(nuevos));
                 }}
                 className="mr-2"
               />
@@ -342,13 +453,14 @@ const HLBSection: React.FC<{
 }> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_bacteria_hlb`;
   const sintomasKey = `${prefix}_sintomas`;
-  const sintomasActuales = caracterizacion[sintomasKey] ? caracterizacion[sintomasKey].split(',') : [];
+  const sintomasActuales = splitValues(caracterizacion[sintomasKey]);
   const hojasKey = `${prefix}_hojas`;
   const vectorKey = `${prefix}_vector`;
 
   return (
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">Huanglongbing - HLB de los cítricos</h6>
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de hojas afectadas (amarillamiento irregular, brotes cloróticos) *
@@ -364,10 +476,15 @@ const HLBSection: React.FC<{
           placeholder="Ej: 30 (0 si no hay)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia de la enfermedad, colocar 0</p>
+        <p className="text-xs text-gray-500 mt-1">
+          De no encontrarse presencia de la enfermedad, colocar 0
+        </p>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Síntomas observados *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Síntomas observados *
+        </label>
         <div className="space-y-1">
           {SINTOMAS_POR_ENFERMEDAD.hlb.map((sintoma) => (
             <label key={sintoma} className="flex items-center text-sm">
@@ -376,10 +493,12 @@ const HLBSection: React.FC<{
                 value={sintoma}
                 checked={sintomasActuales.includes(sintoma)}
                 onChange={(e) => {
-                  const nuevos = e.target.checked
-                    ? [...sintomasActuales, sintoma]
-                    : sintomasActuales.filter(s => s !== sintoma);
-                  onCampoChange(sintomasKey, nuevos.join(','));
+                  const nuevos = toggleOptionWithNoAplica(
+                    caracterizacion[sintomasKey],
+                    sintoma,
+                    e.target.checked
+                  );
+                  onCampoChange(sintomasKey, joinValues(nuevos));
                 }}
                 className="mr-2"
               />
@@ -388,6 +507,7 @@ const HLBSection: React.FC<{
           ))}
         </div>
       </div>
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           ¿Hay presencia del vector <em>Diaphorina citri</em>? *
@@ -422,7 +542,7 @@ const XylellaSection: React.FC<{
 }> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_bacteria_xylella`;
   const sintomasKey = `${prefix}_sintomas`;
-  const sintomasActuales = caracterizacion[sintomasKey] ? caracterizacion[sintomasKey].split(',') : [];
+  const sintomasActuales = splitValues(caracterizacion[sintomasKey]);
   const hojasKey = `${prefix}_hojas`;
 
   return (
@@ -431,11 +551,15 @@ const XylellaSection: React.FC<{
         <em>Xylella fastidiosa</em> - Clorosis de los cítricos
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
-        Síntomas: Amarilleamiento irregular de hojas ("clorosis variegada"), marchitez y reducción del vigor.
-        Umbral de acción: Presencia confirmada de un árbol positivo es umbral crítico para manejo de cuarentena.
+        Síntomas: Amarilleamiento irregular de hojas ("clorosis variegada"), marchitez y reducción
+        del vigor. Umbral de acción: Presencia confirmada de un árbol positivo es umbral crítico
+        para manejo de cuarentena.
       </p>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">% de hojas afectadas *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          % de hojas afectadas *
+        </label>
         <input
           type="number"
           min="0"
@@ -447,10 +571,15 @@ const XylellaSection: React.FC<{
           placeholder="Ej: 30 (0 si no hay)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia de la enfermedad, colocar 0</p>
+        <p className="text-xs text-gray-500 mt-1">
+          De no encontrarse presencia de la enfermedad, colocar 0
+        </p>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Síntomas observados *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Síntomas observados *
+        </label>
         <div className="space-y-1">
           {SINTOMAS_POR_ENFERMEDAD.xylella.map((sintoma) => (
             <label key={sintoma} className="flex items-center text-sm">
@@ -459,10 +588,12 @@ const XylellaSection: React.FC<{
                 value={sintoma}
                 checked={sintomasActuales.includes(sintoma)}
                 onChange={(e) => {
-                  const nuevos = e.target.checked
-                    ? [...sintomasActuales, sintoma]
-                    : sintomasActuales.filter(s => s !== sintoma);
-                  onCampoChange(sintomasKey, nuevos.join(','));
+                  const nuevos = toggleOptionWithNoAplica(
+                    caracterizacion[sintomasKey],
+                    sintoma,
+                    e.target.checked
+                  );
+                  onCampoChange(sintomasKey, joinValues(nuevos));
                 }}
                 className="mr-2"
               />
@@ -485,7 +616,7 @@ const PhytophthoraSection: React.FC<{
 }> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_phytophthora`;
   const sintomasKey = `${prefix}_sintomas`;
-  const sintomasActuales = caracterizacion[sintomasKey] ? caracterizacion[sintomasKey].split(',') : [];
+  const sintomasActuales = splitValues(caracterizacion[sintomasKey]);
   const afectacionKey = `${prefix}_afectacion`;
 
   return (
@@ -494,9 +625,11 @@ const PhytophthoraSection: React.FC<{
         <em>Phytophthora</em> sp. - Gomosis o pudrición radicular
       </h6>
       <p className="text-xs text-gray-600 mb-2 italic">
-        Síntomas: Goma exudativa de tronco; lesiones oscuras en collar y raíces, necrosis de tejidos, declive general del árbol.
-        Umbral de acción: &gt;5% de árboles con lesiones activas.
+        Síntomas: Goma exudativa de tronco; lesiones oscuras en collar y raíces, necrosis de
+        tejidos, declive general del árbol. Umbral de acción: &gt;5% de árboles con lesiones
+        activas.
       </p>
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
           % de afectación (lesiones oscuras en collar, necrosis) *
@@ -512,10 +645,15 @@ const PhytophthoraSection: React.FC<{
           placeholder="Ej: 30 (0 si no hay)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia de la enfermedad, colocar 0</p>
+        <p className="text-xs text-gray-500 mt-1">
+          De no encontrarse presencia de la enfermedad, colocar 0
+        </p>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Síntomas observados *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Síntomas observados *
+        </label>
         <div className="space-y-1">
           {SINTOMAS_POR_ENFERMEDAD.phytophthora.map((sintoma) => (
             <label key={sintoma} className="flex items-center text-sm">
@@ -524,10 +662,12 @@ const PhytophthoraSection: React.FC<{
                 value={sintoma}
                 checked={sintomasActuales.includes(sintoma)}
                 onChange={(e) => {
-                  const nuevos = e.target.checked
-                    ? [...sintomasActuales, sintoma]
-                    : sintomasActuales.filter(s => s !== sintoma);
-                  onCampoChange(sintomasKey, nuevos.join(','));
+                  const nuevos = toggleOptionWithNoAplica(
+                    caracterizacion[sintomasKey],
+                    sintoma,
+                    e.target.checked
+                  );
+                  onCampoChange(sintomasKey, joinValues(nuevos));
                 }}
                 className="mr-2"
               />
@@ -550,7 +690,7 @@ const CTVSection: React.FC<{
 }> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange }) => {
   const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_ctv`;
   const sintomasKey = `${prefix}_sintomas`;
-  const sintomasActuales = caracterizacion[sintomasKey] ? caracterizacion[sintomasKey].split(',') : [];
+  const sintomasActuales = splitValues(caracterizacion[sintomasKey]);
   const presenteKey = `${prefix}_presente`;
   const vectorKey = `${prefix}_vector`;
   const danoKey = `${prefix}_dano`;
@@ -559,11 +699,15 @@ const CTVSection: React.FC<{
     <div className="mt-4 p-4 bg-gray-100 rounded-lg">
       <h6 className="font-semibold mb-2 text-sm">Virus de la Tristeza de los Cítricos (CTV)</h6>
       <p className="text-xs text-gray-600 mb-2 italic">
-        Síntomas: Declive progresivo del árbol, heridas en corteza, amarilleo y caída de hojas, reducción de producción.
-        Umbral de acción: Cualquier confirmación positiva requiere manejo cuarentenario.
+        Síntomas: Declive progresivo del árbol, heridas en corteza, amarilleo y caída de hojas,
+        reducción de producción. Umbral de acción: Cualquier confirmación positiva requiere manejo
+        cuarentenario.
       </p>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">¿Hay presencia de síntomas de CTV? *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          ¿Hay presencia de síntomas de CTV? *
+        </label>
         <div className="flex gap-4">
           {['Si', 'No'].map((opcion) => (
             <label key={opcion} className="inline-flex items-center">
@@ -580,6 +724,7 @@ const CTVSection: React.FC<{
           ))}
         </div>
       </div>
+
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           ¿Hay presencia del vector <em>Toxoptera citricidus</em>? *
@@ -600,8 +745,11 @@ const CTVSection: React.FC<{
           ))}
         </div>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">% de daño del virus CTV *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          % de daño del virus CTV *
+        </label>
         <input
           type="number"
           min="0"
@@ -613,10 +761,15 @@ const CTVSection: React.FC<{
           placeholder="Ej: 30 (0 si no hay)"
           required
         />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia de la enfermedad, colocar 0</p>
+        <p className="text-xs text-gray-500 mt-1">
+          De no encontrarse presencia de la enfermedad, colocar 0
+        </p>
       </div>
+
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Síntomas observados *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Síntomas observados *
+        </label>
         <div className="space-y-1">
           {SINTOMAS_POR_ENFERMEDAD.ctv.map((sintoma) => (
             <label key={sintoma} className="flex items-center text-sm">
@@ -625,10 +778,12 @@ const CTVSection: React.FC<{
                 value={sintoma}
                 checked={sintomasActuales.includes(sintoma)}
                 onChange={(e) => {
-                  const nuevos = e.target.checked
-                    ? [...sintomasActuales, sintoma]
-                    : sintomasActuales.filter(s => s !== sintoma);
-                  onCampoChange(sintomasKey, nuevos.join(','));
+                  const nuevos = toggleOptionWithNoAplica(
+                    caracterizacion[sintomasKey],
+                    sintoma,
+                    e.target.checked
+                  );
+                  onCampoChange(sintomasKey, joinValues(nuevos));
                 }}
                 className="mr-2"
               />
@@ -661,16 +816,29 @@ const OtraEnfermedadSection: React.FC<{
         <input
           type="checkbox"
           checked={caracterizacion[activoKey] === 'true'}
-          onChange={(e) => onCampoChange(activoKey, e.target.checked ? 'true' : 'false')}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            onCampoChange(activoKey, checked ? 'true' : 'false');
+
+            if (!checked) {
+              onCampoChange(sintomasKey, '');
+              onCampoChange(agenteKey, '');
+              onCampoChange(fotoKey, '');
+            }
+          }}
           className="mr-2"
         />
-        <span className="text-sm font-medium text-gray-700">Registrar otra enfermedad no listada</span>
+        <span className="text-sm font-medium text-gray-700">
+          Registrar otra enfermedad no listada
+        </span>
       </label>
 
       {caracterizacion[activoKey] === 'true' && (
         <>
           <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Síntomas de la enfermedad observada</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Síntomas de la enfermedad observada
+            </label>
             <textarea
               value={caracterizacion[sintomasKey] || ''}
               onChange={(e) => onCampoChange(sintomasKey, e.target.value)}
@@ -681,7 +849,9 @@ const OtraEnfermedadSection: React.FC<{
           </div>
 
           <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Agente causal (si se conoce)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Agente causal (si se conoce)
+            </label>
             <input
               type="text"
               value={caracterizacion[agenteKey] || ''}
@@ -691,11 +861,7 @@ const OtraEnfermedadSection: React.FC<{
             />
           </div>
 
-          <RealFotosSection
-            prefix={fotoKey}
-            caracterizacion={caracterizacion}
-            onCampoChange={onCampoChange}
-          />
+          <RealFotosSection prefix={fotoKey} onCampoChange={onCampoChange} />
         </>
       )}
     </div>
@@ -707,29 +873,99 @@ const CuadranteEnfermedades: React.FC<{
   plantaIdx: number;
   cuadrante: number;
   rama: number;
-  planta: PlantaBase;
   caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
   onOpenImage: (imageName: string) => void;
-}> = ({ plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange, onOpenImage }) => {
+}> = ({ plantaIdx, cuadrante, rama, caracterizacion, onCampoChange, onOpenImage }) => {
   const basePrefix = `enfermedades_planta_${plantaIdx + 1}`;
+  const quadrantPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}`;
 
-  const agentesKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_agentes`;
-  const agentesSeleccionados = caracterizacion[agentesKey] ? caracterizacion[agentesKey].split(',') : [];
+  const agentesKey = `${quadrantPrefix}_agentes`;
+  const agentesSeleccionados = splitValues(caracterizacion[agentesKey]);
+
+  const clearKeysStartingWith = (prefix: string, exceptKeys: string[] = []) => {
+    Object.keys(caracterizacion).forEach((key) => {
+      if (key.startsWith(prefix) && !exceptKeys.includes(key)) {
+        onCampoChange(key, '');
+      }
+    });
+  };
 
   const handleAgenteToggle = (agente: string, checked: boolean) => {
-    let nuevos = [...agentesSeleccionados];
+    const current = splitValues(caracterizacion[agentesKey]);
+    let nuevos: string[] = [];
+
+    if (agente === 'no_aplica') {
+      if (checked) {
+        clearKeysStartingWith(quadrantPrefix, [agentesKey]);
+        nuevos = ['no_aplica'];
+      } else {
+        nuevos = [];
+      }
+      onCampoChange(agentesKey, joinValues(nuevos));
+      return;
+    }
+
     if (checked) {
+      nuevos = current.filter((a) => a !== 'no_aplica');
       if (!nuevos.includes(agente)) nuevos.push(agente);
     } else {
-      nuevos = nuevos.filter(a => a !== agente);
-      const agentePrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${agente}`;
-      Object.keys(caracterizacion).forEach(key => {
-        if (key.startsWith(agentePrefix)) onCampoChange(key, '');
-      });
+      nuevos = current.filter((a) => a !== agente);
+      clearKeysStartingWith(`${quadrantPrefix}_${agente}`);
     }
-    onCampoChange(agentesKey, nuevos.join(','));
+
+    onCampoChange(agentesKey, joinValues(nuevos));
   };
+
+  const handleGroupNoAplica = (grupo: string, checked: boolean) => {
+    const noAplicaKey = `${quadrantPrefix}_${grupo}_no_aplica`;
+
+    if (checked) {
+      clearKeysStartingWith(`${quadrantPrefix}_${grupo}_`, [noAplicaKey]);
+      onCampoChange(noAplicaKey, 'true');
+    } else {
+      onCampoChange(noAplicaKey, '');
+    }
+  };
+
+  const handleDiseaseToggle = (grupo: string, enfermedadId: string, checked: boolean) => {
+    const noAplicaKey = `${quadrantPrefix}_${grupo}_no_aplica`;
+    const enfKey = `${quadrantPrefix}_${grupo}_${enfermedadId}_activo`;
+    const diseasePrefix = `${quadrantPrefix}_${grupo}_${enfermedadId}`;
+
+    if (checked && caracterizacion[noAplicaKey] === 'true') {
+      onCampoChange(noAplicaKey, '');
+    }
+
+    if (checked) {
+      onCampoChange(enfKey, 'true');
+    } else {
+      clearKeysStartingWith(diseasePrefix);
+      onCampoChange(enfKey, '');
+    }
+  };
+
+  const handleOtherToggle = (grupo: 'oomiceto' | 'virus', checked: boolean) => {
+    const noAplicaKey = `${quadrantPrefix}_${grupo}_no_aplica`;
+    const otherKey = `${quadrantPrefix}_${grupo}_otro`;
+    const otherNameKey = `${quadrantPrefix}_${grupo}_otro_nombre`;
+
+    if (checked && caracterizacion[noAplicaKey] === 'true') {
+      onCampoChange(noAplicaKey, '');
+    }
+
+    onCampoChange(otherKey, checked ? 'true' : '');
+
+    if (!checked) {
+      onCampoChange(otherNameKey, '');
+    }
+  };
+
+  const hongoNoAplica = caracterizacion[`${quadrantPrefix}_hongo_no_aplica`] === 'true';
+  const bacteriaNoAplica = caracterizacion[`${quadrantPrefix}_bacteria_no_aplica`] === 'true';
+  const oomicetoNoAplica = caracterizacion[`${quadrantPrefix}_oomiceto_no_aplica`] === 'true';
+  const virusNoAplica = caracterizacion[`${quadrantPrefix}_virus_no_aplica`] === 'true';
+  const nematodoNoAplica = caracterizacion[`${quadrantPrefix}_nematodo_no_aplica`] === 'true';
 
   return (
     <div className="ml-6 mb-6 p-4 border-l-4 border-blue-200 bg-gray-50 rounded">
@@ -742,8 +978,9 @@ const CuadranteEnfermedades: React.FC<{
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Agente(s) causal de las enfermedades vistas en campo (Selección múltiple)
         </label>
+
         <div className="flex flex-wrap gap-4">
-          {AGENTES.map(agente => (
+          {AGENTES.map((agente) => (
             <label key={agente.value} className="inline-flex items-center">
               <input
                 type="checkbox"
@@ -754,6 +991,7 @@ const CuadranteEnfermedades: React.FC<{
               {agente.label}
             </label>
           ))}
+
           <label className="inline-flex items-center">
             <input
               type="checkbox"
@@ -769,11 +1007,15 @@ const CuadranteEnfermedades: React.FC<{
       {/* Hongos */}
       {agentesSeleccionados.includes('hongo') && (
         <div className="mb-4 border-l-2 border-green-300 pl-3">
-          <h6 className="font-medium text-sm text-gray-700 mb-2">Enfermedades causadas por hongos</h6>
+          <h6 className="font-medium text-sm text-gray-700 mb-2">
+            Enfermedades causadas por hongos
+          </h6>
+
           <div className="mb-3">
-            {ENFERMEDADES_POR_AGENTE.hongo.map(enf => {
-              const enfKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_hongo_${enf.id}_activo`;
+            {ENFERMEDADES_POR_AGENTE.hongo.map((enf) => {
+              const enfKey = `${quadrantPrefix}_hongo_${enf.id}_activo`;
               const activo = caracterizacion[enfKey] === 'true';
+
               return (
                 <div key={enf.id}>
                   <div className="flex items-center gap-2 mb-1">
@@ -781,11 +1023,12 @@ const CuadranteEnfermedades: React.FC<{
                       <input
                         type="checkbox"
                         checked={activo}
-                        onChange={(e) => onCampoChange(enfKey, e.target.checked ? 'true' : 'false')}
+                        onChange={(e) => handleDiseaseToggle('hongo', enf.id, e.target.checked)}
                         className="mr-2"
                       />
                       {enf.label}
                     </label>
+
                     <button
                       type="button"
                       onClick={() => onOpenImage(enf.image)}
@@ -794,6 +1037,7 @@ const CuadranteEnfermedades: React.FC<{
                       Ver imagen
                     </button>
                   </div>
+
                   {activo && enf.id === 'antracnosis' && (
                     <AntracnosisSection
                       basePrefix={basePrefix}
@@ -803,6 +1047,7 @@ const CuadranteEnfermedades: React.FC<{
                       onCampoChange={onCampoChange}
                     />
                   )}
+
                   {activo && enf.id === 'mancha_grasienta' && (
                     <ManchaGrasientaSection
                       basePrefix={basePrefix}
@@ -815,11 +1060,12 @@ const CuadranteEnfermedades: React.FC<{
                 </div>
               );
             })}
-            <label className="flex items-center text-sm">
+
+            <label className="flex items-center text-sm mt-2">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_hongo_no_aplica`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_hongo_no_aplica`, e.target.checked ? 'true' : 'false')}
+                checked={hongoNoAplica}
+                onChange={(e) => handleGroupNoAplica('hongo', e.target.checked)}
                 className="mr-2"
               />
               No aplica
@@ -831,11 +1077,15 @@ const CuadranteEnfermedades: React.FC<{
       {/* Bacterias */}
       {agentesSeleccionados.includes('bacteria') && (
         <div className="mb-4 border-l-2 border-blue-300 pl-3">
-          <h6 className="font-medium text-sm text-gray-700 mb-2">Enfermedades causadas por bacterias</h6>
+          <h6 className="font-medium text-sm text-gray-700 mb-2">
+            Enfermedades causadas por bacterias
+          </h6>
+
           <div className="mb-3">
-            {ENFERMEDADES_POR_AGENTE.bacteria.map(enf => {
-              const enfKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_bacteria_${enf.id}_activo`;
+            {ENFERMEDADES_POR_AGENTE.bacteria.map((enf) => {
+              const enfKey = `${quadrantPrefix}_bacteria_${enf.id}_activo`;
               const activo = caracterizacion[enfKey] === 'true';
+
               return (
                 <div key={enf.id}>
                   <div className="flex items-center gap-2 mb-1">
@@ -843,11 +1093,14 @@ const CuadranteEnfermedades: React.FC<{
                       <input
                         type="checkbox"
                         checked={activo}
-                        onChange={(e) => onCampoChange(enfKey, e.target.checked ? 'true' : 'false')}
+                        onChange={(e) =>
+                          handleDiseaseToggle('bacteria', enf.id, e.target.checked)
+                        }
                         className="mr-2"
                       />
                       {enf.label}
                     </label>
+
                     <button
                       type="button"
                       onClick={() => onOpenImage(enf.image)}
@@ -856,6 +1109,7 @@ const CuadranteEnfermedades: React.FC<{
                       Ver imagen
                     </button>
                   </div>
+
                   {activo && enf.id === 'hlb' && (
                     <HLBSection
                       basePrefix={basePrefix}
@@ -865,6 +1119,7 @@ const CuadranteEnfermedades: React.FC<{
                       onCampoChange={onCampoChange}
                     />
                   )}
+
                   {activo && enf.id === 'xylella' && (
                     <XylellaSection
                       basePrefix={basePrefix}
@@ -877,11 +1132,12 @@ const CuadranteEnfermedades: React.FC<{
                 </div>
               );
             })}
-            <label className="flex items-center text-sm">
+
+            <label className="flex items-center text-sm mt-2">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_bacteria_no_aplica`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_bacteria_no_aplica`, e.target.checked ? 'true' : 'false')}
+                checked={bacteriaNoAplica}
+                onChange={(e) => handleGroupNoAplica('bacteria', e.target.checked)}
                 className="mr-2"
               />
               No aplica
@@ -893,11 +1149,15 @@ const CuadranteEnfermedades: React.FC<{
       {/* Oomicetos */}
       {agentesSeleccionados.includes('oomiceto') && (
         <div className="mb-4 border-l-2 border-yellow-300 pl-3">
-          <h6 className="font-medium text-sm text-gray-700 mb-2">Enfermedades causadas por oomicetos</h6>
+          <h6 className="font-medium text-sm text-gray-700 mb-2">
+            Enfermedades causadas por oomicetos
+          </h6>
+
           <div className="mb-3">
-            {ENFERMEDADES_POR_AGENTE.oomiceto.map(enf => {
-              const enfKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_${enf.id}_activo`;
+            {ENFERMEDADES_POR_AGENTE.oomiceto.map((enf) => {
+              const enfKey = `${quadrantPrefix}_oomiceto_${enf.id}_activo`;
               const activo = caracterizacion[enfKey] === 'true';
+
               return (
                 <div key={enf.id}>
                   <div className="flex items-center gap-2 mb-1">
@@ -905,11 +1165,14 @@ const CuadranteEnfermedades: React.FC<{
                       <input
                         type="checkbox"
                         checked={activo}
-                        onChange={(e) => onCampoChange(enfKey, e.target.checked ? 'true' : 'false')}
+                        onChange={(e) =>
+                          handleDiseaseToggle('oomiceto', enf.id, e.target.checked)
+                        }
                         className="mr-2"
                       />
                       {enf.label}
                     </label>
+
                     <button
                       type="button"
                       onClick={() => onOpenImage(enf.image)}
@@ -918,6 +1181,7 @@ const CuadranteEnfermedades: React.FC<{
                       Ver imagen
                     </button>
                   </div>
+
                   {activo && enf.id === 'phytophthora' && (
                     <PhytophthoraSection
                       basePrefix={basePrefix}
@@ -930,30 +1194,35 @@ const CuadranteEnfermedades: React.FC<{
                 </div>
               );
             })}
-            <label className="flex items-center text-sm">
+
+            <label className="flex items-center text-sm mt-2">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_no_aplica`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_no_aplica`, e.target.checked ? 'true' : 'false')}
+                checked={oomicetoNoAplica}
+                onChange={(e) => handleGroupNoAplica('oomiceto', e.target.checked)}
                 className="mr-2"
               />
               No aplica
             </label>
-            <label className="flex items-center text-sm">
+
+            <label className="flex items-center text-sm mt-2">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_otro`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_otro`, e.target.checked ? 'true' : 'false')}
+                checked={caracterizacion[`${quadrantPrefix}_oomiceto_otro`] === 'true'}
+                onChange={(e) => handleOtherToggle('oomiceto', e.target.checked)}
                 className="mr-2"
               />
               Otro
             </label>
-            {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_otro`] === 'true' && (
+
+            {caracterizacion[`${quadrantPrefix}_oomiceto_otro`] === 'true' && (
               <div className="mt-2">
                 <input
                   type="text"
-                  value={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_otro_nombre`] || ''}
-                  onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_oomiceto_otro_nombre`, e.target.value)}
+                  value={caracterizacion[`${quadrantPrefix}_oomiceto_otro_nombre`] || ''}
+                  onChange={(e) =>
+                    onCampoChange(`${quadrantPrefix}_oomiceto_otro_nombre`, e.target.value)
+                  }
                   className="border rounded px-2 py-1 w-full text-sm"
                   placeholder="Especifique otro oomiceto"
                 />
@@ -966,11 +1235,15 @@ const CuadranteEnfermedades: React.FC<{
       {/* Virus */}
       {agentesSeleccionados.includes('virus') && (
         <div className="mb-4 border-l-2 border-purple-300 pl-3">
-          <h6 className="font-medium text-sm text-gray-700 mb-2">Enfermedades causadas por virus</h6>
+          <h6 className="font-medium text-sm text-gray-700 mb-2">
+            Enfermedades causadas por virus
+          </h6>
+
           <div className="mb-3">
-            {ENFERMEDADES_POR_AGENTE.virus.map(enf => {
-              const enfKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_${enf.id}_activo`;
+            {ENFERMEDADES_POR_AGENTE.virus.map((enf) => {
+              const enfKey = `${quadrantPrefix}_virus_${enf.id}_activo`;
               const activo = caracterizacion[enfKey] === 'true';
+
               return (
                 <div key={enf.id}>
                   <div className="flex items-center gap-2 mb-1">
@@ -978,11 +1251,12 @@ const CuadranteEnfermedades: React.FC<{
                       <input
                         type="checkbox"
                         checked={activo}
-                        onChange={(e) => onCampoChange(enfKey, e.target.checked ? 'true' : 'false')}
+                        onChange={(e) => handleDiseaseToggle('virus', enf.id, e.target.checked)}
                         className="mr-2"
                       />
                       {enf.label}
                     </label>
+
                     <button
                       type="button"
                       onClick={() => onOpenImage(enf.image)}
@@ -991,6 +1265,7 @@ const CuadranteEnfermedades: React.FC<{
                       Ver imagen
                     </button>
                   </div>
+
                   {activo && enf.id === 'ctv' && (
                     <CTVSection
                       basePrefix={basePrefix}
@@ -1003,30 +1278,35 @@ const CuadranteEnfermedades: React.FC<{
                 </div>
               );
             })}
-            <label className="flex items-center text-sm">
+
+            <label className="flex items-center text-sm mt-2">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_no_aplica`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_no_aplica`, e.target.checked ? 'true' : 'false')}
+                checked={virusNoAplica}
+                onChange={(e) => handleGroupNoAplica('virus', e.target.checked)}
                 className="mr-2"
               />
               No aplica
             </label>
-            <label className="flex items-center text-sm">
+
+            <label className="flex items-center text-sm mt-2">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_otro`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_otro`, e.target.checked ? 'true' : 'false')}
+                checked={caracterizacion[`${quadrantPrefix}_virus_otro`] === 'true'}
+                onChange={(e) => handleOtherToggle('virus', e.target.checked)}
                 className="mr-2"
               />
               Otro
             </label>
-            {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_otro`] === 'true' && (
+
+            {caracterizacion[`${quadrantPrefix}_virus_otro`] === 'true' && (
               <div className="mt-2">
                 <input
                   type="text"
-                  value={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_otro_nombre`] || ''}
-                  onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_virus_otro_nombre`, e.target.value)}
+                  value={caracterizacion[`${quadrantPrefix}_virus_otro_nombre`] || ''}
+                  onChange={(e) =>
+                    onCampoChange(`${quadrantPrefix}_virus_otro_nombre`, e.target.value)
+                  }
                   className="border rounded px-2 py-1 w-full text-sm"
                   placeholder="Especifique otro virus"
                 />
@@ -1040,17 +1320,35 @@ const CuadranteEnfermedades: React.FC<{
       {agentesSeleccionados.includes('nematodo') && (
         <div className="mb-4 border-l-2 border-orange-300 pl-3">
           <h6 className="font-medium text-sm text-gray-700 mb-2">Nematodos</h6>
+
           <div className="mb-3">
             <div className="flex items-center gap-2 mb-1">
               <label className="inline-flex items-center text-sm">
                 <input
                   type="checkbox"
-                  checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_presente`] === 'true'}
-                  onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_presente`, e.target.checked ? 'true' : 'false')}
+                  checked={caracterizacion[`${quadrantPrefix}_nematodo_presente`] === 'true'}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+
+                    if (checked && nematodoNoAplica) {
+                      onCampoChange(`${quadrantPrefix}_nematodo_no_aplica`, '');
+                    }
+
+                    onCampoChange(
+                      `${quadrantPrefix}_nematodo_presente`,
+                      checked ? 'true' : ''
+                    );
+
+                    if (!checked) {
+                      clearKeysStartingWith(`${quadrantPrefix}_nematodo_`);
+                      onCampoChange(`${quadrantPrefix}_nematodo_presente`, '');
+                    }
+                  }}
                   className="mr-2"
                 />
                 Presencia de nematodos
               </label>
+
               <button
                 type="button"
                 onClick={() => onOpenImage(ENFERMEDADES_POR_AGENTE.nematodo[0].image)}
@@ -1060,13 +1358,23 @@ const CuadranteEnfermedades: React.FC<{
               </button>
             </div>
 
-            {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_presente`] === 'true' && (
+            {caracterizacion[`${quadrantPrefix}_nematodo_presente`] === 'true' && (
               <>
                 <div className="mt-2">
                   <label className="block text-sm text-gray-600 mb-1">Posible nematodo</label>
                   <select
-                    value={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_tipo`] || ''}
-                    onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_tipo`, e.target.value)}
+                    value={caracterizacion[`${quadrantPrefix}_nematodo_tipo`] || ''}
+                    onChange={(e) => {
+                      if (nematodoNoAplica) {
+                        onCampoChange(`${quadrantPrefix}_nematodo_no_aplica`, '');
+                      }
+
+                      onCampoChange(`${quadrantPrefix}_nematodo_tipo`, e.target.value);
+
+                      if (e.target.value !== 'otro') {
+                        onCampoChange(`${quadrantPrefix}_nematodo_otro_nombre`, '');
+                      }
+                    }}
                     className="border rounded px-2 py-1 w-full text-sm"
                   >
                     <option value="">-- Seleccione --</option>
@@ -1075,12 +1383,14 @@ const CuadranteEnfermedades: React.FC<{
                   </select>
                 </div>
 
-                {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_tipo`] === 'otro' && (
+                {caracterizacion[`${quadrantPrefix}_nematodo_tipo`] === 'otro' && (
                   <div className="mt-2">
                     <input
                       type="text"
-                      value={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_otro_nombre`] || ''}
-                      onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_otro_nombre`, e.target.value)}
+                      value={caracterizacion[`${quadrantPrefix}_nematodo_otro_nombre`] || ''}
+                      onChange={(e) =>
+                        onCampoChange(`${quadrantPrefix}_nematodo_otro_nombre`, e.target.value)
+                      }
                       className="border rounded px-2 py-1 w-full text-sm"
                       placeholder="Especifique el nematodo"
                     />
@@ -1092,10 +1402,19 @@ const CuadranteEnfermedades: React.FC<{
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Síntomas observados en la planta (puede seleccionar varios) *
                   </label>
+
                   <div className="space-y-1">
-                    {['Clorosis general', 'Reducción de crecimiento', 'Marchitez con suelo húmedo', 'Frutos pequeños', 'Defoliación', 'Sin síntomas visibles'].map((sintoma) => {
-                      const key = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_planta`;
-                      const actuales = caracterizacion[key] ? caracterizacion[key].split(',') : [];
+                    {[
+                      'Clorosis general',
+                      'Reducción de crecimiento',
+                      'Marchitez con suelo húmedo',
+                      'Frutos pequeños',
+                      'Defoliación',
+                      'Sin síntomas visibles',
+                    ].map((sintoma) => {
+                      const key = `${quadrantPrefix}_nematodo_sintomas_planta`;
+                      const actuales = splitValues(caracterizacion[key]);
+
                       return (
                         <label key={sintoma} className="flex items-center text-sm">
                           <input
@@ -1105,8 +1424,8 @@ const CuadranteEnfermedades: React.FC<{
                             onChange={(e) => {
                               const nuevos = e.target.checked
                                 ? [...actuales, sintoma]
-                                : actuales.filter(s => s !== sintoma);
-                              onCampoChange(key, nuevos.join(','));
+                                : actuales.filter((s) => s !== sintoma);
+                              onCampoChange(key, joinValues(nuevos));
                             }}
                             className="mr-2"
                           />
@@ -1118,18 +1437,37 @@ const CuadranteEnfermedades: React.FC<{
                     <label className="flex items-center text-sm">
                       <input
                         type="checkbox"
-                        checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_planta_otro_activo`] === 'true'}
-                        onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_planta_otro_activo`, e.target.checked ? 'true' : 'false')}
+                        checked={
+                          caracterizacion[
+                            `${quadrantPrefix}_nematodo_sintomas_planta_otro_activo`
+                          ] === 'true'
+                        }
+                        onChange={(e) =>
+                          onCampoChange(
+                            `${quadrantPrefix}_nematodo_sintomas_planta_otro_activo`,
+                            e.target.checked ? 'true' : ''
+                          )
+                        }
                         className="mr-2"
                       />
                       Otro:
                     </label>
 
-                    {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_planta_otro_activo`] === 'true' && (
+                    {caracterizacion[
+                      `${quadrantPrefix}_nematodo_sintomas_planta_otro_activo`
+                    ] === 'true' && (
                       <input
                         type="text"
-                        value={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_planta_otro`] || ''}
-                        onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_planta_otro`, e.target.value)}
+                        value={
+                          caracterizacion[`${quadrantPrefix}_nematodo_sintomas_planta_otro`] ||
+                          ''
+                        }
+                        onChange={(e) =>
+                          onCampoChange(
+                            `${quadrantPrefix}_nematodo_sintomas_planta_otro`,
+                            e.target.value
+                          )
+                        }
                         className="border rounded px-2 py-1 w-full text-sm ml-6"
                         placeholder="Especifique el síntoma en planta"
                       />
@@ -1142,10 +1480,17 @@ const CuadranteEnfermedades: React.FC<{
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Síntomas observados en raíces *
                   </label>
+
                   <div className="space-y-1">
-                    {['Presencia de agallas o nudos', 'Raíces con aspecto "sucio" o necrosado', 'Pocas raíces absorbentes', 'Sin síntomas visibles'].map((sintoma) => {
-                      const key = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_raices`;
-                      const actuales = caracterizacion[key] ? caracterizacion[key].split(',') : [];
+                    {[
+                      'Presencia de agallas o nudos',
+                      'Raíces con aspecto "sucio" o necrosado',
+                      'Pocas raíces absorbentes',
+                      'Sin síntomas visibles',
+                    ].map((sintoma) => {
+                      const key = `${quadrantPrefix}_nematodo_sintomas_raices`;
+                      const actuales = splitValues(caracterizacion[key]);
+
                       return (
                         <label key={sintoma} className="flex items-center text-sm">
                           <input
@@ -1155,8 +1500,8 @@ const CuadranteEnfermedades: React.FC<{
                             onChange={(e) => {
                               const nuevos = e.target.checked
                                 ? [...actuales, sintoma]
-                                : actuales.filter(s => s !== sintoma);
-                              onCampoChange(key, nuevos.join(','));
+                                : actuales.filter((s) => s !== sintoma);
+                              onCampoChange(key, joinValues(nuevos));
                             }}
                             className="mr-2"
                           />
@@ -1168,18 +1513,37 @@ const CuadranteEnfermedades: React.FC<{
                     <label className="flex items-center text-sm">
                       <input
                         type="checkbox"
-                        checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_raices_otro_activo`] === 'true'}
-                        onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_raices_otro_activo`, e.target.checked ? 'true' : 'false')}
+                        checked={
+                          caracterizacion[
+                            `${quadrantPrefix}_nematodo_sintomas_raices_otro_activo`
+                          ] === 'true'
+                        }
+                        onChange={(e) =>
+                          onCampoChange(
+                            `${quadrantPrefix}_nematodo_sintomas_raices_otro_activo`,
+                            e.target.checked ? 'true' : ''
+                          )
+                        }
                         className="mr-2"
                       />
                       Otro:
                     </label>
 
-                    {caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_raices_otro_activo`] === 'true' && (
+                    {caracterizacion[
+                      `${quadrantPrefix}_nematodo_sintomas_raices_otro_activo`
+                    ] === 'true' && (
                       <input
                         type="text"
-                        value={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_raices_otro`] || ''}
-                        onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_sintomas_raices_otro`, e.target.value)}
+                        value={
+                          caracterizacion[`${quadrantPrefix}_nematodo_sintomas_raices_otro`] ||
+                          ''
+                        }
+                        onChange={(e) =>
+                          onCampoChange(
+                            `${quadrantPrefix}_nematodo_sintomas_raices_otro`,
+                            e.target.value
+                          )
+                        }
                         className="border rounded px-2 py-1 w-full text-sm ml-6"
                         placeholder="Especifique el síntoma en raíces"
                       />
@@ -1189,11 +1553,21 @@ const CuadranteEnfermedades: React.FC<{
               </>
             )}
 
-            <label className="flex items-center text-sm">
+            <label className="flex items-center text-sm mt-3">
               <input
                 type="checkbox"
-                checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_no_aplica`] === 'true'}
-                onChange={(e) => onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_nematodo_no_aplica`, e.target.checked ? 'true' : 'false')}
+                checked={nematodoNoAplica}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  const noAplicaKey = `${quadrantPrefix}_nematodo_no_aplica`;
+
+                  if (checked) {
+                    clearKeysStartingWith(`${quadrantPrefix}_nematodo_`, [noAplicaKey]);
+                    onCampoChange(noAplicaKey, 'true');
+                  } else {
+                    onCampoChange(noAplicaKey, '');
+                  }
+                }}
                 className="mr-2"
               />
               No aplica
@@ -1227,8 +1601,10 @@ const PlantaEnfermedades: React.FC<{
       <h4 className="font-semibold text-lg text-gray-800 mb-2">
         {planta.label} (Código: {planta.codigo})
       </h4>
+
       <p className="text-sm text-gray-500 mb-4">
-        El árbol se divide en 4 cuadrantes. Seleccione una rama al azar de cada cuadrante y observe: daño en hojas, frutos, puntos de crecimiento, ramas, tronco y raíces.
+        El árbol se divide en 4 cuadrantes. Seleccione una rama al azar de cada cuadrante y observe:
+        daño en hojas, frutos, puntos de crecimiento, ramas, tronco y raíces.
       </p>
 
       {[1, 2, 3, 4].map((cuadrante) => (
@@ -1237,7 +1613,6 @@ const PlantaEnfermedades: React.FC<{
           plantaIdx={index}
           cuadrante={cuadrante}
           rama={cuadrante}
-          planta={planta}
           caracterizacion={caracterizacion}
           onCampoChange={onCampoChange}
           onOpenImage={onOpenImage}
@@ -1269,8 +1644,9 @@ export const EnfermedadesSection: React.FC<EnfermedadesSectionProps> = ({
 
       <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
         <p className="text-sm text-gray-700">
-          <span className="font-bold">Metodología de monitoreo:</span> Para cada árbol seleccionado, divida la copa en 4 cuadrantes.
-          Seleccione una rama al azar de cada cuadrante. Observe: daño en hojas, frutos, puntos de crecimiento, ramas, tronco y raíces.
+          <span className="font-bold">Metodología de monitoreo:</span> Para cada árbol seleccionado,
+          divida la copa en 4 cuadrantes. Seleccione una rama al azar de cada cuadrante. Observe:
+          daño en hojas, frutos, puntos de crecimiento, ramas, tronco y raíces.
         </p>
       </div>
 
@@ -1278,7 +1654,8 @@ export const EnfermedadesSection: React.FC<EnfermedadesSectionProps> = ({
         Árboles seleccionados para monitoreo
       </h3>
       <p className="text-sm text-gray-600 mb-6">
-        Se han generado {plantas.length} árbol(es) para monitoreo. Para cada uno, evalúe los 4 cuadrantes de forma independiente.
+        Se han generado {plantas.length} árbol(es) para monitoreo. Para cada uno, evalúe los 4
+        cuadrantes de forma independiente.
       </p>
 
       {plantas.map((planta, idx) => (
@@ -1295,10 +1672,26 @@ export const EnfermedadesSection: React.FC<EnfermedadesSectionProps> = ({
       <div className="mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-sm text-gray-700">
         <p className="font-medium mb-1">📝 Umbrales de acción:</p>
         <ul className="list-disc list-inside space-y-1">
-          <li><span className="font-medium">Antracnosis y Mancha grasienta:</span> &gt;5% de árboles con síntomas activos</li>
-          <li><span className="font-medium"><em>Xylella fastidiosa</em>:</span> Cualquier árbol positivo requiere manejo cuarentenario</li>
-          <li><span className="font-medium"><em>Phytophthora</em>:</span> &gt;5% de árboles con lesiones activas</li>
-          <li><span className="font-medium">CTV:</span> Cualquier árbol positivo requiere manejo cuarentenario</li>
+          <li>
+            <span className="font-medium">Antracnosis y Mancha grasienta:</span> &gt;5% de árboles
+            con síntomas activos
+          </li>
+          <li>
+            <span className="font-medium">
+              <em>Xylella fastidiosa</em>:
+            </span>{' '}
+            Cualquier árbol positivo requiere manejo cuarentenario
+          </li>
+          <li>
+            <span className="font-medium">
+              <em>Phytophthora</em>:
+            </span>{' '}
+            &gt;5% de árboles con lesiones activas
+          </li>
+          <li>
+            <span className="font-medium">CTV:</span> Cualquier árbol positivo requiere manejo
+            cuarentenario
+          </li>
         </ul>
       </div>
 
