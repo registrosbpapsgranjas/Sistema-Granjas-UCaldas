@@ -9,7 +9,7 @@ from app.schemas.diagnostico_schema import (
     DiagnosticoListResponse, EstadisticasDiagnosticosResponse,
 )
 from app.core.dependencies import get_current_user, require_any_role
-from app import crud
+from app.CRUD import diagnosticos as crud
 
 router = APIRouter(prefix="/diagnosticos", tags=["diagnosticos"])
 
