@@ -667,57 +667,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {/* Evidencias */}
-                        <div className="mt-6">
-                            <div className="flex justify-between items-center mb-3">
-                                <label className="block text-sm font-medium text-gray-700">Evidencias</label>
-                                <button type="button" onClick={agregarEvidencia} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1">
-                                    <i className="fas fa-plus"></i> Agregar evidencia
-                                </button>
-                            </div>
-                            {evidencias.map((evidencia, index) => (
-                                <div key={index} className="border rounded-lg p-4 mb-3 bg-gray-50">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <h4 className="text-sm font-medium">Evidencia #{index + 1}</h4>
-                                        <button type="button" onClick={() => eliminarEvidencia(index)} className="text-red-600 hover:text-red-800">
-                                            <i className="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
-                                            <select value={evidencia.tipo} onChange={(e) => handleTipoEvidenciaChange(index, e.target.value)} className="w-full border rounded-lg p-2 text-sm">
-                                                <option value="imagen">Imagen</option>
-                                                <option value="video">Video</option>
-                                                <option value="documento">Documento</option>
-                                                <option value="audio">Audio</option>
-                                                <option value="otro">Otro</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Archivo *</label>
-                                            <input
-                                                type="file"
-                                                onChange={(e) => handleFileChange(index, e.target.files?.[0] || null)}
-                                                className="w-full border rounded-lg p-2 text-sm"
-                                                accept={evidencia.tipo === 'imagen' ? 'image/*' : evidencia.tipo === 'video' ? 'video/*' : evidencia.tipo === 'audio' ? 'audio/*' : '*/*'}
-                                            />
-                                        </div>
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
-                                            <input
-                                                type="text"
-                                                value={evidencia.descripcion}
-                                                onChange={(e) => handleDescripcionChange(index, e.target.value)}
-                                                className="w-full border rounded-lg p-2 text-sm"
-                                                placeholder="Describa la evidencia..."
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
                         {/* Mensajes de advertencia */}
                         {(!formData.tipo || !formData.condiciones_dia) && (
                             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4">
