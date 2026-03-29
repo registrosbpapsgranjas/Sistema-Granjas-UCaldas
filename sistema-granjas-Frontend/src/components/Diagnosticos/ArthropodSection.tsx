@@ -95,7 +95,7 @@ const RealFotosSection: React.FC<{
         onClick={() => inputRef.current?.click()}
         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded shadow-sm transition-colors"
       >
-        📷 Seleccionar fotos
+        Seleccionar fotos
       </button>
 
       <input
