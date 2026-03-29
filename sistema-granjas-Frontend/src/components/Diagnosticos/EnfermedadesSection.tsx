@@ -39,7 +39,7 @@ const ENFERMEDADES_POR_AGENTE = {
     { id: 'xylella', label: <><em>Xylella fastidiosa</em> - Clorosis de los cítricos</>, image: 'xylella.png' },
   ],
   oomiceto: [
-    { id: 'phytophthora', label: <><em>Phytophthora</em> sp. - Gomosis o pudrición radicular</>, image: 'phytophthora.png' },
+    { id: 'phytophthora', label: <><em>Phytophthora</em> sp. - Gomosis o pudrición radicular</>, image: 'phytophthorasp.png' },
   ],
   virus: [
     { id: 'ctv', label: <>Virus de la Tristeza de los Cítricos (CTV)</>, image: 'ctv.png' },
