@@ -1,70 +1,72 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
 from app.db.database import get_db
-from app.db.models import Diagnostico, Usuario, Lote, Recomendacion
+from app.db.models import Diagnostico, Usuario, Lote, Programa, Monitoreo, Recomendacion
 from app.schemas.diagnostico_schema import (
-    DiagnosticoCreate, DiagnosticoUpdate, DiagnosticoResponse,
-    DiagnosticoWithRecomendacionesResponse, DiagnosticoListResponse,
-    AsignacionDocenteRequest, CierreDiagnosticoRequest,
-    EstadisticasDiagnosticosResponse
+    DiagnosticoCreate, DiagnosticoUpdate,
+    DiagnosticoResponse, DiagnosticoWithRecomendacionesResponse,
+    DiagnosticoListResponse, EstadisticasDiagnosticosResponse,
 )
 from app.core.dependencies import get_current_user, require_any_role
+from app import crud
 
 router = APIRouter(prefix="/diagnosticos", tags=["diagnosticos"])
 
 
-# === Helper ===
-def get_or_404(db, model, id, msg="Recurso no encontrado"):
+# ── Helper ────────────────────────────────────────────────────────────────────
+def get_or_404(db: Session, model, id: int, msg: str = "Recurso no encontrado"):
     obj = db.get(model, id)
     if not obj:
         raise HTTPException(404, msg)
     return obj
 
 
-# === LISTAR ===
+def _enriquecer(obj: Diagnostico) -> None:
+    """Añade campos calculados al objeto Diagnostico antes de serializar."""
+    obj.programa_nombre       = obj.programa.nombre if obj.programa else None
+    obj.tipo_monitoreo_nombre = obj.tipo_monitoreo.nombre if obj.tipo_monitoreo else None
+    obj.lote_nombre           = obj.lote.nombre if obj.lote else None
+    obj.granja_nombre         = getattr(obj.lote.granja, "nombre", None) if obj.lote else None
+    obj.usuario_nombre        = obj.usuario.nombre if obj.usuario else None
+
+
+# ── LISTAR ────────────────────────────────────────────────────────────────────
 @router.get("/", response_model=DiagnosticoListResponse)
 def listar_diagnosticos(
-    skip: int = 0,
-    limit: int = 100,
-    estado: Optional[str] = None,
-    tipo: Optional[str] = None,
-    lote_id: Optional[int] = None,
-    estudiante_id: Optional[int] = None,
-    docente_id: Optional[int] = None,
-    db: Session = Depends(get_db),
+    skip:             int = 0,
+    limit:            int = 100,
+    programa_id:      Optional[int] = None,
+    tipo_monitoreo_id: Optional[int] = None,
+    lote_id:          Optional[int] = None,
+    usuario_id:       Optional[int] = None,
+    tipo_diagnostico: Optional[str] = None,
+    db:   Session = Depends(get_db),
     user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
     query = db.query(Diagnostico)
 
-    # Permisos por rol
-    rol = user.rol.nombre
-    if rol == "estudiante":
-        query = query.filter(Diagnostico.estudiante_id == user.id)
-    elif rol == "docente":
-        query = query.filter(
-            (Diagnostico.docente_id == user.id) |
-            (Diagnostico.estado == "abierto")
-        )
+    # Estudiantes solo ven sus propios diagnósticos
+    if user.rol.nombre == "estudiante":
+        query = query.filter(Diagnostico.usuario_id == user.id)
 
     # Filtros opcionales
-    if estado:
-        query = query.filter(Diagnostico.estado == estado)
-    if tipo:
-        query = query.filter(Diagnostico.tipo == tipo)
+    if programa_id:
+        query = query.filter(Diagnostico.programa_id == programa_id)
+    if tipo_monitoreo_id:
+        query = query.filter(Diagnostico.tipo_monitoreo_id == tipo_monitoreo_id)
     if lote_id:
         query = query.filter(Diagnostico.lote_id == lote_id)
-    if estudiante_id and rol in ["docente", "admin"]:
-        query = query.filter(Diagnostico.estudiante_id == estudiante_id)
-    if docente_id and rol in ["docente", "admin"]:
-        query = query.filter(Diagnostico.docente_id == docente_id)
+    if usuario_id and user.rol.nombre in ["admin", "docente", "asesor"]:
+        query = query.filter(Diagnostico.usuario_id == usuario_id)
+    if tipo_diagnostico:
+        query = query.filter(Diagnostico.tipo_diagnostico == tipo_diagnostico)
 
     total = query.count()
-    items = query.offset(skip).limit(limit).all()
+    items = query.order_by(Diagnostico.fecha_creacion.desc()).offset(skip).limit(limit).all()
 
     for d in items:
-        _cargar_relaciones(d)
+        _enriquecer(d)
 
     return DiagnosticoListResponse(
         items=items,
@@ -73,231 +75,112 @@ def listar_diagnosticos(
     )
 
 
-# === CREAR ===
+# ── CREAR ─────────────────────────────────────────────────────────────────────
 @router.post("/", response_model=DiagnosticoResponse, status_code=201)
 def crear_diagnostico(
     data: DiagnosticoCreate,
-    db: Session = Depends(get_db),
-    user: Usuario = Depends(require_any_role(["estudiante", "docente", "admin", "asesor"]))
+    db:   Session = Depends(get_db),
+    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
-    # Estudiante solo puede crearse diagnósticos a si mismo
-    if user.rol.nombre == "estudiante" and data.estudiante_id != user.id:
+    # Estudiante solo puede crear diagnósticos para sí mismo
+    if user.rol.nombre == "estudiante" and data.usuario_id != user.id:
         raise HTTPException(403, "Solo puede crear diagnósticos para su propio usuario")
 
-    get_or_404(db, Usuario, data.estudiante_id, "Estudiante no encontrado")
-    get_or_404(db, Lote, data.lote_id, "Lote no encontrado")
+    # Validar existencia de FK
+    get_or_404(db, Programa,  data.programa_id,       "Programa no encontrado")
+    get_or_404(db, Monitoreo, data.tipo_monitoreo_id,  "Tipo de monitoreo no encontrado")
+    get_or_404(db, Lote,      data.lote_id,            "Lote no encontrado")
+    get_or_404(db, Usuario,   data.usuario_id,         "Usuario no encontrado")
 
-    # Validación del docente (si lo envían)
-    if data.docente_id:
-        docente = get_or_404(db, Usuario, data.docente_id, "Docente no encontrado")
-        if docente.rol.nombre not in ["docente", "asesor"]:
-            raise HTTPException(400, "El usuario asignado no es docente ó asesor")
-
-    # Crear
-    obj = Diagnostico(**data.dict())
-    db.add(obj)
-    db.commit()
-    db.refresh(obj)
-
-    _cargar_relaciones(obj)
+    obj = crud.diagnostico.create_diagnostico(db, data)
+    _enriquecer(obj)
     return obj
 
 
-# === OBTENER UNO ===
+# ── OBTENER UNO ───────────────────────────────────────────────────────────────
 @router.get("/{id}", response_model=DiagnosticoWithRecomendacionesResponse)
 def obtener_diagnostico(
     id: int,
-    db: Session = Depends(get_db),
+    db:   Session = Depends(get_db),
     user: Usuario = Depends(get_current_user)
 ):
     obj = get_or_404(db, Diagnostico, id)
 
-    _check_view_permission(obj, user)
-    _cargar_relaciones(obj)
+    # Estudiante solo puede ver sus propios diagnósticos
+    if user.rol.nombre == "estudiante" and obj.usuario_id != user.id:
+        raise HTTPException(403, "No puede ver este diagnóstico")
 
+    _enriquecer(obj)
     obj.recomendaciones = db.query(Recomendacion).filter_by(diagnostico_id=id).all()
     return obj
 
 
-# === ACTUALIZAR ===
+# ── ACTUALIZAR ────────────────────────────────────────────────────────────────
 @router.put("/{id}", response_model=DiagnosticoResponse)
 def actualizar_diagnostico(
-    id: int,
+    id:   int,
     data: DiagnosticoUpdate,
-    db: Session = Depends(get_db),
+    db:   Session = Depends(get_db),
     user: Usuario = Depends(get_current_user)
 ):
     obj = get_or_404(db, Diagnostico, id)
 
-    _check_edit_permission(obj, user, data)
+    # Solo el creador o admin/docente/asesor pueden editar
+    if user.rol.nombre == "estudiante" and obj.usuario_id != user.id:
+        raise HTTPException(403, "No tiene permisos para editar este diagnóstico")
 
-    # Validar docente si se está asignando
-    if data.docente_id:
-        docente = get_or_404(db, Usuario, data.docente_id)
-        if docente.rol.nombre not in ["docente", "asesor"]:
-            raise HTTPException(400, "Usuario asignado no es docente")
-
-    update_data = data.dict(exclude_unset=True)
-
-    # Cerrar diagnóstico → asignar fecha_revision
-    if update_data.get("estado") == "cerrado":
-        update_data["fecha_revision"] = datetime.utcnow()
-
-    for k, v in update_data.items():
-        setattr(obj, k, v)
-
-    db.commit()
-    db.refresh(obj)
-
-    _cargar_relaciones(obj)
+    obj = crud.diagnostico.update_diagnostico(db, obj, data)
+    _enriquecer(obj)
     return obj
 
 
-# === ELIMINAR ===
+# ── ELIMINAR ──────────────────────────────────────────────────────────────────
 @router.delete("/{id}", status_code=200)
 def eliminar_diagnostico(
     id: int,
-    db: Session = Depends(get_db),
+    db:   Session = Depends(get_db),
     user: Usuario = Depends(require_any_role(["admin", "docente", "asesor"]))
 ):
     obj = get_or_404(db, Diagnostico, id)
 
     if obj.recomendaciones:
-        raise HTTPException(400, "No se puede eliminar un diagnóstico con recomendaciones")
+        raise HTTPException(400, "No se puede eliminar un diagnóstico con recomendaciones asociadas")
 
-    db.delete(obj)
-    db.commit()
+    crud.diagnostico.delete_diagnostico(db, obj)
     return {"message": "Diagnóstico eliminado correctamente"}
 
 
-# === ASIGNAR DOCENTE ===
-@router.post("/{id}/asignar-docente", response_model=DiagnosticoResponse)
-def asignar_docente(
-    id: int,
-    data: AsignacionDocenteRequest,
-    db: Session = Depends(get_db),
-    user: Usuario = Depends(require_any_role(["docente", "admin"]))
-):
-    obj = get_or_404(db, Diagnostico, id)
-
-    docente = get_or_404(db, Usuario, data.docente_id)
-    if docente.rol.nombre not in ["docente", "asesor"]:
-        raise HTTPException(400, "El usuario asignado no es docente ó asesor")
-
-    # Docente solo se asigna a si mismo
-    if docente.rol.nombre not in ["docente", "asesor"] and docente.id != user.id:
-        raise HTTPException(403, "Solo puede auto-asignarse diagnósticos")
-
-
-    obj.docente_id = docente.id
-    obj.estado = "en_revision"
-
-    db.commit()
-    db.refresh(obj)
-    _cargar_relaciones(obj)
-    return obj
-
-
-# === CERRAR ===
-@router.post("/{id}/cerrar", response_model=DiagnosticoResponse)
-def cerrar_diagnostico(
-    id: int,
-    data: CierreDiagnosticoRequest,  # Solo tiene "observaciones"
-    db: Session = Depends(get_db),
-    user: Usuario = Depends(require_any_role(["docente", "admin"]))
-):
-    obj = get_or_404(db, Diagnostico, id)
-    
-    # NO usar data.docente_id porque no existe en CierreDiagnosticoRequest
-    # En cambio, verificamos que el usuario actual sea el docente asignado
-    if not obj.docente_id:
-        raise HTTPException(400, "No se puede cerrar sin docente asignado")
-
-    # Docente solo cierra si es el asignado
-    # (El docente ya viene del token JWT, no del request body)
-    if obj.docente_id != user.id and user.rol.nombre not in ["admin"]:
-        raise HTTPException(403, "Solo el docente asignado puede cerrar el diagnóstico")
-
-    obj.estado = "cerrado"
-    obj.observaciones = data.observaciones  # Aquí usamos las observaciones del request
-    obj.fecha_revision = datetime.utcnow()
-
-    db.commit()
-    db.refresh(obj)
-    _cargar_relaciones(obj)
-    return obj
-
-
-# === ESTADÍSTICAS ===
+# ── ESTADÍSTICAS ──────────────────────────────────────────────────────────────
 @router.get("/estadisticas/resumen", response_model=EstadisticasDiagnosticosResponse)
 def obtener_estadisticas(
-    db: Session = Depends(get_db),
-    user: Usuario = Depends(require_any_role(["docente", "admin","asesor", "estudiante"]))
+    programa_id: Optional[int] = None,
+    db:   Session = Depends(get_db),
+    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
     query = db.query(Diagnostico)
-    if user.rol.nombre not in ["docente", "asesor"]:
-        query = query.filter(Diagnostico.docente_id == user.id)
+
+    if user.rol.nombre == "estudiante":
+        query = query.filter(Diagnostico.usuario_id == user.id)
+    if programa_id:
+        query = query.filter(Diagnostico.programa_id == programa_id)
 
     total = query.count()
 
-    estados = ["abierto", "en_revision", "cerrado"]
-    stats = {s: query.filter(Diagnostico.estado == s).count() for s in estados}
+    # Conteo por tipo_diagnostico
+    por_tipo: dict = {}
+    for row in db.query(Diagnostico.tipo_diagnostico).distinct():
+        t = row[0]
+        if t:
+            por_tipo[t] = query.filter(Diagnostico.tipo_diagnostico == t).count()
 
-    tipos = {t[0]: query.filter(Diagnostico.tipo == t[0]).count()
-             for t in db.query(Diagnostico.tipo).distinct()
-             if t[0]}
+    # Conteo por lote
+    por_lote: dict = {}
+    for d in query.all():
+        nombre_lote = d.lote.nombre if d.lote else f"lote_{d.lote_id}"
+        por_lote[nombre_lote] = por_lote.get(nombre_lote, 0) + 1
 
     return EstadisticasDiagnosticosResponse(
         total=total,
-        abiertos=stats["abierto"],
-        en_revision=stats["en_revision"],
-        cerrados=stats["cerrado"],
-        por_tipo=tipos
+        por_tipo=por_tipo,
+        por_lote=por_lote,
     )
-
-
-# === PERMISOS ===
-def _check_view_permission(obj: Diagnostico, user: Usuario):
-    rol = user.rol.nombre
-
-    if rol == "admin":
-        return
-    if rol == "docente" and (obj.docente_id == user.id or obj.estado == "abierto"):
-        return
-    if rol == "estudiante" and obj.estudiante_id == user.id:
-        return
-
-    raise HTTPException(403, "No puede ver este diagnóstico")
-
-
-def _check_edit_permission(obj: Diagnostico, user: Usuario, data: DiagnosticoUpdate):
-    rol = user.rol.nombre
-    fields = set(data.dict(exclude_unset=True).keys())
-    
-    # ✅ admin tiene acceso completo a todo
-    if rol == "admin":
-        return
-
-    # ✅ Docente solo puede editar diagnósticos asignados a él
-    if rol in  ["docente", "asesor"] and obj.docente_id == user.id:
-        if not fields.issubset({"estado", "observaciones"}):
-            raise HTTPException(403, "Docente solo puede editar estado u observaciones")
-        return
-
-    # ✅ Estudiante solo puede editar sus diagnósticos abiertos
-    if rol == "estudiante" and obj.estado == "abierto" and obj.estudiante_id == user.id:
-        if not fields.issubset({"descripcion"}):
-            raise HTTPException(403, "Estudiante solo puede editar descripción")
-        return
-
-    # ❌ Si no cumple ninguna condición anterior
-    raise HTTPException(403, "No tiene permisos para editar este diagnóstico")
-
-# === RELACIONES ===
-def _cargar_relaciones(obj: Diagnostico):
-    obj.estudiante_nombre = obj.estudiante.nombre if obj.estudiante else None
-    obj.docente_nombre = obj.docente.nombre if obj.docente else None
-    if obj.lote:
-        obj.lote_nombre = obj.lote.nombre
-        obj.granja_nombre = getattr(obj.lote.granja, "nombre", None)
-        obj.programa_nombre = getattr(obj.lote.programa, "nombre", None)
