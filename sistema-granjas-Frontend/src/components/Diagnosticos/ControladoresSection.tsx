@@ -174,20 +174,17 @@ const RealFotosSection: React.FC<{
 };
 
 const IMAGES: Record<string, string> = {
-  // Insectos benéficos
   'Coccinélidos': '/imgs/coccinelidos.png',
   'Crisopas': '/imgs/crisopas.png',
   'Avispas parasitoides': '/imgs/avispas_parasitoides.png',
   'Tamarixia radiata': '/imgs/tamarixia_radiata.png',
   'Fidiobia sp.': '/imgs/fidiobia_sp.png',
 
-  // Microbianos
   'Beauveria': '/imgs/beauveria.png',
   'Lecanicillium': '/imgs/lecanicillium.png',
   'Metarhizium': '/imgs/metarhizium.png',
   'Bacillus': '/imgs/bacillus.png',
 
-  // Evidencias
   'Huevos de artrópodos benéficos': '/imgs/huevos_artropodos_beneficos.png',
   'Larvas depredando': '/imgs/larvas_depredando.png',
   'Plagas parasitadas': '/imgs/plagas_parasitadas.png',
@@ -234,6 +231,11 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
         if (!nuevos.includes(opcion)) nuevos.push(opcion);
       } else {
         nuevos = current.filter((o) => o !== opcion);
+      }
+
+      if (opcion === 'Otro' && !checked) {
+        handleChange(`${baseKey}_${campo}_otro`, '');
+        handleChange(`${baseKey}_${campo}_otro_fotos`, '');
       }
     }
 
@@ -290,6 +292,7 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
     'Tamarixia radiata',
     'Fidiobia sp.',
     'No se observaron',
+    'Otro',
   ];
 
   const microbianosOpciones = [
@@ -298,6 +301,7 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
     'Metarhizium',
     'Bacillus',
     'No se observaron',
+    'Otro',
   ];
 
   const evidenciasOpciones = [
@@ -308,6 +312,7 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
     'Insectos benéficos en estados inmaduros',
     'Insectos benéficos adultos',
     'No se observaron evidencias',
+    'Otro',
   ];
 
   const opcionNingunoInsectos = 'No se observaron';
@@ -338,6 +343,10 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
         const tieneNingunoInsectos = insectos.includes(opcionNingunoInsectos);
         const tieneNingunoMicrobianos = microbianos.includes(opcionNingunoMicrobianos);
         const tieneNingunoEvidencias = evidencias.includes(opcionNingunoEvidencias);
+
+        const tieneOtroInsectos = insectos.includes('Otro');
+        const tieneOtroMicrobianos = microbianos.includes('Otro');
+        const tieneOtroEvidencias = evidencias.includes('Otro');
 
         return (
           <div key={codigo} className="border rounded-lg p-4 mb-6 bg-white shadow-sm">
@@ -399,34 +408,36 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     ))}
                   </div>
 
-                  <div className="mt-3">
-                    <label className="block text-sm text-gray-600 mb-1">Otro (especifique)</label>
-                    <input
-                      type="text"
-                      value={caracterizacion[`${baseKey}_insectos_otro`] || ''}
-                      onChange={(e) =>
-                        handleOtroChange(
-                          baseKey,
-                          'insectos',
-                          e.target.value,
-                          opcionNingunoInsectos
-                        )
-                      }
-                      disabled={tieneNingunoInsectos}
-                      className={`border rounded px-2 py-1 w-full text-sm ${
-                        tieneNingunoInsectos ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
-                      placeholder="Otro insecto benéfico"
-                    />
+                  {tieneOtroInsectos && (
+                    <div className="mt-3">
+                      <label className="block text-sm text-gray-600 mb-1">Otro (especifique)</label>
+                      <input
+                        type="text"
+                        value={caracterizacion[`${baseKey}_insectos_otro`] || ''}
+                        onChange={(e) =>
+                          handleOtroChange(
+                            baseKey,
+                            'insectos',
+                            e.target.value,
+                            opcionNingunoInsectos
+                          )
+                        }
+                        disabled={tieneNingunoInsectos}
+                        className={`border rounded px-2 py-1 w-full text-sm ${
+                          tieneNingunoInsectos ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="Otro insecto benéfico"
+                      />
 
-                    <RealFotosSection
-                      prefix={`${baseKey}_insectos_otro_fotos`}
-                      onCampoChange={onCampoChange}
-                      disabled={tieneNingunoInsectos}
-                      label='Subir imágenes del insecto benéfico en "Otro"'
-                      onOpenImage={(url) => setModalImage(url)}
-                    />
-                  </div>
+                      <RealFotosSection
+                        prefix={`${baseKey}_insectos_otro_fotos`}
+                        onCampoChange={onCampoChange}
+                        disabled={tieneNingunoInsectos}
+                        label='Subir imágenes del insecto benéfico en "Otro"'
+                        onOpenImage={(url) => setModalImage(url)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Controladores microbianos */}
@@ -469,34 +480,36 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     ))}
                   </div>
 
-                  <div className="mt-3">
-                    <label className="block text-sm text-gray-600 mb-1">Otro (especifique)</label>
-                    <input
-                      type="text"
-                      value={caracterizacion[`${baseKey}_microbianos_otro`] || ''}
-                      onChange={(e) =>
-                        handleOtroChange(
-                          baseKey,
-                          'microbianos',
-                          e.target.value,
-                          opcionNingunoMicrobianos
-                        )
-                      }
-                      disabled={tieneNingunoMicrobianos}
-                      className={`border rounded px-2 py-1 w-full text-sm ${
-                        tieneNingunoMicrobianos ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
-                      placeholder="Otro microbiano"
-                    />
+                  {tieneOtroMicrobianos && (
+                    <div className="mt-3">
+                      <label className="block text-sm text-gray-600 mb-1">Otro (especifique)</label>
+                      <input
+                        type="text"
+                        value={caracterizacion[`${baseKey}_microbianos_otro`] || ''}
+                        onChange={(e) =>
+                          handleOtroChange(
+                            baseKey,
+                            'microbianos',
+                            e.target.value,
+                            opcionNingunoMicrobianos
+                          )
+                        }
+                        disabled={tieneNingunoMicrobianos}
+                        className={`border rounded px-2 py-1 w-full text-sm ${
+                          tieneNingunoMicrobianos ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="Otro microbiano"
+                      />
 
-                    <RealFotosSection
-                      prefix={`${baseKey}_microbianos_otro_fotos`}
-                      onCampoChange={onCampoChange}
-                      disabled={tieneNingunoMicrobianos}
-                      label='Subir imágenes del controlador microbiano en "Otro"'
-                      onOpenImage={(url) => setModalImage(url)}
-                    />
-                  </div>
+                      <RealFotosSection
+                        prefix={`${baseKey}_microbianos_otro_fotos`}
+                        onCampoChange={onCampoChange}
+                        disabled={tieneNingunoMicrobianos}
+                        label='Subir imágenes del controlador microbiano en "Otro"'
+                        onOpenImage={(url) => setModalImage(url)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Evidencia de presencia */}
@@ -539,34 +552,36 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                     ))}
                   </div>
 
-                  <div className="mt-3">
-                    <label className="block text-sm text-gray-600 mb-1">Otro (especifique)</label>
-                    <input
-                      type="text"
-                      value={caracterizacion[`${baseKey}_evidencias_otro`] || ''}
-                      onChange={(e) =>
-                        handleOtroChange(
-                          baseKey,
-                          'evidencias',
-                          e.target.value,
-                          opcionNingunoEvidencias
-                        )
-                      }
-                      disabled={tieneNingunoEvidencias}
-                      className={`border rounded px-2 py-1 w-full text-sm ${
-                        tieneNingunoEvidencias ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
-                      placeholder="Otra evidencia"
-                    />
+                  {tieneOtroEvidencias && (
+                    <div className="mt-3">
+                      <label className="block text-sm text-gray-600 mb-1">Otro (especifique)</label>
+                      <input
+                        type="text"
+                        value={caracterizacion[`${baseKey}_evidencias_otro`] || ''}
+                        onChange={(e) =>
+                          handleOtroChange(
+                            baseKey,
+                            'evidencias',
+                            e.target.value,
+                            opcionNingunoEvidencias
+                          )
+                        }
+                        disabled={tieneNingunoEvidencias}
+                        className={`border rounded px-2 py-1 w-full text-sm ${
+                          tieneNingunoEvidencias ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="Otra evidencia"
+                      />
 
-                    <RealFotosSection
-                      prefix={`${baseKey}_evidencias_otro_fotos`}
-                      onCampoChange={onCampoChange}
-                      disabled={tieneNingunoEvidencias}
-                      label='Subir imágenes de la evidencia en "Otro"'
-                      onOpenImage={(url) => setModalImage(url)}
-                    />
-                  </div>
+                      <RealFotosSection
+                        prefix={`${baseKey}_evidencias_otro_fotos`}
+                        onCampoChange={onCampoChange}
+                        disabled={tieneNingunoEvidencias}
+                        label='Subir imágenes de la evidencia en "Otro"'
+                        onOpenImage={(url) => setModalImage(url)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Nivel de presencia */}
@@ -588,9 +603,7 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
                           name={`${baseKey}_nivel`}
                           value={opcion.value}
                           checked={nivel === opcion.value}
-                          onChange={(e) =>
-                            handleChange(`${baseKey}_nivel`, e.target.value)
-                          }
+                          onChange={(e) => handleChange(`${baseKey}_nivel`, e.target.value)}
                           className="mr-2"
                         />
                         {opcion.label}

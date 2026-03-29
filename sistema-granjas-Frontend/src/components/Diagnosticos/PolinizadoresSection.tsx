@@ -219,6 +219,11 @@ export const PolinizadoresSection: React.FC<PolinizadoresSectionProps> = ({
       } else {
         nuevos = current.filter((o) => o !== opcion);
       }
+
+      if (opcion === 'Otro' && !checked) {
+        handleChange(`${baseKey}_${campo}_otro`, '');
+        handleChange(`${baseKey}_${campo}_otro_fotos`, '');
+      }
     }
 
     handleChange(key, JSON.stringify(nuevos));
@@ -267,6 +272,7 @@ export const PolinizadoresSection: React.FC<PolinizadoresSectionProps> = ({
     'Abejorros',
     'Avispas',
     'No se observaron',
+    'Otro',
   ];
 
   const opcionNinguno = 'No se observaron';
@@ -292,6 +298,7 @@ export const PolinizadoresSection: React.FC<PolinizadoresSectionProps> = ({
         );
         const actividad = caracterizacion[`${baseKey}_actividad`] || '';
         const tieneNinguno = polinizadores.includes(opcionNinguno);
+        const tieneOtro = polinizadores.includes('Otro');
 
         return (
           <div key={codigo} className="border rounded-lg p-4 mb-6 bg-white shadow-sm">
@@ -353,36 +360,38 @@ export const PolinizadoresSection: React.FC<PolinizadoresSectionProps> = ({
                     ))}
                   </div>
 
-                  <div className="mt-3">
-                    <label className="block text-sm text-gray-600 mb-1">
-                      Otro (especifique)
-                    </label>
-                    <input
-                      type="text"
-                      value={caracterizacion[`${baseKey}_polinizadores_otro`] || ''}
-                      onChange={(e) =>
-                        handleOtroChange(
-                          baseKey,
-                          'polinizadores',
-                          e.target.value,
-                          opcionNinguno
-                        )
-                      }
-                      disabled={tieneNinguno}
-                      className={`border rounded px-2 py-1 w-full text-sm ${
-                        tieneNinguno ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
-                      placeholder="Otro polinizador"
-                    />
+                  {tieneOtro && (
+                    <div className="mt-3">
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Otro (especifique)
+                      </label>
+                      <input
+                        type="text"
+                        value={caracterizacion[`${baseKey}_polinizadores_otro`] || ''}
+                        onChange={(e) =>
+                          handleOtroChange(
+                            baseKey,
+                            'polinizadores',
+                            e.target.value,
+                            opcionNinguno
+                          )
+                        }
+                        disabled={tieneNinguno}
+                        className={`border rounded px-2 py-1 w-full text-sm ${
+                          tieneNinguno ? 'bg-gray-100 cursor-not-allowed' : ''
+                        }`}
+                        placeholder="Otro polinizador"
+                      />
 
-                    <RealFotosSection
-                      prefix={`${baseKey}_polinizadores_otro_fotos`}
-                      onCampoChange={onCampoChange}
-                      disabled={tieneNinguno}
-                      label='Subir imágenes del polinizador en "Otro"'
-                      onOpenImage={(url) => setModalImage(url)}
-                    />
-                  </div>
+                      <RealFotosSection
+                        prefix={`${baseKey}_polinizadores_otro_fotos`}
+                        onCampoChange={onCampoChange}
+                        disabled={tieneNinguno}
+                        label='Subir imágenes del polinizador en "Otro"'
+                        onOpenImage={(url) => setModalImage(url)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Actividad promedio */}
