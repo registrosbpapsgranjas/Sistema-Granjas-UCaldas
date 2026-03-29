@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { PlantaBase } from "../types";
 
 interface Props {
-  plantas: PlantaBase[]; // Plantas seleccionadas (cada una con 4 cuadrantes)
+  plantas: PlantaBase[];
   caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
 }
@@ -23,6 +23,19 @@ const FotosSection: React.FC<{ prefix: string; caracterizacion: Record<string, s
     />
   </div>
 );
+
+// Modal para mostrar imágenes
+const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = ({ imageUrl, onClose }) => {
+  if (!imageUrl) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white p-4 rounded-lg max-w-lg max-h-full overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <button className="float-right text-gray-600 hover:text-gray-900 text-xl font-bold" onClick={onClose}>×</button>
+        <img src={imageUrl} alt="Vista previa" className="max-w-full h-auto" />
+      </div>
+    </div>
+  );
+};
 
 // Subsecciones para cada tipo de insecto (POR CUADRANTE)
 const CompsusSection: React.FC<{ basePrefix: string; cuadrante: number; rama: number; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
@@ -454,8 +467,9 @@ const CuadranteArthropod: React.FC<{
   rama: number; 
   planta: PlantaBase; 
   caracterizacion: Record<string, string>; 
-  onCampoChange: (campo: string, valor: string) => void 
-}> = ({ plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange }) => {
+  onCampoChange: (campo: string, valor: string) => void;
+  onOpenImage: (imageName: string) => void;
+}> = ({ plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange, onOpenImage }) => {
   const basePrefix = `artropodo_planta_${plantaIdx + 1}`;
   
   // Clases seleccionadas para este cuadrante/rama
@@ -525,15 +539,15 @@ const CuadranteArthropod: React.FC<{
   };
 
   const insectoTiposDisponibles = [
-    { value: 'compsus', label: <><em>Compsus sp.</em> – Picudo</> },
-    { value: 'diaphorina', label: <><em>Diaphorina citri</em> - Psílido asiático</> },
-    { value: 'phyllocnistis', label: <><em>Phyllocnistis sp.</em> - Minador de la hoja</> },
-    { value: 'toxoptera', label: <><em>Toxoptera citricidus</em> - Pulgón negro</> },
+    { value: 'compsus', label: <><em>Compsus sp.</em> – Picudo</>, image: 'compsussp.png' },
+    { value: 'diaphorina', label: <><em>Diaphorina citri</em> - Psílido asiático</>, image: 'diaphorinacitri.png' },
+    { value: 'phyllocnistis', label: <><em>Phyllocnistis sp.</em> - Minador de la hoja</>, image: 'phyllocnistissp.png' },
+    { value: 'toxoptera', label: <><em>Toxoptera citricidus</em> - Pulgón negro</>, image: 'toxopteracitricidus.png' },
   ];
 
   const acaroTiposDisponibles = [
-    { value: 'polyphagotarsonemus', label: <><em>Polyphagotarsonemus sp.</em> - Ácaro blanco</> },
-    { value: 'phyllocoptruta', label: <><em>Phyllocoptruta sp.</em> - Ácaro tostador</> },
+    { value: 'polyphagotarsonemus', label: <><em>Polyphagotarsonemus sp.</em> - Ácaro blanco</>, image: 'polyphagotarsonemussp.png' },
+    { value: 'phyllocoptruta', label: <><em>Phyllocoptruta sp.</em> - Ácaro tostador</>, image: 'phyllocoptrutasp.png' },
   ];
 
   return (
@@ -577,15 +591,24 @@ const CuadranteArthropod: React.FC<{
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
             {insectoTiposDisponibles.map(tipo => (
-              <label key={tipo.value} className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={insectoTiposArray.includes(tipo.value)}
-                  onChange={(e) => handleInsectoTipoChange(tipo.value, e.target.checked)}
-                  className="mr-2"
-                />
-                {tipo.label}
-              </label>
+              <div key={tipo.value} className="flex items-center gap-2">
+                <label className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={insectoTiposArray.includes(tipo.value)}
+                    onChange={(e) => handleInsectoTipoChange(tipo.value, e.target.checked)}
+                    className="mr-2"
+                  />
+                  {tipo.label}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onOpenImage(tipo.image)}
+                  className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded"
+                >
+                  Ver imagen
+                </button>
+              </div>
             ))}
             <label className="inline-flex items-center">
               <input
@@ -648,15 +671,24 @@ const CuadranteArthropod: React.FC<{
           </label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
             {acaroTiposDisponibles.map(tipo => (
-              <label key={tipo.value} className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={acaroTiposArray.includes(tipo.value)}
-                  onChange={(e) => handleAcaroTipoChange(tipo.value, e.target.checked)}
-                  className="mr-2"
-                />
-                {tipo.label}
-              </label>
+              <div key={tipo.value} className="flex items-center gap-2">
+                <label className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={acaroTiposArray.includes(tipo.value)}
+                    onChange={(e) => handleAcaroTipoChange(tipo.value, e.target.checked)}
+                    className="mr-2"
+                  />
+                  {tipo.label}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onOpenImage(tipo.image)}
+                  className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded"
+                >
+                  Ver imagen
+                </button>
+              </div>
             ))}
             <label className="inline-flex items-center">
               <input
@@ -727,8 +759,8 @@ const CuadranteArthropod: React.FC<{
 };
 
 // Componente para una planta completa (4 cuadrantes)
-const PlantaArthropod: React.FC<{ index: number; planta: PlantaBase; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void }> = ({ 
-  index, planta, caracterizacion, onCampoChange 
+const PlantaArthropod: React.FC<{ index: number; planta: PlantaBase; caracterizacion: Record<string, string>; onCampoChange: (campo: string, valor: string) => void; onOpenImage: (imageName: string) => void }> = ({ 
+  index, planta, caracterizacion, onCampoChange, onOpenImage 
 }) => {
   return (
     <div className="border rounded-lg p-4 mb-8 bg-white shadow-sm">
@@ -745,10 +777,11 @@ const PlantaArthropod: React.FC<{ index: number; planta: PlantaBase; caracteriza
           key={`${planta.codigo}-cuadrante-${cuadrante}`}
           plantaIdx={index}
           cuadrante={cuadrante}
-          rama={cuadrante} // Una rama por cuadrante
+          rama={cuadrante}
           planta={planta}
           caracterizacion={caracterizacion}
           onCampoChange={onCampoChange}
+          onOpenImage={onOpenImage}
         />
       ))}
     </div>
@@ -757,6 +790,15 @@ const PlantaArthropod: React.FC<{ index: number; planta: PlantaBase; caracteriza
 
 // Componente principal
 export const ArthropodSection: React.FC<Props> = ({ plantas, caracterizacion, onCampoChange }) => {
+  const [modalImage, setModalImage] = useState<string | null>(null);
+
+  const openImage = (imageName: string) => {
+    // Asumiendo que las imágenes están en la carpeta pública "imgs"
+    setModalImage(`/imgs/${imageName}`);
+  };
+
+  const closeModal = () => setModalImage(null);
+
   return (
     <div className="bg-gray-50 p-6 rounded-lg shadow-md mb-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
@@ -784,6 +826,7 @@ export const ArthropodSection: React.FC<Props> = ({ plantas, caracterizacion, on
           planta={planta}
           caracterizacion={caracterizacion}
           onCampoChange={onCampoChange}
+          onOpenImage={openImage}
         />
       ))}
 
@@ -795,6 +838,9 @@ export const ArthropodSection: React.FC<Props> = ({ plantas, caracterizacion, on
           debe monitorear mínimo 2 árboles adicionales de esta variedad para el monitoreo de <em>Diaphorina citri</em>.
         </p>
       </div>
+
+      {/* Modal de imagen */}
+      <ImageModal imageUrl={modalImage} onClose={closeModal} />
     </div>
   );
 };
