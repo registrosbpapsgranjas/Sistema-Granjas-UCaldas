@@ -92,7 +92,9 @@ def crear_diagnostico(
     get_or_404(db, Lote,      data.lote_id,            "Lote no encontrado")
     get_or_404(db, Usuario,   data.usuario_id,         "Usuario no encontrado")
 
-    obj = crud.diagnostico.create_diagnostico(db, data)
+    # ✅ CORREGIDO
+    obj = crud.create_diagnostico(db, data)
+
     _enriquecer(obj)
     return obj
 
@@ -106,7 +108,6 @@ def obtener_diagnostico(
 ):
     obj = get_or_404(db, Diagnostico, id)
 
-    # Estudiante solo puede ver sus propios diagnósticos
     if user.rol.nombre == "estudiante" and obj.usuario_id != user.id:
         raise HTTPException(403, "No puede ver este diagnóstico")
 
@@ -125,11 +126,12 @@ def actualizar_diagnostico(
 ):
     obj = get_or_404(db, Diagnostico, id)
 
-    # Solo el creador o admin/docente/asesor pueden editar
     if user.rol.nombre == "estudiante" and obj.usuario_id != user.id:
         raise HTTPException(403, "No tiene permisos para editar este diagnóstico")
 
-    obj = crud.diagnostico.update_diagnostico(db, obj, data)
+    # ✅ CORREGIDO
+    obj = crud.update_diagnostico(db, obj, data)
+
     _enriquecer(obj)
     return obj
 
@@ -146,7 +148,9 @@ def eliminar_diagnostico(
     if obj.recomendaciones:
         raise HTTPException(400, "No se puede eliminar un diagnóstico con recomendaciones asociadas")
 
-    crud.diagnostico.delete_diagnostico(db, obj)
+    # ✅ CORREGIDO
+    crud.delete_diagnostico(db, obj)
+
     return {"message": "Diagnóstico eliminado correctamente"}
 
 
@@ -166,14 +170,12 @@ def obtener_estadisticas(
 
     total = query.count()
 
-    # Conteo por tipo_diagnostico
     por_tipo: dict = {}
     for row in db.query(Diagnostico.tipo_diagnostico).distinct():
         t = row[0]
         if t:
             por_tipo[t] = query.filter(Diagnostico.tipo_diagnostico == t).count()
 
-    # Conteo por lote
     por_lote: dict = {}
     for d in query.all():
         nombre_lote = d.lote.nombre if d.lote else f"lote_{d.lote_id}"
