@@ -14,7 +14,7 @@ export const FenologicoSection: React.FC<Props> = ({
 }) => {
   // Función auxiliar para generar la clave de un campo
   const getKey = (plantaIdx: number, ramaIdx: number, campo: string) =>
-    `fenologico_planta_${plantaIdx + 1}_rama_${ramaIdx + 1}_${campo}`;
+    `fenologico_planta_${plantaIdx + 1}_rama_${ramaIdx}_${campo}`;
 
   // Opciones de fases fenológicas
   const OPCIONES_FASES = [
