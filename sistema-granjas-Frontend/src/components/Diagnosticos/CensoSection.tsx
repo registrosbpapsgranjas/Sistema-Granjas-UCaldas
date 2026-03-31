@@ -21,7 +21,7 @@ export const CensoSection: React.FC<Props> = ({
         Plantas seleccionadas para monitoreo
       </h3>
       <p className="text-sm text-gray-600 mb-6">
-        Las siguientes 5 plantas han sido generadas automáticamente. Complete los datos para cada una.
+        Las siguientes {plantas.length} plantas han sido generadas automáticamente. Complete los datos para cada una.
       </p>
 
       {plantas.map((planta, idx) => {
