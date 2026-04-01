@@ -40,7 +40,6 @@ const RealFotosSection: React.FC<{
   const MAX_FILES = 5;
   const MAX_SIZE_MB = 10;
 
-  // Guardamos las URLs de previsualización en estado local
   const [previews, setPreviews] = useState<{ name: string; url: string }[]>([]);
   const [error, setError] = useState<string>("");
 
@@ -59,7 +58,6 @@ const RealFotosSection: React.FC<{
       return;
     }
 
-    // Revocar URLs anteriores para liberar memoria
     previews.forEach((p) => URL.revokeObjectURL(p.url));
 
     const newPreviews = files.map((f) => ({
@@ -68,7 +66,6 @@ const RealFotosSection: React.FC<{
     }));
 
     setPreviews(newPreviews);
-    // Guardamos los nombres como referencia en caracterizacion
     onCampoChange(prefix, files.map((f) => f.name).join(","));
   };
 
@@ -77,7 +74,6 @@ const RealFotosSection: React.FC<{
     const updated = previews.filter((_, i) => i !== index);
     setPreviews(updated);
     onCampoChange(prefix, updated.map((p) => p.name).join(","));
-    // Resetear el input para permitir volver a seleccionar los mismos archivos
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -161,7 +157,7 @@ const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = (
   );
 };
 
-// ── Subsecciones para cada tipo de insecto ──────────────────────────────────
+// ── Subsecciones para cada tipo de insecto (con required automático) ─────────
 
 const CompsusSection: React.FC<{
   basePrefix: string; cuadrante: number; rama: number;
@@ -233,7 +229,7 @@ const DiaphorinaSection: React.FC<{
                   else { const i = values.indexOf(estado); if (i > -1) values.splice(i, 1); }
                   onCampoChange(`${prefix}_estados`, values.join(","));
                 }}
-                className="mr-2" />
+                className="mr-2" required />
               {estado}
             </label>
           ))}
@@ -304,7 +300,7 @@ const ToxopteraSection: React.FC<{
               <input type="radio" name={`${prefix}_mielecilla`} value={opcion}
                 checked={caracterizacion[`${prefix}_mielecilla`] === opcion}
                 onChange={(e) => onCampoChange(`${prefix}_mielecilla`, e.target.value)}
-                className="mr-2" />
+                className="mr-2" required />
               {opcion}
             </label>
           ))}
@@ -404,12 +400,12 @@ const OtroArthropodSection: React.FC<{
       <h6 className="font-semibold mb-2 text-sm">Otro artrópodo observado</h6>
 
       <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Síntomas observados</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Síntomas observados *</label>
         <input type="text"
           value={caracterizacion[`${prefix}_sintomas`] || ""}
           onChange={(e) => onCampoChange(`${prefix}_sintomas`, e.target.value)}
           className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-          placeholder="Describa los síntomas observados" />
+          placeholder="Describa los síntomas observados" required />
       </div>
 
       <div className="mb-3">
@@ -420,7 +416,7 @@ const OtroArthropodSection: React.FC<{
               <input type="radio" name={`${prefix}_clase`} value={opcion}
                 checked={claseSeleccionada === opcion}
                 onChange={(e) => onCampoChange(`${prefix}_clase`, e.target.value)}
-                className="mr-2" />
+                className="mr-2" required />
               {opcion}
             </label>
           ))}
@@ -429,16 +425,15 @@ const OtroArthropodSection: React.FC<{
 
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nombre del artrópodo observado (mínimo hasta género)
+          Nombre del artrópodo observado (mínimo hasta género) *
         </label>
         <input type="text"
           value={caracterizacion[`${prefix}_nombre`] || ""}
           onChange={(e) => onCampoChange(`${prefix}_nombre`, e.target.value)}
           className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-          placeholder="Ej: Atta sp." />
+          placeholder="Ej: Atta sp." required />
       </div>
 
-      {/* Subida REAL de fotos */}
       <RealFotosSection
         prefix={`${prefix}_fotos`}
         caracterizacion={caracterizacion}
@@ -458,20 +453,43 @@ const CuadranteArthropod: React.FC<{
 }> = ({ plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange, onOpenImage }) => {
   const basePrefix = `artropodo_planta_${plantaIdx + 1}`;
 
-  const clasesKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_clases`;
-  const clasesArray = (caracterizacion[clasesKey] || "").split(",").filter(Boolean);
+  // Clase de artrópodo: ahora es radio con opciones insecto, arácnido, ninguno
+  const claseKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_clase`;
+  const claseSeleccionada = caracterizacion[claseKey] || "";
 
-  const handleClaseChange = (clase: string, checked: boolean) => {
-    let arr = [...clasesArray];
-    if (checked) { if (!arr.includes(clase)) arr.push(clase); }
-    else {
-      arr = arr.filter(c => c !== clase);
-      const p = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${clase}`;
-      Object.keys(caracterizacion).forEach(k => { if (k.startsWith(p)) onCampoChange(k, ""); });
+  // Cuando cambia la clase, limpiamos los datos de las otras opciones
+  const handleClaseChange = (valor: string) => {
+    onCampoChange(claseKey, valor);
+    // Limpiar datos de insectos y ácaros si se cambia a otra clase
+    if (valor !== 'insecto') {
+      const insectoTiposKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_tipos`;
+      onCampoChange(insectoTiposKey, "");
+      // Limpiar todos los campos de insectos
+      const insectPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_`;
+      Object.keys(caracterizacion).forEach(k => {
+        if (k.startsWith(insectPrefix)) onCampoChange(k, "");
+      });
     }
-    onCampoChange(clasesKey, arr.join(","));
+    if (valor !== 'aracnido') {
+      const acaroTiposKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_tipos`;
+      onCampoChange(acaroTiposKey, "");
+      const acaroPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_`;
+      Object.keys(caracterizacion).forEach(k => {
+        if (k.startsWith(acaroPrefix)) onCampoChange(k, "");
+      });
+    }
+    // Limpiar otro artrópodo si no se selecciona nada
+    const otroKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`;
+    if (valor !== 'insecto' && valor !== 'aracnido') {
+      onCampoChange(otroKey, "false");
+      const otroPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro`;
+      Object.keys(caracterizacion).forEach(k => {
+        if (k.startsWith(otroPrefix)) onCampoChange(k, "");
+      });
+    }
   };
 
+  // Insectos
   const insectoTiposKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_tipos`;
   const insectoTiposArray = (caracterizacion[insectoTiposKey] || "").split(",").filter(Boolean);
 
@@ -486,6 +504,7 @@ const CuadranteArthropod: React.FC<{
     onCampoChange(insectoTiposKey, arr.join(","));
   };
 
+  // Ácaros
   const acaroTiposKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_tipos`;
   const acaroTiposArray = (caracterizacion[acaroTiposKey] || "").split(",").filter(Boolean);
 
@@ -516,24 +535,30 @@ const CuadranteArthropod: React.FC<{
     <div className="ml-6 mb-6 p-4 border-l-4 border-blue-200 bg-gray-50 rounded">
       <h5 className="font-medium text-md text-gray-700 mb-3">Rama {rama} - Cuadrante {cuadrante}</h5>
 
-      {/* Clase de artrópodo */}
+      {/* Clase de artrópodo - RADIO con opción Ninguno */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          ¿Clase de artrópodo observado en la RAMA {rama} del CUADRANTE {cuadrante}? (Selección múltiple)
+          ¿Clase de artrópodo observado en la RAMA {rama} del CUADRANTE {cuadrante}? *
         </label>
         <div className="flex gap-6">
-          {[{ val: 'insecto', label: 'Insecto' }, { val: 'aracnido', label: 'Arácnido' }].map(({ val, label }) => (
+          {[
+            { val: 'insecto', label: 'Insecto' },
+            { val: 'aracnido', label: 'Arácnido' },
+            { val: 'ninguno', label: 'Ninguno' }
+          ].map(({ val, label }) => (
             <label key={val} className="inline-flex items-center">
-              <input type="checkbox" checked={clasesArray.includes(val)}
-                onChange={(e) => handleClaseChange(val, e.target.checked)} className="mr-2" />
+              <input type="radio" name={claseKey} value={val}
+                checked={claseSeleccionada === val}
+                onChange={(e) => handleClaseChange(e.target.value)}
+                className="mr-2" required />
               {label}
             </label>
           ))}
         </div>
       </div>
 
-      {/* Insectos */}
-      {clasesArray.includes('insecto') && (
+      {/* Insectos - solo si clase = insecto */}
+      {claseSeleccionada === 'insecto' && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Seleccione el insecto observado en la RAMA {rama} del CUADRANTE {cuadrante} (Selección múltiple)
@@ -566,8 +591,8 @@ const CuadranteArthropod: React.FC<{
         </div>
       )}
 
-      {/* Ácaros */}
-      {clasesArray.includes('aracnido') && (
+      {/* Ácaros - solo si clase = arácnido */}
+      {claseSeleccionada === 'aracnido' && (
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Seleccione el ácaro que ocasionó el daño en los frutos de la RAMA {rama} del CUADRANTE {cuadrante} (Selección múltiple)
@@ -603,7 +628,7 @@ const CuadranteArthropod: React.FC<{
         </div>
       )}
 
-      {/* Otro artrópodo */}
+      {/* Otro artrópodo (independiente de la clase) */}
       <div className="mt-4">
         <label className="inline-flex items-center mb-2">
           <input type="checkbox"
@@ -620,6 +645,7 @@ const CuadranteArthropod: React.FC<{
     </div>
   );
 };
+
 // ── Planta ───────────────────────────────────────────────────────────────────
 
 const PlantaArthropod: React.FC<{
