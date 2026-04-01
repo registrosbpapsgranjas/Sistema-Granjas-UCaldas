@@ -210,16 +210,22 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
         const puntoNumero = idx + 1;
         const puntoLabel = `${planta.label} (Código: ${codigo})`;
 
-        ['plato', 'calle'].forEach((zona) => {
-          const zonaMonitoreada = getValor(codigo, `zona_monitoreada_${zona}`) === zona;
-          if (!zonaMonitoreada) return;
+        // Verificar que se haya seleccionado al menos una zona (plato o calle)
+        const zonaPlato = getValor(codigo, 'zona_monitoreada_plato') === 'plato';
+        const zonaCalle = getValor(codigo, 'zona_monitoreada_calle') === 'calle';
 
-          // Verificar si hay algún valor de cobertura > 0
+        if (!zonaPlato && !zonaCalle) {
+          const errorKey = `arvenses_${codigo}_sin_zona`;
+          nuevosErrores[errorKey] = `En el punto ${puntoNumero} (${puntoLabel}) debe seleccionar al menos una zona para monitoreo (Plato y/o Calle).`;
+          isValid = false;
+        }
+
+        // Validación por zona (si está seleccionada)
+        if (zonaPlato) {
           let hayAlgunValor = false;
-
           // Nobles
           for (const arvense of ARVENSES_NOBLES) {
-            const val = getValor(codigo, `${zona}_noble_${arvense.id}_porcentaje`);
+            const val = getValor(codigo, `plato_noble_${arvense.id}_porcentaje`);
             if (val && parseFloat(val) > 0) {
               hayAlgunValor = true;
               break;
@@ -228,7 +234,7 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
           // Agresivas
           if (!hayAlgunValor) {
             for (const arvense of ARVENSES_AGRESIVAS) {
-              const val = getValor(codigo, `${zona}_agresiva_${arvense.id}_porcentaje`);
+              const val = getValor(codigo, `plato_agresiva_${arvense.id}_porcentaje`);
               if (val && parseFloat(val) > 0) {
                 hayAlgunValor = true;
                 break;
@@ -237,28 +243,68 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
           }
           // Otra especie noble
           if (!hayAlgunValor) {
-            const nobleNombre = getValor(codigo, `${zona}_otra_especie_noble_nombre`);
-            const noblePorc = getValor(codigo, `${zona}_otra_especie_noble_porcentaje`);
+            const nobleNombre = getValor(codigo, 'plato_otra_especie_noble_nombre');
+            const noblePorc = getValor(codigo, 'plato_otra_especie_noble_porcentaje');
             if (nobleNombre.trim() !== '' && noblePorc && parseFloat(noblePorc) > 0) hayAlgunValor = true;
           }
           // Otra especie agresiva
           if (!hayAlgunValor) {
-            const agresivaNombre = getValor(codigo, `${zona}_otra_especie_agresiva_nombre`);
-            const agresivaPorc = getValor(codigo, `${zona}_otra_especie_agresiva_porcentaje`);
+            const agresivaNombre = getValor(codigo, 'plato_otra_especie_agresiva_nombre');
+            const agresivaPorc = getValor(codigo, 'plato_otra_especie_agresiva_porcentaje');
             if (agresivaNombre.trim() !== '' && agresivaPorc && parseFloat(agresivaPorc) > 0) hayAlgunValor = true;
           }
 
           if (!hayAlgunValor) {
-            const errorKey = `arvenses_${codigo}_${zona}_sin_cobertura`;
-            nuevosErrores[errorKey] = `En el punto ${puntoNumero} (${puntoLabel}), en la zona "${zona === 'plato' ? 'Plato' : 'Calle'}" debe registrar al menos un porcentaje de cobertura positivo o una "otra especie" con nombre y porcentaje.`;
+            const errorKey = `arvenses_${codigo}_plato_sin_cobertura`;
+            nuevosErrores[errorKey] = `En el punto ${puntoNumero} (${puntoLabel}), en la zona "Plato" debe registrar al menos un porcentaje de cobertura positivo o una "otra especie" con nombre y porcentaje.`;
             isValid = false;
           }
-        });
+        }
+
+        if (zonaCalle) {
+          let hayAlgunValor = false;
+          // Nobles
+          for (const arvense of ARVENSES_NOBLES) {
+            const val = getValor(codigo, `calle_noble_${arvense.id}_porcentaje`);
+            if (val && parseFloat(val) > 0) {
+              hayAlgunValor = true;
+              break;
+            }
+          }
+          // Agresivas
+          if (!hayAlgunValor) {
+            for (const arvense of ARVENSES_AGRESIVAS) {
+              const val = getValor(codigo, `calle_agresiva_${arvense.id}_porcentaje`);
+              if (val && parseFloat(val) > 0) {
+                hayAlgunValor = true;
+                break;
+              }
+            }
+          }
+          // Otra especie noble
+          if (!hayAlgunValor) {
+            const nobleNombre = getValor(codigo, 'calle_otra_especie_noble_nombre');
+            const noblePorc = getValor(codigo, 'calle_otra_especie_noble_porcentaje');
+            if (nobleNombre.trim() !== '' && noblePorc && parseFloat(noblePorc) > 0) hayAlgunValor = true;
+          }
+          // Otra especie agresiva
+          if (!hayAlgunValor) {
+            const agresivaNombre = getValor(codigo, 'calle_otra_especie_agresiva_nombre');
+            const agresivaPorc = getValor(codigo, 'calle_otra_especie_agresiva_porcentaje');
+            if (agresivaNombre.trim() !== '' && agresivaPorc && parseFloat(agresivaPorc) > 0) hayAlgunValor = true;
+          }
+
+          if (!hayAlgunValor) {
+            const errorKey = `arvenses_${codigo}_calle_sin_cobertura`;
+            nuevosErrores[errorKey] = `En el punto ${puntoNumero} (${puntoLabel}), en la zona "Calle" debe registrar al menos un porcentaje de cobertura positivo o una "otra especie" con nombre y porcentaje.`;
+            isValid = false;
+          }
+        }
       });
 
       setErrores(nuevosErrores);
       if (!isValid) {
-        toast.error('Por favor complete los campos obligatorios: debe registrar al menos un porcentaje de cobertura positivo en cada zona seleccionada.');
+        toast.error('Por favor complete los campos obligatorios: seleccione al menos una zona por punto y registre al menos un porcentaje de cobertura en cada zona seleccionada.');
       }
       return isValid;
     };
@@ -338,12 +384,16 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
           const alturaPlato = getValor(codigo, 'plato_altura');
           const alturaCalle = getValor(codigo, 'calle_altura');
 
+          // Error si no se seleccionó ninguna zona
+          const sinZonaError = errores[`arvenses_${codigo}_sin_zona`];
+
           return (
             <div key={codigo} className="border rounded-lg p-4 mb-8 bg-white shadow-sm">
               <h4 className="font-semibold text-lg text-gray-800 mb-2">Punto de Monitoreo {puntoNumero} (Árbol de referencia: {planta.label} - Código: {codigo})</h4>
 
               <div className="mb-4 p-3 bg-gray-100 rounded">
                 <label className="block text-sm font-medium text-gray-700 mb-2">¿En qué zonas se realizó el monitoreo?</label>
+                {sinZonaError && <p className="text-red-600 text-xs mb-2">{sinZonaError}</p>}
                 <div className="flex space-x-6">
                   <label className="flex items-center">
                     <input type="checkbox" checked={zonaPlato} onChange={(e) => handleZonaMonitoreadaChange(codigo, 'plato', e.target.checked)} className="mr-2" />
