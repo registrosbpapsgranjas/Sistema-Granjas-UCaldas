@@ -748,10 +748,7 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
           const presencia = caracterizacion[presenciaKey] || "";
           const errorPresenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_presencia_error`;
 
-          if (!presencia) {
-            nuevosErrores[errorPresenciaKey] = `Seleccione si hay presencia de artrópodos en el cuadrante ${cuadrante} de la planta ${planta.label}.`;
-            isValid = false;
-          } else if (presencia === "si") {
+          if (presencia === "si") {
             // Verificar que al menos una clase esté seleccionada
             const claseKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_clase`;
             const claseString = caracterizacion[claseKey] || "";
