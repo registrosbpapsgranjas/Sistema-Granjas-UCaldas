@@ -527,7 +527,7 @@ const CuadranteArthropod: React.FC<{
   ];
 
   const acaroTiposDisponibles = [
-    { value: 'polyphagotarsonemus', label: <><em>Polyphagotarsonemus sp.</em> - Ácaro blanco</>,  image: 'polyphagotarsonemussp.png' },
+    { value: 'polyphagotarsonemus', label: <><em>Polyphago- tarsonemus sp.</em> - Ácaro blanco</>,  image: 'polyphagotarsonemussp.png' },
     { value: 'phyllocoptruta',      label: <><em>Phyllocoptruta sp.</em> - Ácaro tostador</>,     image: 'phyllocoptrutasp.png' },
   ];
 
@@ -585,11 +585,6 @@ const CuadranteArthropod: React.FC<{
                 </button>
               </div>
             ))}
-            <label className="inline-flex items-center">
-              <input type="checkbox" checked={insectoTiposArray.includes('otro')}
-                onChange={(e) => handleInsectoTipoChange('otro', e.target.checked)} className="mr-2" />
-              Otro
-            </label>
           </div>
           {errores[errorInsectoKey] && (
             <p className="text-red-600 text-xs mt-1">{errores[errorInsectoKey]}</p>
@@ -622,16 +617,6 @@ const CuadranteArthropod: React.FC<{
                 </button>
               </div>
             ))}
-            <label className="inline-flex items-center">
-              <input type="checkbox" checked={acaroTiposArray.includes('no_aplica')}
-                onChange={(e) => handleAcaroTipoChange('no_aplica', e.target.checked)} className="mr-2" />
-              No aplica
-            </label>
-            <label className="inline-flex items-center">
-              <input type="checkbox" checked={acaroTiposArray.includes('otro')}
-                onChange={(e) => handleAcaroTipoChange('otro', e.target.checked)} className="mr-2" />
-              Otro
-            </label>
           </div>
           {errores[errorAcaroKey] && (
             <p className="text-red-600 text-xs mt-1">{errores[errorAcaroKey]}</p>
