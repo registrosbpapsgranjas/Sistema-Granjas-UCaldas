@@ -5,8 +5,8 @@ import { loteService, type EstructuraLote } from '../../services/loteService';
 import { CensoSection } from './CensoSection';
 import { FenologicoSection } from './FenologicoSection';
 import { ArthropodSection, type ArthropodSectionRef } from './ArthropodSection';
+import { ArvensesSection, type ArvensesSectionRef } from './ArvensesSection';
 import { EnfermedadesSection } from './EnfermedadesSection';
-import { ArvensesSection } from './ArvensesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
 import { toast } from 'react-toastify';
@@ -113,6 +113,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // Referencia para ArthropodSection
     const arthropodRef = useRef<ArthropodSectionRef>(null);
+    // Dentro del componente
+    const arvensesRef = useRef<ArvensesSectionRef>(null);
 
     // ── Función para seleccionar plantas al azar (porcentaje) y ordenar ──────
     const seleccionarPlantasAleatorias = useCallback((todasLasPlantas: PlantaBase[], porcentaje: number): PlantaBase[] => {
@@ -327,6 +329,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             }
         }
 
+        // En handleSubmit, después de la validación de artrópodos:
+        if (tipoDiagnostico === 'arvenses' && arvensesRef.current) {
+            const isValid = arvensesRef.current.validate();
+            if (!isValid) return;
+        }
+
         const formulario = {
             plantas,
             caracterizacion,
@@ -407,11 +415,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                             key={m.id}
                                             type="button"
                                             onClick={() => setTipoMonitoreoId(m.id)}
-                                            className={`p-4 border-2 rounded-lg text-center transition ${
-                                                tipoMonitoreoId === m.id
-                                                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                                            }`}
+                                            className={`p-4 border-2 rounded-lg text-center transition ${tipoMonitoreoId === m.id
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                                : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                                                }`}
                                             disabled={esEdicion}
                                         >
                                             <i className="fas fa-chart-line mr-2"></i>
@@ -447,8 +454,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                             <option key={l.id} value={l.id}>
                                                 {l.nombre}
                                                 {l.granja_nombre ? ` (${l.granja_nombre})` : ''}
-                                                {l.surcos && l.plantas_por_surco 
-                                                    ? ` - ${l.surcos} surcos, ${l.plantas_por_surco} plantas/surco` 
+                                                {l.surcos && l.plantas_por_surco
+                                                    ? ` - ${l.surcos} surcos, ${l.plantas_por_surco} plantas/surco`
                                                     : ' - Sin configurar'}
                                             </option>
                                         ))}
@@ -668,8 +675,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         onCampoChange={handleCaracterizacionChange}
                                     />
                                 )}
+                                // En el render, cuando se muestre ArvensesSection:
                                 {tipoDiagnostico === 'arvenses' && (
                                     <ArvensesSection
+                                        ref={arvensesRef}
                                         plantas={plantas}
                                         caracterizacion={caracterizacion}
                                         onCampoChange={handleCaracterizacionChange}
