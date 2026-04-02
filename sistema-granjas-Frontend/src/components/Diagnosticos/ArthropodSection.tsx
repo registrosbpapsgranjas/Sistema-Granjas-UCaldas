@@ -1,15 +1,567 @@
-// ... (código anterior sin cambios hasta la definición de CuadranteArthropod)
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { PlantaBase } from "../types";
+import { toast } from "react-toastify";
 
-// ── CuadranteArthropod con validación y limpieza de errores ──────────────────
+// Componente de subida de fotos (simulado con input de texto) — usado en insectos/ácaros listados
+const FotosSection: React.FC<{
+  prefix: string;
+  caracterizacion: Record<string, string>;
+  onCampoChange: (campo: string, valor: string) => void;
+}> = ({ prefix, caracterizacion, onCampoChange }) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Fotos tomadas en campo de síntomas o del artrópodo
+    </label>
+    <p className="text-xs text-gray-500 mb-2">
+      Sube hasta 5 archivos compatibles. Tamaño máximo por archivo: 10 MB.
+    </p>
+    <input
+      type="text"
+      value={caracterizacion[prefix] || ""}
+      onChange={(e) => onCampoChange(prefix, e.target.value)}
+      className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+      placeholder="Ruta de la foto (simulado)"
+    />
+  </div>
+);
 
-const CuadranteArthropod: React.FC<{
-  plantaIdx: number; cuadrante: number; rama: number; planta: PlantaBase;
+// Componente de subida REAL de fotos — usado en "Otro artrópodo"
+const RealFotosSection: React.FC<{
+  prefix: string;
+  caracterizacion: Record<string, string>;
+  onCampoChange: (campo: string, valor: string) => void;
+}> = ({ prefix, caracterizacion, onCampoChange }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILES = 5;
+  const MAX_SIZE_MB = 10;
+
+  const [previews, setPreviews] = useState<{ name: string; url: string }[]>([]);
+  const [error, setError] = useState<string>("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError("");
+    const files = Array.from(e.target.files || []);
+
+    if (files.length > MAX_FILES) {
+      setError(`Máximo ${MAX_FILES} fotos permitidas.`);
+      return;
+    }
+
+    const oversized = files.filter((f) => f.size > MAX_SIZE_MB * 1024 * 1024);
+    if (oversized.length > 0) {
+      setError(`Algunos archivos superan el límite de ${MAX_SIZE_MB} MB.`);
+      return;
+    }
+
+    previews.forEach((p) => URL.revokeObjectURL(p.url));
+
+    const newPreviews = files.map((f) => ({
+      name: f.name,
+      url: URL.createObjectURL(f),
+    }));
+
+    setPreviews(newPreviews);
+    onCampoChange(prefix, files.map((f) => f.name).join(","));
+  };
+
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(previews[index].url);
+    const updated = previews.filter((_, i) => i !== index);
+    setPreviews(updated);
+    onCampoChange(prefix, updated.map((p) => p.name).join(","));
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Fotos tomadas en campo de síntomas o del artrópodo
+      </label>
+      <p className="text-xs text-gray-500 mb-2">
+        Sube hasta {MAX_FILES} fotos desde tu galería. Tamaño máximo por archivo: {MAX_SIZE_MB} MB.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded shadow-sm transition-colors"
+      >
+        Seleccionar fotos
+      </button>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {error && (
+        <p className="text-xs text-red-600 mt-2">{error}</p>
+      )}
+
+      {previews.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {previews.map((preview, idx) => (
+            <div key={idx} className="relative group w-24 h-24">
+              <img
+                src={preview.url}
+                alt={preview.name}
+                className="w-full h-full object-cover rounded border border-gray-300"
+              />
+              <button
+                type="button"
+                onClick={() => removePhoto(idx)}
+                className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shadow"
+                title="Eliminar foto"
+              >
+                ×
+              </button>
+              <p className="text-xs text-gray-500 truncate mt-1 max-w-[6rem]">{preview.name}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Modal para mostrar imágenes
+const ImageModal: React.FC<{ imageUrl: string | null; onClose: () => void }> = ({ imageUrl, onClose }) => {
+  if (!imageUrl) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-4 rounded-lg max-w-lg max-h-full overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className="float-right text-gray-600 hover:text-gray-900 text-xl font-bold"
+          onClick={onClose}
+        >
+          ×
+        </button>
+        <img src={imageUrl} alt="Vista previa" className="max-w-full h-auto" />
+      </div>
+    </div>
+  );
+};
+
+// ── Subsecciones para cada tipo de insecto con validación ──────────────────────────────────
+
+interface SectionProps {
+  basePrefix: string;
+  cuadrante: number;
+  rama: number;
+  caracterizacion: Record<string, string>;
+  onCampoChange: (campo: string, valor: string) => void;
+  errores: Record<string, string>;
+  clearErrorsForPrefix: (prefix: string) => void;
+}
+
+const CompsusSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_compsus`;
+  const adultosKey = `${prefix}_adultos`;
+  const danoHojasKey = `${prefix}_dano_hojas`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Compsus sp.</em> - Picudo</h6>
+      <p className="text-xs text-gray-600 mb-2 italic">
+        Seleccione preferiblemente árboles de los linderos, de los bordes de carretera o los que están cerca de los centros de acopio de frutas. Sacuda de forma suave las ramas de arriba hacia abajo, dándole la vuelta al árbol. Observe en el suelo la presencia de adultos.
+      </p>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Adultos de <em>Compsus sp.</em> encontrados *</label>
+        <input type="number" min="0" step="1"
+          value={caracterizacion[adultosKey] || ""}
+          onChange={(e) => handleChange(adultosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 3 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
+        {errores[`${adultosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${adultosKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">% de daño en hojas *</label>
+        <input type="number" min="0" max="100" step="1"
+          value={caracterizacion[danoHojasKey] || ""}
+          onChange={(e) => handleChange(danoHojasKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 30 (0 si no hay daño)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse daño del insecto, colocar 0</p>
+        {errores[`${danoHojasKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${danoHojasKey}_error`]}</p>
+        )}
+      </div>
+      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
+    </div>
+  );
+};
+
+const DiaphorinaSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_diaphorina`;
+  const adultosKey = `${prefix}_adultos`;
+  const estadosKey = `${prefix}_estados`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Diaphorina citri</em> - Psílido asiático</h6>
+      <p className="text-xs text-gray-600 mb-2 italic">
+        Revisar brotes nuevos, que son los preferidos por el insecto.
+        {caracterizacion['lote_seleccionado'] && ['l5', 'l6', 'l8', 'l9'].includes(caracterizacion['lote_seleccionado']) &&
+          " NOTA: Este lote tiene variedad Swingle. Debe monitorear mínimo 2 árboles adicionales."}
+      </p>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Número de <em>Diaphorina citri</em> encontrados *</label>
+        <input type="number" min="0" step="1"
+          value={caracterizacion[adultosKey] || ""}
+          onChange={(e) => handleChange(adultosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 3 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
+        {errores[`${adultosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${adultosKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Estados del insecto observados *</label>
+        <div className="flex flex-wrap gap-4">
+          {["Huevo", "Ninfa", "Adulto", "No se observaron"].map((estado) => (
+            <label key={estado} className="inline-flex items-center">
+              <input type="checkbox" value={estado}
+                checked={caracterizacion[estadosKey]?.includes(estado) || false}
+                onChange={(e) => {
+                  const current = caracterizacion[estadosKey] || "";
+                  const values = current ? current.split(",") : [];
+                  if (e.target.checked) { if (!values.includes(estado)) values.push(estado); }
+                  else { const i = values.indexOf(estado); if (i > -1) values.splice(i, 1); }
+                  handleChange(estadosKey, values.join(","));
+                }}
+                className="mr-2" required />
+              {estado}
+            </label>
+          ))}
+        </div>
+        {errores[`${estadosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${estadosKey}_error`]}</p>
+        )}
+      </div>
+      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
+    </div>
+  );
+};
+
+const PhyllocnistisSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_phyllocnistis`;
+  const galeriasKey = `${prefix}_galerias`;
+  const danoHojasKey = `${prefix}_dano_hojas`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Phyllocnistis sp.</em> - Minador de los cítricos</h6>
+      <p className="text-xs text-gray-600 mb-2 italic">
+        Revisar brotes nuevos. Observar: Galerías serpenteantes plateadas en el envés de la hoja, enrollamiento del borde foliar, presencia de larvas o pupa al final de la galería.
+      </p>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Galerías activas hechas por <em>Phyllocnistis sp.</em> *</label>
+        <input type="number" min="0" step="1"
+          value={caracterizacion[galeriasKey] || ""}
+          onChange={(e) => handleChange(galeriasKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 3 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
+        {errores[`${galeriasKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${galeriasKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">% de daño *</label>
+        <input type="number" min="0" max="100" step="1"
+          value={caracterizacion[danoHojasKey] || ""}
+          onChange={(e) => handleChange(danoHojasKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 30 (0 si no hay daño)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse daño del insecto, colocar 0</p>
+        {errores[`${danoHojasKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${danoHojasKey}_error`]}</p>
+        )}
+      </div>
+      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
+    </div>
+  );
+};
+
+const ToxopteraSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_toxoptera`;
+  const adultosKey = `${prefix}_adultos`;
+  const mielecillaKey = `${prefix}_mielecilla`;
+  const fumaginaKey = `${prefix}_dano_fumagina`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Toxoptera citricidus</em> - Pulgón negro</h6>
+      <p className="text-xs text-gray-600 mb-2 italic">Revisar brotes nuevos, que son los preferidos por el insecto.</p>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Adultos de <em>Toxoptera citricidus</em> encontrados *</label>
+        <input type="number" min="0" step="1"
+          value={caracterizacion[adultosKey] || ""}
+          onChange={(e) => handleChange(adultosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 3 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
+        {errores[`${adultosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${adultosKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">¿Se observó presencia de mielecilla y fumagina? *</label>
+        <div className="flex gap-4">
+          {["Si", "No"].map((opcion) => (
+            <label key={opcion} className="inline-flex items-center">
+              <input type="radio" name={mielecillaKey} value={opcion}
+                checked={caracterizacion[mielecillaKey] === opcion}
+                onChange={(e) => handleChange(mielecillaKey, e.target.value)}
+                className="mr-2" required />
+              {opcion}
+            </label>
+          ))}
+        </div>
+        {errores[`${mielecillaKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${mielecillaKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">% de Fumagina o Mielecilla observada *</label>
+        <input type="number" min="0" max="100" step="1"
+          value={caracterizacion[fumaginaKey] || ""}
+          onChange={(e) => handleChange(fumaginaKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 30 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse daño, colocar 0</p>
+        {errores[`${fumaginaKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${fumaginaKey}_error`]}</p>
+        )}
+      </div>
+      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
+    </div>
+  );
+};
+
+// ── Subsecciones para ácaros con validación ─────────────────────────────────────────────────
+
+const PolyphagotarsonemusSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_polyphagotarsonemus`;
+  const frutosAfectadosKey = `${prefix}_frutos_afectados`;
+  const danoFrutosKey = `${prefix}_dano_frutos`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Polyphagotarsonemus sp.</em> - Ácaro blanco</h6>
+      <p className="text-xs text-gray-600 mb-2 italic">Revisar brotes tiernos y frutos en formación. Observar: Coloración plateada, enrollamiento de hojas jóvenes.</p>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Número de frutos afectados por <em>Polyphagotarsonemus sp</em> *</label>
+        <input type="number" min="0" step="1"
+          value={caracterizacion[frutosAfectadosKey] || ""}
+          onChange={(e) => handleChange(frutosAfectadosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 3 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del ácaro, colocar 0</p>
+        {errores[`${frutosAfectadosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${frutosAfectadosKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">% de daño en frutos observado *</label>
+        <input type="number" min="0" max="100" step="1"
+          value={caracterizacion[danoFrutosKey] || ""}
+          onChange={(e) => handleChange(danoFrutosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 30 (0 si no hay daño)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse daño, colocar 0</p>
+        {errores[`${danoFrutosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${danoFrutosKey}_error`]}</p>
+        )}
+      </div>
+      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
+    </div>
+  );
+};
+
+const PhyllocoptrutaSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_phyllocoptruta`;
+  const frutosAfectadosKey = `${prefix}_frutos_afectados`;
+  const danoFrutosKey = `${prefix}_dano_frutos`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Phyllocoptruta</em> sp. - Ácaro tostador</h6>
+      <p className="text-xs text-gray-600 mb-2 italic">Revisar brotes tiernos y frutos en formación. Observar: Bronceado café oscuro, enrollamiento de hojas jóvenes, rugosidad y corchosidad en frutos.</p>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Número de frutos afectados por <em>Phyllocoptruta</em> sp. *</label>
+        <input type="number" min="0" step="1"
+          value={caracterizacion[frutosAfectadosKey] || ""}
+          onChange={(e) => handleChange(frutosAfectadosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 3 (0 si no hay)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del ácaro, colocar 0</p>
+        {errores[`${frutosAfectadosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${frutosAfectadosKey}_error`]}</p>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">% de daño en frutos observado *</label>
+        <input type="number" min="0" max="100" step="1"
+          value={caracterizacion[danoFrutosKey] || ""}
+          onChange={(e) => handleChange(danoFrutosKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
+          placeholder="Ej: 30 (0 si no hay daño)" required />
+        <p className="text-xs text-gray-500 mt-1">De no encontrarse daño, colocar 0</p>
+        {errores[`${danoFrutosKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${danoFrutosKey}_error`]}</p>
+        )}
+      </div>
+      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
+    </div>
+  );
+};
+
+// ── Sección "Otro artrópodo" con validación ─────────────────────────────────
+
+const OtroArthropodSection: React.FC<SectionProps> = ({
+  basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix
+}) => {
+  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro`;
+  const sintomasKey = `${prefix}_sintomas`;
+  const claseKey = `${prefix}_clase`;
+  const nombreKey = `${prefix}_nombre`;
+
+  const handleChange = (key: string, value: string) => {
+    onCampoChange(key, value);
+    clearErrorsForPrefix(key + "_error");
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+      <h6 className="font-semibold mb-2 text-sm">Otro artrópodo observado</h6>
+
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Síntomas observados *</label>
+        <input type="text"
+          value={caracterizacion[sintomasKey] || ""}
+          onChange={(e) => handleChange(sintomasKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+          placeholder="Describa los síntomas observados" required />
+        {errores[`${sintomasKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${sintomasKey}_error`]}</p>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Clase de artrópodo observado *</label>
+        <div className="flex gap-4">
+          {["Insecto", "Ácaro"].map((opcion) => (
+            <label key={opcion} className="inline-flex items-center">
+              <input type="radio" name={claseKey} value={opcion}
+                checked={caracterizacion[claseKey] === opcion}
+                onChange={(e) => handleChange(claseKey, e.target.value)}
+                className="mr-2" required />
+              {opcion}
+            </label>
+          ))}
+        </div>
+        {errores[`${claseKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${claseKey}_error`]}</p>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Nombre del artrópodo observado (mínimo hasta género) *
+        </label>
+        <input type="text"
+          value={caracterizacion[nombreKey] || ""}
+          onChange={(e) => handleChange(nombreKey, e.target.value)}
+          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+          placeholder="Ej: Atta sp." required />
+        {errores[`${nombreKey}_error`] && (
+          <p className="text-red-600 text-xs mt-1">{errores[`${nombreKey}_error`]}</p>
+        )}
+      </div>
+
+      <RealFotosSection
+        prefix={`${prefix}_fotos`}
+        caracterizacion={caracterizacion}
+        onCampoChange={onCampoChange}
+      />
+    </div>
+  );
+};
+
+// ── CuadranteArthropod con validación ────────────────────────────────────────────────
+
+interface CuadranteProps {
+  plantaIdx: number;
+  cuadrante: number;
+  rama: number;
+  planta: PlantaBase;
   caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
   onOpenImage: (imageName: string) => void;
   errores: Record<string, string>;
-  clearErrorsForPrefix: (prefix: string) => void; // nueva prop
-}> = ({ plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange, onOpenImage, errores, clearErrorsForPrefix }) => {
+  clearErrorsForPrefix: (prefix: string) => void;
+}
+
+const CuadranteArthropod: React.FC<CuadranteProps> = ({
+  plantaIdx, cuadrante, rama, planta, caracterizacion, onCampoChange, onOpenImage, errores, clearErrorsForPrefix
+}) => {
   const basePrefix = `artropodo_planta_${plantaIdx + 1}`;
   const presenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_presencia`;
   const presencia = caracterizacion[presenciaKey] || "no";
@@ -29,7 +581,6 @@ const CuadranteArthropod: React.FC<{
     });
     const tiposKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${tipo === 'insecto' ? 'insecto_tipos' : 'acaro_tipos'}`;
     onCampoChange(tiposKey, "");
-    // Limpiar errores asociados
     clearErrorsForPrefix(tipoPrefix);
   };
 
@@ -48,8 +599,10 @@ const CuadranteArthropod: React.FC<{
       Object.keys(caracterizacion).forEach(k => {
         if (k.startsWith(otroPrefix)) onCampoChange(k, "");
       });
-      // Limpiar errores del cuadrante completo
       clearErrorsForPrefix(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}`);
+    } else {
+      // Si se selecciona "Sí", se limpia cualquier error de presencia previo
+      clearErrorsForPrefix(presenciaKey + "_error");
     }
   };
 
@@ -64,6 +617,10 @@ const CuadranteArthropod: React.FC<{
       clearClassData(clase);
     }
     onCampoChange(claseKey, newClases.join(','));
+    // Limpiar error de clase si se ha seleccionado alguna
+    if (newClases.length > 0) {
+      clearErrorsForPrefix(claseKey + "_error");
+    }
   };
 
   // Insectos
@@ -77,14 +634,17 @@ const CuadranteArthropod: React.FC<{
     } else {
       arr = arr.filter(t => t !== tipo);
       const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_${tipo}`;
-      // Limpiar datos del tipo
       Object.keys(caracterizacion).forEach(k => {
         if (k.startsWith(prefix)) onCampoChange(k, "");
       });
-      // Limpiar errores
       clearErrorsForPrefix(prefix);
     }
     onCampoChange(insectoTiposKey, arr.join(","));
+    // Limpiar error de insecto si ahora hay al menos un tipo o "otro" está activo
+    const otroActivo = caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`] === "true";
+    if (arr.length > 0 || otroActivo) {
+      clearErrorsForPrefix(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_error`);
+    }
   };
 
   // Ácaros
@@ -104,6 +664,10 @@ const CuadranteArthropod: React.FC<{
       clearErrorsForPrefix(prefix);
     }
     onCampoChange(acaroTiposKey, arr.join(","));
+    const otroActivo = caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`] === "true";
+    if (arr.length > 0 || otroActivo) {
+      clearErrorsForPrefix(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_error`);
+    }
   };
 
   const insectoTiposDisponibles = [
@@ -119,8 +683,8 @@ const CuadranteArthropod: React.FC<{
   ];
 
   // Errores específicos
-  const errorPresenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_presencia_error`;
-  const errorClaseKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_clase_error`;
+  const errorPresenciaKey = `${presenciaKey}_error`;
+  const errorClaseKey = `${claseKey}_error`;
   const errorInsectoKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_error`;
   const errorAcaroKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_error`;
 
@@ -286,14 +850,23 @@ const CuadranteArthropod: React.FC<{
               <input type="checkbox"
                 checked={caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`] === 'true'}
                 onChange={(e) => {
-                  onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`, e.target.checked ? 'true' : 'false');
-                  if (!e.target.checked) {
+                  const isChecked = e.target.checked;
+                  onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`, isChecked ? 'true' : 'false');
+                  if (!isChecked) {
                     // Limpiar datos y errores de otro
                     const otroPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro`;
                     Object.keys(caracterizacion).forEach(k => {
                       if (k.startsWith(otroPrefix)) onCampoChange(k, "");
                     });
                     clearErrorsForPrefix(otroPrefix);
+                  } else {
+                    // Si se marca, limpiar errores de insecto/ácaro que podrían ser resueltos por "otro"
+                    if (isInsecto && insectoTiposArray.length === 0) {
+                      clearErrorsForPrefix(errorInsectoKey);
+                    }
+                    if (isAracnido && acaroTiposArray.length === 0) {
+                      clearErrorsForPrefix(errorAcaroKey);
+                    }
                   }
                 }}
                 className="mr-2" />
@@ -314,142 +887,51 @@ const CuadranteArthropod: React.FC<{
   );
 };
 
-// ── Subsecciones de insectos/ácaros con validación ─────────────────────────
+// ── PlantaArthropod ───────────────────────────────────────────────────────────────────
 
-// Ejemplo para CompsusSection (similar para las demás)
-const CompsusSection: React.FC<{
-  basePrefix: string; cuadrante: number; rama: number;
+interface PlantaArthropodProps {
+  index: number;
+  planta: PlantaBase;
   caracterizacion: Record<string, string>;
   onCampoChange: (campo: string, valor: string) => void;
+  onOpenImage: (imageName: string) => void;
   errores: Record<string, string>;
   clearErrorsForPrefix: (prefix: string) => void;
-}> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix }) => {
-  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_compsus`;
-  const adultosKey = `${prefix}_adultos`;
-  const danoHojasKey = `${prefix}_dano_hojas`;
+}
 
-  const handleChange = (key: string, value: string) => {
-    onCampoChange(key, value);
-    // Limpiar error del campo específico cuando el usuario escribe
-    clearErrorsForPrefix(key + "_error");
-  };
-
-  return (
-    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Monitoreo de <em>Compsus sp.</em> - Picudo</h6>
-      <p className="text-xs text-gray-600 mb-2 italic">
-        Seleccione preferiblemente árboles de los linderos, de los bordes de carretera o los que están cerca de los centros de acopio de frutas. Sacuda de forma suave las ramas de arriba hacia abajo, dándole la vuelta al árbol. Observe en el suelo la presencia de adultos.
-      </p>
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Adultos de <em>Compsus sp.</em> encontrados *</label>
-        <input type="number" min="0" step="1"
-          value={caracterizacion[adultosKey] || ""}
-          onChange={(e) => handleChange(adultosKey, e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
-          placeholder="Ej: 3 (0 si no hay)" required />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse presencia del insecto, colocar 0</p>
-        {errores[`${adultosKey}_error`] && (
-          <p className="text-red-600 text-xs mt-1">{errores[`${adultosKey}_error`]}</p>
-        )}
-      </div>
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">% de daño en hojas *</label>
-        <input type="number" min="0" max="100" step="1"
-          value={caracterizacion[danoHojasKey] || ""}
-          onChange={(e) => handleChange(danoHojasKey, e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs"
-          placeholder="Ej: 30 (0 si no hay daño)" required />
-        <p className="text-xs text-gray-500 mt-1">De no encontrarse daño del insecto, colocar 0</p>
-        {errores[`${danoHojasKey}_error`] && (
-          <p className="text-red-600 text-xs mt-1">{errores[`${danoHojasKey}_error`]}</p>
-        )}
-      </div>
-      <FotosSection prefix={`${prefix}_fotos`} caracterizacion={caracterizacion} onCampoChange={onCampoChange} />
-    </div>
-  );
-};
-
-// De manera similar se modifican DiaphorinaSection, PhyllocnistisSection, ToxopteraSection,
-// PolyphagotarsonemusSection, PhyllocoptrutaSection y OtroArthropodSection.
-// Cada una recibe errores y clearErrorsForPrefix y muestra los mensajes de error junto a los campos requeridos.
-
-// ── Sección "Otro artrópodo" con validación ────────────────────────────────
-
-const OtroArthropodSection: React.FC<{
-  basePrefix: string; cuadrante: number; rama: number;
-  caracterizacion: Record<string, string>;
-  onCampoChange: (campo: string, valor: string) => void;
-  errores: Record<string, string>;
-  clearErrorsForPrefix: (prefix: string) => void;
-}> = ({ basePrefix, cuadrante, rama, caracterizacion, onCampoChange, errores, clearErrorsForPrefix }) => {
-  const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro`;
-  const sintomasKey = `${prefix}_sintomas`;
-  const claseKey = `${prefix}_clase`;
-  const nombreKey = `${prefix}_nombre`;
-
-  const handleChange = (key: string, value: string) => {
-    onCampoChange(key, value);
-    clearErrorsForPrefix(key + "_error");
-  };
-
-  return (
-    <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-      <h6 className="font-semibold mb-2 text-sm">Otro artrópodo observado</h6>
-
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Síntomas observados *</label>
-        <input type="text"
-          value={caracterizacion[sintomasKey] || ""}
-          onChange={(e) => handleChange(sintomasKey, e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-          placeholder="Describa los síntomas observados" required />
-        {errores[`${sintomasKey}_error`] && (
-          <p className="text-red-600 text-xs mt-1">{errores[`${sintomasKey}_error`]}</p>
-        )}
-      </div>
-
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Clase de artrópodo observado *</label>
-        <div className="flex gap-4">
-          {["Insecto", "Ácaro"].map((opcion) => (
-            <label key={opcion} className="inline-flex items-center">
-              <input type="radio" name={claseKey} value={opcion}
-                checked={caracterizacion[claseKey] === opcion}
-                onChange={(e) => handleChange(claseKey, e.target.value)}
-                className="mr-2" required />
-              {opcion}
-            </label>
-          ))}
-        </div>
-        {errores[`${claseKey}_error`] && (
-          <p className="text-red-600 text-xs mt-1">{errores[`${claseKey}_error`]}</p>
-        )}
-      </div>
-
-      <div className="mb-3">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nombre del artrópodo observado (mínimo hasta género) *
-        </label>
-        <input type="text"
-          value={caracterizacion[nombreKey] || ""}
-          onChange={(e) => handleChange(nombreKey, e.target.value)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-          placeholder="Ej: Atta sp." required />
-        {errores[`${nombreKey}_error`] && (
-          <p className="text-red-600 text-xs mt-1">{errores[`${nombreKey}_error`]}</p>
-        )}
-      </div>
-
-      <RealFotosSection
-        prefix={`${prefix}_fotos`}
-        caracterizacion={caracterizacion}
-        onCampoChange={onCampoChange}
+const PlantaArthropod: React.FC<PlantaArthropodProps> = ({
+  index, planta, caracterizacion, onCampoChange, onOpenImage, errores, clearErrorsForPrefix
+}) => (
+  <div className="border rounded-lg p-4 mb-8 bg-white shadow-sm">
+    <h4 className="font-semibold text-lg text-gray-800 mb-2">
+      {planta.label} (Código: {planta.codigo})
+    </h4>
+    <p className="text-sm text-gray-500 mb-4">
+      El árbol se divide en 4 cuadrantes. Seleccione una rama al azar de cada cuadrante y observe: daño en hojas, frutos, puntos de crecimiento y presencia de artrópodos.
+    </p>
+    {[1, 2, 3, 4].map((cuadrante) => (
+      <CuadranteArthropod
+        key={`${planta.codigo}-cuadrante-${cuadrante}`}
+        plantaIdx={index} cuadrante={cuadrante} rama={cuadrante}
+        planta={planta} caracterizacion={caracterizacion}
+        onCampoChange={onCampoChange} onOpenImage={onOpenImage}
+        errores={errores} clearErrorsForPrefix={clearErrorsForPrefix}
       />
-    </div>
-  );
-};
+    ))}
+  </div>
+);
 
-// ── Componente principal ArthropodSection con lógica de validación mejorada ──
+// ── Componente principal ArthropodSection con lógica de validación mejorada ──────────────
+
+export interface ArthropodSectionRef {
+  validate: () => boolean;
+}
+
+interface Props {
+  plantas: PlantaBase[];
+  caracterizacion: Record<string, string>;
+  onCampoChange: (campo: string, valor: string) => void;
+}
 
 export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
   ({ plantas, caracterizacion, onCampoChange }, ref) => {
@@ -625,7 +1107,7 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                   nuevosErrores[`${otroPrefix}_nombre_error`] = "Debe indicar el nombre del artrópodo (mínimo género).";
                   isValid = false;
                 }
-                // Nota: las fotos no se validan como obligatorias
+                // Las fotos no son obligatorias.
               }
             }
           }
