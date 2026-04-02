@@ -6,7 +6,7 @@ import { CensoSection } from './CensoSection';
 import { FenologicoSection, type FenologicoSectionRef } from './FenologicoSection';
 import { ArthropodSection, type ArthropodSectionRef } from './ArthropodSection';
 import { ArvensesSection, type ArvensesSectionRef } from './ArvensesSection';
-import { EnfermedadesSection } from './EnfermedadesSection';
+import { EnfermedadesSection, type EnfermedadesSectionRef } from './EnfermedadesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
 import { toast } from 'react-toastify';
@@ -104,15 +104,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [condicionesDia, setCondicionesDia] = useState('');
     const [caracterizacion, setCaracterizacion] = useState<Record<string, string>>({});
 
-    // Referencias
+    // Referencias para secciones con validación
     const arthropodRef = useRef<ArthropodSectionRef>(null);
     const arvensesRef = useRef<ArvensesSectionRef>(null);
     const fenologicoRef = useRef<FenologicoSectionRef>(null);
+    const enfermedadesRef = useRef<EnfermedadesSectionRef>(null); // 👈 NUEVA referencia
 
     // ── Función auxiliar para manejar cambios (soporta arrays) ────────────────
     const handleCaracterizacionChange = (campo: string, valor: string | string[]) => {
         if (Array.isArray(valor)) {
-            // Guardar arrays como JSON string para preservar la estructura
             setCaracterizacion(prev => ({ ...prev, [campo]: JSON.stringify(valor) }));
         } else {
             setCaracterizacion(prev => ({ ...prev, [campo]: valor }));
@@ -125,7 +125,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         Object.entries(raw).forEach(([key, value]) => {
             if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
                 try {
-                    // Si es un JSON válido, lo dejamos como string (se usará luego)
                     parsed[key] = value;
                 } catch {
                     parsed[key] = value;
@@ -287,7 +286,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         if (!condicionesDia) { toast.error('Selecciona condiciones del día'); return; }
         if (plantas.length === 0) { toast.error('No hay plantas seleccionadas'); return; }
 
-        // Validaciones específicas
+        // Validaciones específicas según el tipo de diagnóstico
         if (tipoDiagnostico === 'artropodos' && arthropodRef.current) {
             if (!arthropodRef.current.validate()) return;
         }
@@ -296,6 +295,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         }
         if (tipoDiagnostico === 'monitoreo_fenologico' && fenologicoRef.current) {
             if (!fenologicoRef.current.validate()) return;
+        }
+        if (tipoDiagnostico === 'enfermedades' && enfermedadesRef.current) { // 👈 CORREGIDO
+            if (!enfermedadesRef.current.validate()) return;
         }
 
         const formulario = {
@@ -462,7 +464,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         {/* Tipo de diagnóstico */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Diagnóstico *</label>
-                            <select value={tipoDiagnostico} onChange={e => {setTipoDiagnostico(e.target.value); setCaracterizacion({});}} className="w-full border rounded-lg p-3" required>
+                            <select
+                                value={tipoDiagnostico}
+                                onChange={e => {
+                                    setTipoDiagnostico(e.target.value);
+                                    setCaracterizacion({}); // Limpia datos al cambiar de tipo
+                                }}
+                                className="w-full border rounded-lg p-3"
+                                required
+                            >
                                 <option value="">Seleccionar tipo</option>
                                 {TIPOS_DIAGNOSTICO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                             </select>
@@ -486,7 +496,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 {tipoDiagnostico === 'censo_poblacional' && <CensoSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'monitoreo_fenologico' && <FenologicoSection ref={fenologicoRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'artropodos' && <ArthropodSection ref={arthropodRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'enfermedades' && <EnfermedadesSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                {tipoDiagnostico === 'enfermedades' && <EnfermedadesSection ref={enfermedadesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'arvenses' && <ArvensesSection ref={arvensesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'controladores_biologicos' && <ControladoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'polinizadores' && <PolinizadoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
