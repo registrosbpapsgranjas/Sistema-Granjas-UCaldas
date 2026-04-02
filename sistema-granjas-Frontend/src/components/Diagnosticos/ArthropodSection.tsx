@@ -960,11 +960,10 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
         for (let cuadrante = 1; cuadrante <= 4; cuadrante++) {
           const presenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_presencia`;
           const presencia = caracterizacion[presenciaKey] || "";
-          const errorPresenciaKey = `${presenciaKey}_error`;
 
           if (!presencia) {
-            nuevosErrores[errorPresenciaKey] = "Debe indicar si hay presencia de artrópodos en esta rama.";
-            isValid = false;
+            const presenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_presencia`;
+            caracterizacion[presenciaKey] = "no";
           } else if (presencia === "si") {
             // Verificar que al menos una clase esté seleccionada
             const claseKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_clase`;
