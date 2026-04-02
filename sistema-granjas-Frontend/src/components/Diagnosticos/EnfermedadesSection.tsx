@@ -911,15 +911,18 @@ export const EnfermedadesSection = forwardRef<EnfermedadesSectionRef, Enfermedad
           const agentesKey = `${quadrantPrefix}_agentes`;
           const agentes = splitValues(caracterizacion[agentesKey]);
 
-          // Si no hay agentes seleccionados y no es "no_aplica" -> error
-          if (agentes.length === 0) {
+          // Verificar si "Otra enfermedad" está activa en este cuadrante
+          const otraActivo = caracterizacion[`${quadrantPrefix}_otra_enfermedad_activo`] === 'true';
+
+          // Si no hay agentes seleccionados y no es "no_aplica", error (a menos que otraActivo sea true)
+          if (agentes.length === 0 && !otraActivo) {
             nuevosErrores[`${agentesKey}_error`] = 'Debe seleccionar al menos un agente causal o "No aplica".';
             isValid = false;
-            continue; // no validar subgrupos si no hay agentes
+            continue; // No seguir validando grupos si no hay agentes y tampoco otra enfermedad
           }
 
-          // Si seleccionó "no_aplica", no validamos nada más en este cuadrante
-          if (agentes.includes('no_aplica')) continue;
+          // Si seleccionó "no_aplica" o "otra enfermedad" está activa, omitimos la validación de grupos
+          if (agentes.includes('no_aplica') || otraActivo) continue;
 
           // Validar hongos
           if (agentes.includes('hongo')) {
@@ -1089,8 +1092,23 @@ export const EnfermedadesSection = forwardRef<EnfermedadesSectionRef, Enfermedad
               }
             }
           }
+        }
+      });
 
-          // Validar "Otra enfermedad"
+      // Validación de "Otra enfermedad" (ya se validan sus campos independientemente)
+      // Nota: La validación de los campos de "otra enfermedad" se hace dentro de OtraEnfermedadSection,
+      // pero también podemos agregar una validación global aquí si es necesario. Por ahora, confiamos en
+      // que la sección muestra sus propios errores. Sin embargo, para que el formulario no permita
+      // enviar si falta algún campo de "otra enfermedad", ya se incluye en la validación de la sección
+      // porque esos campos tienen el atributo "required" y la función validate de cada subcomponente
+      // no se llama explícitamente, pero el formulario padre llama a validate() de EnfermedadesSection
+      // y aquí no estamos validando esos campos específicos. Para asegurar, deberíamos recorrer
+      // los cuadrantes y si otraActivo está true, validar síntomas y agente. Lo añadimos:
+
+      plantas.forEach((planta, idx) => {
+        const basePrefix = `enfermedades_planta_${idx + 1}`;
+        for (let cuadrante = 1; cuadrante <= 4; cuadrante++) {
+          const quadrantPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}`;
           const otraActivo = caracterizacion[`${quadrantPrefix}_otra_enfermedad_activo`] === 'true';
           if (otraActivo) {
             const sintomasKey = `${quadrantPrefix}_otra_enfermedad_sintomas`;
