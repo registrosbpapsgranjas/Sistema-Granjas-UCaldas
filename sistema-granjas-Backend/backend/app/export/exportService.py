@@ -1,7 +1,7 @@
 """
 Servicio de exportación con Excel - Archivos XLSX bien formateados
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 import pandas as pd
 import io
@@ -149,7 +149,7 @@ class ExportService:
         if not movimientos_df.empty:
             dataframes['11_Movimientos'] = movimientos_df
         
-        fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d_%H%M%S")
         filename = f"backup_completo_{fecha}"
         
         return self._create_excel_response(dataframes, filename)
@@ -159,7 +159,7 @@ class ExportService:
     def export_granjas_excel(self) -> StreamingResponse:
         """Exportar granjas en Excel"""
         df = self.dataframe_fetcher.get_granjas_dataframe()
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d_%H%M%S")
         return self._create_single_excel_response(df, f"granjas_{fecha}", "Granjas")
     
     def export_lotes_excel(self, detallado: bool = False, lote_id: Optional[int] = None) -> StreamingResponse:
@@ -168,14 +168,14 @@ class ExportService:
         if lote_id:
             df = df[df['id'] == lote_id]
         
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         filename = f"lotes_detallados_{fecha}" if detallado else f"lotes_{fecha}"
         return self._create_single_excel_response(df, filename, "Lotes")
     
     def export_diagnosticos_excel(self) -> StreamingResponse:
         """Exportar diagnósticos en Excel"""
         df = self.dataframe_fetcher.get_diagnosticos_dataframe()
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"diagnosticos_{fecha}", "Diagnósticos")
     
     def export_recomendaciones_excel(self, **filters) -> StreamingResponse:
@@ -188,7 +188,7 @@ class ExportService:
         if filters.get('tipo'):
             df = df[df['tipo'] == filters['tipo']]
         
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"recomendaciones_{fecha}", "Recomendaciones")
     
     def export_labores_excel(self, **filters) -> StreamingResponse:
@@ -198,7 +198,7 @@ class ExportService:
         if filters.get('estado'):
             df = df[df['estado'] == filters['estado']]
         
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"labores_{fecha}", "Labores")
     
     def export_inventario_excel(self) -> StreamingResponse:
@@ -211,7 +211,7 @@ class ExportService:
             "Herramientas": herramientas_df
         }
         
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_excel_response(dataframes, f"inventario_{fecha}")
     
     def export_usuarios_excel(self, **filters) -> StreamingResponse:
@@ -224,32 +224,32 @@ class ExportService:
             estado = 'Activo' if filters['activo'] else 'Inactivo'
             df = df[df['estado'] == estado]
         
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"usuarios_{fecha}", "Usuarios")
     
     def export_programas_excel(self) -> StreamingResponse:
         """Exportar programas en Excel"""
         df = self.dataframe_fetcher.get_programas_dataframe()
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"programas_{fecha}", "Programas")
     
     def export_cultivos_excel(self) -> StreamingResponse:
         """Exportar cultivos en Excel"""
         df = self.dataframe_fetcher.get_cultivos_dataframe()
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"cultivos_{fecha}", "Cultivos")
     
     def export_movimientos_excel(self) -> StreamingResponse:
         """Exportar movimientos de inventario en Excel"""
         df = self.dataframe_fetcher.get_movimientos_dataframe()
         
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"movimientos_{fecha}", "Movimientos")
     
     def export_resumen_excel(self) -> StreamingResponse:
         """Exportar resumen estadístico del sistema"""
         df = self.dataframe_fetcher.get_resumen_dataframe()
 
-        fecha = datetime.now().strftime("%Y%m%d")
+        fecha = (datetime.utcnow()-timedelta(hours=5)).strftime("%Y%m%d")
         return self._create_single_excel_response(df, f"resumen_{fecha}", "Resumen")
 

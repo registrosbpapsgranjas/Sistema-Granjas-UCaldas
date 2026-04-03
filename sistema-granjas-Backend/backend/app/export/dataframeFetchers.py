@@ -6,7 +6,7 @@ import pandas as pd
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -481,7 +481,7 @@ class DataframeFetchers:
                 'Detalle': ''
             }, {
                 'Métrica': 'Fecha Generación',
-                'Valor': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'Valor': (datetime.utcnow()-timedelta(hours=5)).strftime('%Y-%m-%d %H:%M:%S'),
                 'Detalle': ''
             }, {
                 'Métrica': 'Generado por',
