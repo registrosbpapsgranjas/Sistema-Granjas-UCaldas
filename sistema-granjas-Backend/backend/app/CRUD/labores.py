@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import HTTPException
 from app.db.models import (
     Labor, Usuario, Recomendacion, Lote, Herramienta, Insumo,
@@ -208,7 +208,7 @@ def actualizar_labor_crud(db: Session, labor: Labor, data: LaborUpdate, usuario:
     
     # Si se completa la labor, establecer fecha de finalización
     if update_data.get("estado") == "completada" and not labor.fecha_finalizacion:
-        update_data["fecha_finalizacion"] = datetime.utcnow()
+        update_data["fecha_finalizacion"] = (datetime.utcnow() - timedelta(hours=5)) 
         update_data["avance_porcentaje"] = 100
     
     for attr, value in update_data.items():
@@ -343,7 +343,7 @@ def registrar_avance_crud(db: Session, labor: Labor, data: RegistroAvanceRequest
     
     if data.avance_porcentaje == 100:
         labor.estado = "completada"
-        labor.fecha_finalizacion = datetime.utcnow()
+        labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5)) 
     elif data.avance_porcentaje > 0 and labor.estado == "pendiente":
         labor.estado = "en_progreso"
     
@@ -359,7 +359,7 @@ def completar_labor_crud(db: Session, labor: Labor, usuario: Usuario):
     
     labor.estado = "completada"
     labor.avance_porcentaje = 100
-    labor.fecha_finalizacion = datetime.utcnow()
+    labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5)) 
     
     db.commit()
     db.refresh(labor)

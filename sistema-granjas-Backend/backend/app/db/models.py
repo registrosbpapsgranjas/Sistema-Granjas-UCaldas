@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, Boolean, Text, Table, Date, JSON
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.db.database import Base
 
 # Tablas pivote existentes
@@ -50,7 +50,7 @@ class Usuario(Base):
     activo = Column(Boolean, default=True)
     password_hash = Column(String(255))
     auth_provider = Column(String(50), default="traditional")
-    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     rol = relationship("Rol", back_populates="usuarios")
     granjas = relationship("Granja", secondary=usuario_granja, back_populates="usuarios")
     programas = relationship("Programa", secondary=usuario_programa, back_populates="usuarios")
@@ -66,7 +66,7 @@ class Programa(Base):
     descripcion = Column(String(255))
     tipo = Column(String(50), nullable=False)
     activo = Column(Boolean, default=True)
-    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     granjas = relationship("Granja", secondary="granja_programa", back_populates="programas")
     usuarios = relationship("Usuario", secondary=usuario_programa, back_populates="programas")
     lotes = relationship("Lote", back_populates="programa")
@@ -81,7 +81,7 @@ class Granja(Base):
     nombre = Column(String(100), nullable=False)
     ubicacion = Column(String(150), nullable=False)
     activo = Column(Boolean, default=True)
-    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     cultivos = relationship("CultivoEspecie", back_populates="granja")
     usuarios = relationship("Usuario", secondary=usuario_granja, back_populates="granjas")
     programas = relationship("Programa", secondary="granja_programa", back_populates="granjas")
@@ -171,7 +171,7 @@ class Recomendacion(Base):
     docente_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=False)
     diagnostico_id = Column(Integer, ForeignKey("diagnosticos.id"), nullable=True)
-    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     fecha_aprobacion = Column(DateTime, nullable=True)
     evidencias = relationship("Evidencia", back_populates="recomendacion")
     docente = relationship("Usuario", back_populates="recomendaciones_generadas")
@@ -190,7 +190,7 @@ class Evidencia(Base):
     diagnostico_id = Column(Integer, ForeignKey("diagnosticos.id"), nullable=True)
     recomendacion_id = Column(Integer, ForeignKey("recomendaciones.id"), nullable=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     labor = relationship("Labor", back_populates="evidencias")
     diagnostico = relationship("Diagnostico", back_populates="evidencias")
     recomendacion = relationship("Recomendacion", back_populates="evidencias")
@@ -204,7 +204,7 @@ class Labor(Base):
     tipo_labor_id = Column(Integer, ForeignKey("tipos_labor.id"), nullable=False)
     avance_porcentaje = Column(Integer, default=0)
     comentario = Column(Text, nullable=True)
-    fecha_asignacion = Column(DateTime, default=datetime.utcnow)
+    fecha_asignacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     fecha_finalizacion = Column(DateTime, nullable=True)
     recomendacion_id = Column(Integer, ForeignKey("recomendaciones.id"), nullable=False)
     trabajador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
@@ -233,8 +233,8 @@ class Diagnostico(Base):
     # Campos propios
     tipo_diagnostico = Column(String(100), nullable=False)
     condiciones_dia  = Column(String(50), nullable=False)
-    formulario       = Column(JSON, nullable=True)       # toda la caracterización del formulario
-    fecha_creacion   = Column(DateTime, default=datetime.utcnow)
+    formulario       = Column(JSON, nullable=True)
+    fecha_creacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
 
     # Relaciones
     programa       = relationship("Programa", back_populates="diagnosticos")
@@ -252,7 +252,7 @@ class MovimientoHerramienta(Base):
     labor_id = Column(Integer, ForeignKey("labores.id"))
     cantidad = Column(Integer, nullable=False)
     tipo_movimiento = Column(String(50), nullable=False)
-    fecha_movimiento = Column(DateTime, default=datetime.utcnow)
+    fecha_movimiento = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     observaciones = Column(Text)
     herramienta = relationship("Herramienta", back_populates="movimientos")
     labor = relationship("Labor", back_populates="uso_herramientas")
@@ -265,7 +265,7 @@ class MovimientoInsumo(Base):
     labor_id = Column(Integer, ForeignKey("labores.id"))
     cantidad = Column(Float, nullable=False)
     tipo_movimiento = Column(String(50), nullable=False)
-    fecha_movimiento = Column(DateTime, default=datetime.utcnow)
+    fecha_movimiento = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     observaciones = Column(Text)
     insumo = relationship("Insumo", back_populates="movimientos")
     labor = relationship("Labor", back_populates="uso_insumos")
@@ -277,7 +277,7 @@ class AsignacionHerramienta(Base):
     herramienta_id = Column(Integer, ForeignKey("herramientas.id"))
     labor_id = Column(Integer, ForeignKey("labores.id"))
     cantidad = Column(Integer, default=1)
-    fecha_asignacion = Column(DateTime, default=datetime.utcnow)
+    fecha_asignacion = Column(DateTime, default=(datetime.utcnow() - timedelta(hours=5)))
     herramienta = relationship("Herramienta", back_populates="asignaciones")
 
 
@@ -286,7 +286,7 @@ class Monitoreo(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
     programa_id = Column(Integer, ForeignKey("programas.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(Date, default=datetime.utcnow().date())
+    created_at = Column(Date, default=(datetime.utcnow()-timedelta(hours=5)).date())
     programa = relationship("Programa", back_populates="monitoreos")
     diagnosticos = relationship("Diagnostico", back_populates="tipo_monitoreo")
 

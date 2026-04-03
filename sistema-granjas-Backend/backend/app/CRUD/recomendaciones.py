@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.db.models import Recomendacion, Labor, Usuario, Lote, Diagnostico
 from app.schemas.recomendacion_schema import RecomendacionCreate, RecomendacionUpdate, AprobacionRecomendacionRequest
 from fastapi import HTTPException
@@ -81,7 +81,7 @@ def actualizar_recomendacion(db: Session, recomendacion: Recomendacion, data: Re
     
     # Si se aprueba, establecer fecha de aprobación
     if update_data.get("estado") == "aprobada" and not recomendacion.fecha_aprobacion:
-        update_data["fecha_aprobacion"] = datetime.utcnow()
+        update_data["fecha_aprobacion"] = (datetime.utcnow() - timedelta(hours=5)) 
     
     # Si se está desasignando el diagnóstico (diagnostico_id es None)
     if "diagnostico_id" in update_data and update_data["diagnostico_id"] is None:
@@ -116,7 +116,7 @@ def aprobar_recomendacion_crud(db: Session, id: int, data: AprobacionRecomendaci
     
     if data.aprobar:
         rec.estado = "aprobada"
-        rec.fecha_aprobacion = datetime.utcnow()
+        rec.fecha_aprobacion = (datetime.utcnow() - timedelta(hours=5)) 
     else:
         rec.estado = "cancelada"
     

@@ -156,7 +156,7 @@ def obtener_movimiento_insumo_crud(db: Session, movimiento_id: int):
     return None
 
 def obtener_estadisticas_movimientos_crud(db: Session, dias: int = 30):
-    fecha_inicio = datetime.utcnow() - timedelta(days=dias)
+    fecha_inicio = (datetime.utcnow() - timedelta(hours=5)) - timedelta(days=dias)
     
     # Estadísticas de herramientas
     movimientos_herramientas = db.query(MovimientoHerramienta).filter(
