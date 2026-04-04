@@ -554,17 +554,34 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
   const isInsecto = claseString.includes('insecto');
   const isAracnido = claseString.includes('aracnido');
 
-  // Función para limpiar datos y errores de una clase
+  // Listas de tipos disponibles
+  const insectoTiposDisponibles = [
+    { value: 'compsus',     label: <><em>Compsus sp.</em> – Picudo</>,                  image: 'compsussp.png' },
+    { value: 'diaphorina',  label: <><em>Diaphorina citri</em> - Psílido asiático</>,   image: 'diaphorinacitri.png' },
+    { value: 'phyllocnistis',label: <><em>Phyllocnistis sp.</em> - Minador de la hoja</>,image: 'phyllocnistissp.png' },
+    { value: 'toxoptera',   label: <><em>Toxoptera citricidus</em> - Pulgón negro</>,   image: 'toxopteracitricidus.png' },
+  ];
+
+  const acaroTiposDisponibles = [
+    { value: 'polyphagotarsonemus', label: <><em>Polyphago- tarsonemus sp.</em> - Ácaro blanco</>,  image: 'polyphagotarsonemussp.png' },
+    { value: 'phyllocoptruta',      label: <><em>Phyllocoptruta sp.</em> - Ácaro tostador</>,     image: 'phyllocoptrutasp.png' },
+  ];
+
+  // Función para limpiar todos los datos de una clase (insecto o ácaro)
   const clearClassData = (tipo: 'insecto' | 'aracnido') => {
-    const tipoPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${tipo === 'insecto' ? 'insecto' : 'acaro'}`;
-    Object.keys(caracterizacion).forEach(k => {
-      if (k.startsWith(tipoPrefix)) {
-        onCampoChange(k, "");
-      }
+    const tipos = tipo === 'insecto'
+      ? insectoTiposDisponibles.map(t => t.value)
+      : acaroTiposDisponibles.map(t => t.value);
+    tipos.forEach(t => {
+      const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${t}`;
+      Object.keys(caracterizacion).forEach(k => {
+        if (k.startsWith(prefix)) onCampoChange(k, "");
+      });
+      clearErrorsForPrefix(prefix);
     });
     const tiposKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${tipo === 'insecto' ? 'insecto_tipos' : 'acaro_tipos'}`;
     onCampoChange(tiposKey, "");
-    clearErrorsForPrefix(tipoPrefix);
+    clearErrorsForPrefix(tiposKey);
   };
 
   // Manejo del cambio de presencia
@@ -582,9 +599,8 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
       Object.keys(caracterizacion).forEach(k => {
         if (k.startsWith(otroPrefix)) onCampoChange(k, "");
       });
-      clearErrorsForPrefix(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}`);
+      clearErrorsForPrefix(otroPrefix);
     } else {
-      // Si se selecciona "Sí", se limpia cualquier error de presencia previo
       clearErrorsForPrefix(presenciaKey + "_error");
     }
   };
@@ -600,7 +616,6 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
       clearClassData(clase);
     }
     onCampoChange(claseKey, newClases.join(','));
-    // Limpiar error de clase si se ha seleccionado alguna
     if (newClases.length > 0) {
       clearErrorsForPrefix(claseKey + "_error");
     }
@@ -616,14 +631,13 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
       if (!arr.includes(tipo)) arr.push(tipo);
     } else {
       arr = arr.filter(t => t !== tipo);
-      const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_${tipo}`;
+      const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${tipo}`;
       Object.keys(caracterizacion).forEach(k => {
         if (k.startsWith(prefix)) onCampoChange(k, "");
       });
       clearErrorsForPrefix(prefix);
     }
     onCampoChange(insectoTiposKey, arr.join(","));
-    // Limpiar error de insecto si ahora hay al menos un tipo o "otro" está activo
     const otroActivo = caracterizacion[`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`] === "true";
     if (arr.length > 0 || otroActivo) {
       clearErrorsForPrefix(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_insecto_error`);
@@ -640,7 +654,7 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
       if (!arr.includes(tipo)) arr.push(tipo);
     } else {
       arr = arr.filter(t => t !== tipo);
-      const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_${tipo}`;
+      const prefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_${tipo}`;
       Object.keys(caracterizacion).forEach(k => {
         if (k.startsWith(prefix)) onCampoChange(k, "");
       });
@@ -652,18 +666,6 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
       clearErrorsForPrefix(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_acaro_error`);
     }
   };
-
-  const insectoTiposDisponibles = [
-    { value: 'compsus',     label: <><em>Compsus sp.</em> – Picudo</>,                  image: 'compsussp.png' },
-    { value: 'diaphorina',  label: <><em>Diaphorina citri</em> - Psílido asiático</>,   image: 'diaphorinacitri.png' },
-    { value: 'phyllocnistis',label: <><em>Phyllocnistis sp.</em> - Minador de la hoja</>,image: 'phyllocnistissp.png' },
-    { value: 'toxoptera',   label: <><em>Toxoptera citricidus</em> - Pulgón negro</>,   image: 'toxopteracitricidus.png' },
-  ];
-
-  const acaroTiposDisponibles = [
-    { value: 'polyphagotarsonemus', label: <><em>Polyphago- tarsonemus sp.</em> - Ácaro blanco</>,  image: 'polyphagotarsonemussp.png' },
-    { value: 'phyllocoptruta',      label: <><em>Phyllocoptruta sp.</em> - Ácaro tostador</>,     image: 'phyllocoptrutasp.png' },
-  ];
 
   // Errores específicos
   const errorPresenciaKey = `${presenciaKey}_error`;
@@ -836,14 +838,12 @@ const CuadranteArthropod: React.FC<CuadranteProps> = ({
                   const isChecked = e.target.checked;
                   onCampoChange(`${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro_activo`, isChecked ? 'true' : 'false');
                   if (!isChecked) {
-                    // Limpiar datos y errores de otro
                     const otroPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${rama}_otro`;
                     Object.keys(caracterizacion).forEach(k => {
                       if (k.startsWith(otroPrefix)) onCampoChange(k, "");
                     });
                     clearErrorsForPrefix(otroPrefix);
                   } else {
-                    // Si se marca, limpiar errores de insecto/ácaro que podrían ser resueltos por "otro"
                     if (isInsecto && insectoTiposArray.length === 0) {
                       clearErrorsForPrefix(errorInsectoKey);
                     }
@@ -954,10 +954,12 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
           const presencia = caracterizacion[presenciaKey] || "";
 
           if (!presencia) {
-            const presenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_presencia`;
-            caracterizacion[presenciaKey] = "no";
-          } else if (presencia === "si") {
-            // Declaramos las variables de "otro" una sola vez al inicio del bloque
+            nuevosErrores[`${presenciaKey}_error`] = "Debe indicar si hay presencia de artrópodos.";
+            isValid = false;
+            continue;
+          }
+
+          if (presencia === "si") {
             const otroActivoKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_otro_activo`;
             const otroActivo = caracterizacion[otroActivoKey] === "true";
 
@@ -981,25 +983,23 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                 } else {
                   // Validar cada insecto seleccionado
                   insectoTipos.forEach(tipo => {
-                    const tipoPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_insecto_${tipo}`;
-                    // Compsus
+                    const tipoPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_${tipo}`;
                     if (tipo === 'compsus') {
                       const adultosKey = `${tipoPrefix}_adultos`;
                       const danoKey = `${tipoPrefix}_dano_hojas`;
-                      if (!caracterizacion[adultosKey] && caracterizacion[adultosKey] !== "0") {
+                      if (caracterizacion[adultosKey] === undefined || caracterizacion[adultosKey] === "") {
                         nuevosErrores[`${adultosKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay.";
                         isValid = false;
                       }
-                      if (!caracterizacion[danoKey] && caracterizacion[danoKey] !== "0") {
+                      if (caracterizacion[danoKey] === undefined || caracterizacion[danoKey] === "") {
                         nuevosErrores[`${danoKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay daño.";
                         isValid = false;
                       }
                     }
-                    // Diaphorina
                     if (tipo === 'diaphorina') {
                       const adultosKey = `${tipoPrefix}_adultos`;
                       const estadosKey = `${tipoPrefix}_estados`;
-                      if (!caracterizacion[adultosKey] && caracterizacion[adultosKey] !== "0") {
+                      if (caracterizacion[adultosKey] === undefined || caracterizacion[adultosKey] === "") {
                         nuevosErrores[`${adultosKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay.";
                         isValid = false;
                       }
@@ -1008,25 +1008,23 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                         isValid = false;
                       }
                     }
-                    // Phyllocnistis
                     if (tipo === 'phyllocnistis') {
                       const galeriasKey = `${tipoPrefix}_galerias`;
                       const danoKey = `${tipoPrefix}_dano_hojas`;
-                      if (!caracterizacion[galeriasKey] && caracterizacion[galeriasKey] !== "0") {
+                      if (caracterizacion[galeriasKey] === undefined || caracterizacion[galeriasKey] === "") {
                         nuevosErrores[`${galeriasKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay.";
                         isValid = false;
                       }
-                      if (!caracterizacion[danoKey] && caracterizacion[danoKey] !== "0") {
+                      if (caracterizacion[danoKey] === undefined || caracterizacion[danoKey] === "") {
                         nuevosErrores[`${danoKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay daño.";
                         isValid = false;
                       }
                     }
-                    // Toxoptera
                     if (tipo === 'toxoptera') {
                       const adultosKey = `${tipoPrefix}_adultos`;
                       const mielecillaKey = `${tipoPrefix}_mielecilla`;
                       const fumaginaKey = `${tipoPrefix}_dano_fumagina`;
-                      if (!caracterizacion[adultosKey] && caracterizacion[adultosKey] !== "0") {
+                      if (caracterizacion[adultosKey] === undefined || caracterizacion[adultosKey] === "") {
                         nuevosErrores[`${adultosKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay.";
                         isValid = false;
                       }
@@ -1034,7 +1032,7 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                         nuevosErrores[`${mielecillaKey}_error`] = "Debe indicar si se observó mielecilla y fumagina.";
                         isValid = false;
                       }
-                      if (!caracterizacion[fumaginaKey] && caracterizacion[fumaginaKey] !== "0") {
+                      if (caracterizacion[fumaginaKey] === undefined || caracterizacion[fumaginaKey] === "") {
                         nuevosErrores[`${fumaginaKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay daño.";
                         isValid = false;
                       }
@@ -1052,15 +1050,15 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                   isValid = false;
                 } else {
                   acaroTipos.forEach(tipo => {
-                    const tipoPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_acaro_${tipo}`;
+                    const tipoPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_${tipo}`;
                     if (tipo === 'polyphagotarsonemus') {
                       const frutosKey = `${tipoPrefix}_frutos_afectados`;
                       const danoKey = `${tipoPrefix}_dano_frutos`;
-                      if (!caracterizacion[frutosKey] && caracterizacion[frutosKey] !== "0") {
+                      if (caracterizacion[frutosKey] === undefined || caracterizacion[frutosKey] === "") {
                         nuevosErrores[`${frutosKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay.";
                         isValid = false;
                       }
-                      if (!caracterizacion[danoKey] && caracterizacion[danoKey] !== "0") {
+                      if (caracterizacion[danoKey] === undefined || caracterizacion[danoKey] === "") {
                         nuevosErrores[`${danoKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay daño.";
                         isValid = false;
                       }
@@ -1068,11 +1066,11 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                     if (tipo === 'phyllocoptruta') {
                       const frutosKey = `${tipoPrefix}_frutos_afectados`;
                       const danoKey = `${tipoPrefix}_dano_frutos`;
-                      if (!caracterizacion[frutosKey] && caracterizacion[frutosKey] !== "0") {
+                      if (caracterizacion[frutosKey] === undefined || caracterizacion[frutosKey] === "") {
                         nuevosErrores[`${frutosKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay.";
                         isValid = false;
                       }
-                      if (!caracterizacion[danoKey] && caracterizacion[danoKey] !== "0") {
+                      if (caracterizacion[danoKey] === undefined || caracterizacion[danoKey] === "") {
                         nuevosErrores[`${danoKey}_error`] = "Campo obligatorio. Ingrese 0 si no hay daño.";
                         isValid = false;
                       }
@@ -1081,8 +1079,7 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                 }
               }
             }
-            // Validar "Otro artrópodo" si está activo (independientemente de si hay clases)
-            // Usamos la variable otroActivo ya declarada
+            // Validar "Otro artrópodo" si está activo
             if (otroActivo) {
               const otroPrefix = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_otro`;
               const sintomas = caracterizacion[`${otroPrefix}_sintomas`];
@@ -1100,7 +1097,6 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
                 nuevosErrores[`${otroPrefix}_nombre_error`] = "Debe indicar el nombre del artrópodo (mínimo género).";
                 isValid = false;
               }
-              // Validar fotos obligatorias
               const fotosPrefix = `${otroPrefix}_fotos`;
               const fotosFiles = filesMap.get(fotosPrefix) || [];
               if (fotosFiles.length === 0) {
