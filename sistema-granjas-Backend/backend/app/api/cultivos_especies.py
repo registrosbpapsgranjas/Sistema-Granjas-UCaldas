@@ -16,7 +16,7 @@ from app.schemas.cultivo_especie_schema import (
 
 router = APIRouter(prefix="/cultivos", tags=["Cultivos / Especies"])
 
-role_required = Depends(require_any_role(["admin"]))
+role_required = Depends(require_any_role(["admin", "estudiante", "coordinador"]))
 
 @router.get("/", response_model=List[CultivoEspecieResponse])
 def listar(

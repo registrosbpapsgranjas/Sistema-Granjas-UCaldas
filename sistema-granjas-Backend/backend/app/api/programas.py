@@ -29,7 +29,7 @@ def listar_programas(
     limit: int = Query(100, ge=1, le=1000),
     incluir_inactivos: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin", "coordinador"]))
+    current_user: dict = Depends(require_any_role(["admin", "estudiante", "coordinador"]))
 ):
     """Listar todos los programas con paginación"""
     return get_programas(db, skip=skip, limit=limit, solo_activos=not incluir_inactivos)
