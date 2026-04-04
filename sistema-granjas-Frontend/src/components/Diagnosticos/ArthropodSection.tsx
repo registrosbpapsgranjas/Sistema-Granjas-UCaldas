@@ -954,8 +954,8 @@ export const ArthropodSection = forwardRef<ArthropodSectionRef, Props>(
           const presencia = caracterizacion[presenciaKey] || "";
 
           if (!presencia) {
-            nuevosErrores[`${presenciaKey}_error`] = "Debe indicar si hay presencia de artrópodos.";
-            isValid = false;
+            const presenciaKey = `${basePrefix}_cuadrante_${cuadrante}_rama_${cuadrante}_presencia`;
+            caracterizacion[presenciaKey] = "no"; // Asumir "no" si no se ha respondido
             continue;
           }
 
