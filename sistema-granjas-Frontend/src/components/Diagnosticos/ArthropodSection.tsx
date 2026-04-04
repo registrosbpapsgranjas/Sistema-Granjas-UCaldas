@@ -227,47 +227,34 @@ const DiaphorinaSection: React.FC<SectionProps> = ({
       </div>
       <div className="mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Estados del insecto observados *
+          Estados del insecto observados * (seleccione al menos uno)
         </label>
-
-        {(() => {
-          const valoresSeleccionados = caracterizacion[estadosKey]
-            ? caracterizacion[estadosKey].split(",")
-            : [];
-
-          return (
-            <div className="flex flex-wrap gap-4">
-              {["Huevo", "Ninfa", "Adulto"].map((estado) => (
-                <label key={estado} className="inline-flex items-center">
-                  <input
-                    type="checkbox"
-                    value={estado}
-                    checked={valoresSeleccionados.includes(estado)}
-                    onChange={(e) => {
-                      let values = [...valoresSeleccionados];
-
-                      if (e.target.checked) {
-                        if (!values.includes(estado)) values.push(estado);
-                      } else {
-                        values = values.filter((v) => v !== estado);
-                      }
-
-                      handleChange(estadosKey, values.join(","));
-                    }}
-                    className="mr-2"
-                  />
-                  {estado}
-                </label>
-              ))}
-            </div>
-          );
-        })()}
-
-        {/* Error */}
+        <div className="flex flex-wrap gap-4">
+          {["Huevo", "Ninfa", "Adulto", "No se observaron"].map((estado) => (
+            <label key={estado} className="inline-flex items-center">
+              <input
+                type="checkbox"
+                value={estado}
+                checked={caracterizacion[estadosKey]?.includes(estado) || false}
+                onChange={(e) => {
+                  const current = caracterizacion[estadosKey] || "";
+                  let values = current ? current.split(",") : [];
+                  if (e.target.checked) {
+                    if (!values.includes(estado)) values.push(estado);
+                  } else {
+                    values = values.filter(v => v !== estado);
+                  }
+                  handleChange(estadosKey, values.join(","));
+                }}
+                className="mr-2"
+                required
+              />
+              {estado}
+            </label>
+          ))}
+        </div>
         {errores[`${estadosKey}_error`] && (
-          <p className="text-red-600 text-xs mt-1">
-            {errores[`${estadosKey}_error`]}
-          </p>
+          <p className="text-red-600 text-xs mt-1">{errores[`${estadosKey}_error`]}</p>
         )}
       </div>
     </div>
