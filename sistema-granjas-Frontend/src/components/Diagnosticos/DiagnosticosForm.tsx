@@ -39,11 +39,11 @@ interface Lote {
     plantas_por_surco?: number | null;
 }
 
-// Cambiamos el tipo del payload: ahora es FormData para enviar archivos
+// El payload ahora es FormData para enviar archivos
 interface DiagnosticoFormProps {
     isOpen?: boolean;
     diagnostico?: DiagnosticoItem;
-    onSubmit: (data: FormData) => void;   // Ahora recibe FormData
+    onSubmit: (data: FormData) => void;
     onCancel: () => void;
     lotes: Lote[];
     programas: Programa[];
@@ -95,13 +95,13 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [condicionesDia, setCondicionesDia] = useState('');
     const [caracterizacion, setCaracterizacion] = useState<Record<string, string>>({});
 
-    // Referencias para secciones con validación
+    // Referencias
     const arthropodRef = useRef<ArthropodSectionRef>(null);
     const arvensesRef = useRef<ArvensesSectionRef>(null);
     const fenologicoRef = useRef<FenologicoSectionRef>(null);
     const enfermedadesRef = useRef<EnfermedadesSectionRef>(null);
 
-    // ── Función auxiliar para manejar cambios (soporta arrays) ────────────────
+    // ── Helper para cambios en caracterización ────────────────────────────────
     const handleCaracterizacionChange = (campo: string, valor: string | string[]) => {
         if (Array.isArray(valor)) {
             setCaracterizacion(prev => ({ ...prev, [campo]: JSON.stringify(valor) }));
@@ -110,7 +110,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         }
     };
 
-    // ── Función para parsear caracterización al cargar edición ───────────────
+    // ── Parsear caracterización al cargar edición ────────────────────────────
     const parseCaracterizacion = (raw: Record<string, any>): Record<string, string> => {
         const parsed: Record<string, string> = {};
         Object.entries(raw).forEach(([key, value]) => {
@@ -129,7 +129,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         return parsed;
     };
 
-    // ── Selección de plantas aleatorias ───────────────────────────────────────
+    // ── Selección aleatoria de plantas (muestreo) ────────────────────────────
     const seleccionarPlantasAleatorias = useCallback((todas: PlantaBase[], porcentaje: number): PlantaBase[] => {
         if (!todas.length) return [];
         const cantidad = Math.max(1, Math.floor(todas.length * (porcentaje / 100)));
@@ -152,7 +152,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         }
     }, [plantasOriginales, porcentajeMuestreo, seleccionarPlantasAleatorias]);
 
-    // ── Cargar monitoreos ─────────────────────────────────────────────────────
+    // ── Cargar monitoreos ────────────────────────────────────────────────────
     useEffect(() => {
         if (!programaId) { setMonitoreos([]); return; }
         monitoreoService.obtenerMonitoreosPorPrograma(programaId)
@@ -275,9 +275,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
         if (!tipoDiagnostico) { toast.error('Selecciona un tipo de diagnóstico'); return; }
         if (!condicionesDia) { toast.error('Selecciona condiciones del día'); return; }
-        if (plantas.length === 0) { toast.error('No hay plantas seleccionadas'); return; }
 
-        // Validaciones específicas según el tipo de diagnóstico
+        // Para arvenses no se usan las plantas aleatorias, sino todas las plantas del lote
+        // y puntos fijos. Por eso la validación de plantas.length no aplica a arvenses.
+        if (tipoDiagnostico !== 'arvenses' && plantas.length === 0) {
+            toast.error('No hay plantas seleccionadas');
+            return;
+        }
+
+        // Validaciones específicas
         if (tipoDiagnostico === 'artropodos' && arthropodRef.current) {
             if (!arthropodRef.current.validate()) return;
         }
@@ -293,7 +299,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
         const formData = new FormData();
 
-        // Campos normales
+        // Datos básicos
         formData.append('programa_id', String(programaId));
         formData.append('tipo_monitoreo_id', String(tipoMonitoreoId));
         formData.append('lote_id', String(loteId));
@@ -301,8 +307,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         formData.append('tipo_diagnostico', tipoDiagnostico);
         formData.append('condiciones_dia', condicionesDia);
 
+        // Construir el objeto formulario (para todas las secciones excepto arvenses, que se maneja con sus propias claves)
         const formulario = {
-            plantas,
+            plantas: tipoDiagnostico !== 'arvenses' ? plantas : [],  // arvenses no usa plantas aleatorias
             caracterizacion,
             porcentaje_muestreo: porcentajeMuestreo,
             total_plantas_lote: estructuraLote?.total_plantas || 0,
@@ -310,24 +317,31 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         };
         formData.append('formulario', JSON.stringify(formulario));
 
-
-        // Adjuntar archivos si es artrópodos
+        // Archivos de artrópodos
         if (tipoDiagnostico === 'artropodos' && arthropodRef.current) {
             const filesMap = arthropodRef.current.getFiles();
             for (const [prefix, files] of filesMap.entries()) {
                 files.forEach((file, idx) => {
-                    // Se envía como files[prefix][idx]
                     formData.append(`files[${prefix}][${idx}]`, file);
                 });
             }
         }
 
-        // Adjuntar archivos si es enfermedades
+        // Archivos de enfermedades
         if (tipoDiagnostico === 'enfermedades' && enfermedadesRef.current) {
             const filesMap = enfermedadesRef.current.getFiles();
             for (const [prefix, files] of filesMap.entries()) {
                 files.forEach((file, idx) => {
-                    // Se envía como files[prefix][idx]
+                    formData.append(`files[${prefix}][${idx}]`, file);
+                });
+            }
+        }
+
+        // Archivos de arvenses
+        if (tipoDiagnostico === 'arvenses' && arvensesRef.current) {
+            const filesMap = arvensesRef.current.getFiles();
+            for (const [prefix, files] of filesMap.entries()) {
+                files.forEach((file, idx) => {
                     formData.append(`files[${prefix}][${idx}]`, file);
                 });
             }
@@ -339,6 +353,13 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         if (!esEdicion) resetearPaso2();
         else onCancel();
     };
+
+    // Determinar método de muestreo para arvenses según total de plantas
+    const metodoMuestreo = useMemo(() => {
+        const total = estructuraLote?.total_plantas || 0;
+        // Lógica: menos de 1000 plantas -> X, más de 1000 -> W (ajustable)
+        return total < 1000 ? 'X' : 'W';
+    }, [estructuraLote?.total_plantas]);
 
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
@@ -460,14 +481,21 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     {estructuraLote && (
                                         <div className="mt-2 text-xs text-gray-500">
                                             {estructuraLote.surcos} surcos × {estructuraLote.plantas_por_surco} plantas/surco = {estructuraLote.total_plantas.toLocaleString()} plantas
-                                            <span className="ml-2 text-blue-600">| Muestreando: {plantas.length} ({porcentajeMuestreo}%)</span>
+                                            {tipoDiagnostico !== 'arvenses' && (
+                                                <span className="ml-2 text-blue-600">| Muestreando: {plantas.length} ({porcentajeMuestreo}%)</span>
+                                            )}
+                                            {tipoDiagnostico === 'arvenses' && (
+                                                <span className="ml-2 text-green-600">| Muestreo en {metodoMuestreo} (5 puntos fijos)</span>
+                                            )}
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={regenerarSeleccionPlantas} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 px-2 py-1 bg-blue-50 rounded">
-                                        <i className="fas fa-random"></i> Nueva muestra
-                                    </button>
+                                    {tipoDiagnostico !== 'arvenses' && (
+                                        <button type="button" onClick={regenerarSeleccionPlantas} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 px-2 py-1 bg-blue-50 rounded">
+                                            <i className="fas fa-random"></i> Nueva muestra
+                                        </button>
+                                    )}
                                     <button type="button" onClick={() => setPaso(1)} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
                                         <i className="fas fa-edit"></i> Cambiar
                                     </button>
@@ -502,37 +530,50 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </div>
 
                         {/* Secciones específicas */}
-                        {tipoDiagnostico && plantas.length > 0 && (
+                        {tipoDiagnostico && (
                             <div>
+                                {tipoDiagnostico !== 'arvenses' && plantas.length === 0 && (
+                                    <div className="bg-red-50 p-4 rounded-lg text-red-700 mb-4">
+                                        No hay plantas seleccionadas. Regresa al paso 1.
+                                    </div>
+                                )}
                                 <div className="mb-3 text-sm text-gray-600">
-                                    <i className="fas fa-info-circle mr-1"></i> Evaluando {plantas.length} plantas
+                                    <i className="fas fa-info-circle mr-1"></i>
+                                    {tipoDiagnostico === 'arvenses' 
+                                        ? `Evaluando ${metodoMuestreo === 'X' ? '5 puntos en X' : '5 puntos en W'} (árboles de referencia del lote)`
+                                        : `Evaluando ${plantas.length} plantas`}
                                 </div>
                                 {tipoDiagnostico === 'censo_poblacional' && <CensoSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'monitoreo_fenologico' && <FenologicoSection ref={fenologicoRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'artropodos' && <ArthropodSection ref={arthropodRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'enfermedades' && <EnfermedadesSection ref={enfermedadesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'arvenses' && <ArvensesSection ref={arvensesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                {tipoDiagnostico === 'arvenses' && (
+                                    <ArvensesSection
+                                        ref={arvensesRef}
+                                        todasLasPlantas={plantasOriginales}
+                                        metodoMuestreo={metodoMuestreo}
+                                        surcos={estructuraLote?.surcos || 1}
+                                        plantasPorSurco={estructuraLote?.plantas_por_surco || 1}
+                                        caracterizacion={caracterizacion}
+                                        onCampoChange={handleCaracterizacionChange}
+                                    />
+                                )}
                                 {tipoDiagnostico === 'controladores_biologicos' && <ControladoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                                 {tipoDiagnostico === 'polinizadores' && <PolinizadoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
                             </div>
                         )}
 
-                        {/* Advertencias */}
+                        {/* Advertencia si no hay diagnóstico o condiciones */}
                         {(!tipoDiagnostico || !condicionesDia) && (
                             <div className="bg-yellow-50 p-4 rounded-lg">
                                 {!tipoDiagnostico ? 'Selecciona un tipo de diagnóstico.' : 'Selecciona las condiciones del día.'}
-                            </div>
-                        )}
-                        {tipoDiagnostico && plantas.length === 0 && (
-                            <div className="bg-red-50 p-4 rounded-lg text-red-700">
-                                No hay plantas seleccionadas. Regresa al paso 1.
                             </div>
                         )}
                     </div>
 
                     <div className="flex justify-end gap-3 mt-8 pt-5 border-t">
                         <button type="button" onClick={onCancel} className="px-5 py-2.5 border rounded-lg hover:bg-gray-100">Cancelar</button>
-                        <button type="submit" disabled={!tipoDiagnostico || !condicionesDia || plantas.length === 0}
+                        <button type="submit" disabled={!tipoDiagnostico || !condicionesDia || (tipoDiagnostico !== 'arvenses' && plantas.length === 0)}
                             className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
                             <i className="fas fa-save"></i> {esEdicion ? 'Actualizar' : 'Crear'} Diagnóstico
                         </button>
