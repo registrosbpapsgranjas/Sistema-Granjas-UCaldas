@@ -205,6 +205,10 @@ const OtraEspecieSection: React.FC<{
 // ==================== COMPONENTE PRINCIPAL ====================
 export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionProps>(
   ({ todasLasPlantas, metodoMuestreo, surcos, plantasPorSurco, caracterizacion, onCampoChange }, ref) => {
+    // Si la multiplicación de surcos por plantas por surco es mayor a 100 usar W y no X
+    if (surcos * plantasPorSurco > 100 && metodoMuestreo === 'X') {
+      metodoMuestreo = 'W';
+    }
     const [modalImage, setModalImage] = useState<string | null>(null);
     const [errores, setErrores] = useState<Record<string, string>>({});
     const filesMapRef = useRef<Map<string, File[]>>(new Map());
