@@ -485,6 +485,7 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
           isValid = false;
         }
 
+        // Función auxiliar para validar una zona específica
         const validarZona = (zona: 'plato' | 'calle') => {
           const altura = getValor(puntoId, `${zona}_altura`);
           if (!altura) {
@@ -513,23 +514,18 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
 
           if (nobleNombre.trim() !== '') {
             if (!noblePorc || parseFloat(noblePorc) === 0) {
-              nuevosErrores[`arvenses_punto_${puntoId}_${zona}_otra_especie_noble_porcentaje_error`] = `Indique un porcentaje > 0.`;
+              nuevosErrores[`punto_${puntoId}_${zona}_otra_especie_noble_porcentaje_error`] = `Indique un porcentaje > 0.`;
               isValid = false;
             }
             const nobleFotosPrefix = `arvenses_punto_${puntoId}_${zona}_otra_especie_noble_fotos`;
             const nobleFiles = filesMapRef.current.get(nobleFotosPrefix) || [];
             if (nobleFiles.length === 0) {
-              // Clave de error que espera OtraEspecieSection: `${codigo}_${fotosKey}_error`
-              // codigo = `punto_${puntoId}`, fotosKey = `arvenses_${codigo}_${zona}_otra_especie_noble_fotos`
-              // Pero en validate usamos directamente el prefijo real que se guarda en el mapa.
-              // OtraEspecieSection usa: `${codigo}_${fotosKey}_error` donde fotosKey es `arvenses_${codigo}_${zona}_otra_especie_${tipo}_fotos`
-              // Es decir: `punto_${puntoId}_arvenses_punto_${puntoId}_${zona}_otra_especie_noble_fotos_error`
               const errorKey = `punto_${puntoId}_${nobleFotosPrefix}_error`;
               nuevosErrores[errorKey] = `Debe subir al menos una foto de la especie noble.`;
               isValid = false;
             }
           } else if (noblePorc && parseFloat(noblePorc) > 0) {
-            nuevosErrores[`arvenses_punto_${puntoId}_${zona}_otra_especie_noble_nombre_error`] = `Indique el nombre.`;
+            nuevosErrores[`punto_${puntoId}_${zona}_otra_especie_noble_nombre_error`] = `Indique el nombre.`;
             isValid = false;
           }
 
@@ -539,7 +535,7 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
 
           if (agresivaNombre.trim() !== '') {
             if (!agresivaPorc || parseFloat(agresivaPorc) === 0) {
-              nuevosErrores[`arvenses_punto_${puntoId}_${zona}_otra_especie_agresiva_porcentaje_error`] = `Indique un porcentaje > 0.`;
+              nuevosErrores[`punto_${puntoId}_${zona}_otra_especie_agresiva_porcentaje_error`] = `Indique un porcentaje > 0.`;
               isValid = false;
             }
             const agresivaFotosPrefix = `arvenses_punto_${puntoId}_${zona}_otra_especie_agresiva_fotos`;
@@ -550,11 +546,12 @@ export const ArvensesSection = forwardRef<ArvensesSectionRef, ArvensesSectionPro
               isValid = false;
             }
           } else if (agresivaPorc && parseFloat(agresivaPorc) > 0) {
-            nuevosErrores[`arvenses_punto_${puntoId}_${zona}_otra_especie_agresiva_nombre_error`] = `Indique el nombre.`;
+            nuevosErrores[`punto_${puntoId}_${zona}_otra_especie_agresiva_nombre_error`] = `Indique el nombre.`;
             isValid = false;
           }
         };
 
+        // Ejecutar la validación solo para las zonas que fueron seleccionadas
         if (zonaPlato) validarZona('plato');
         if (zonaCalle) validarZona('calle');
       });
