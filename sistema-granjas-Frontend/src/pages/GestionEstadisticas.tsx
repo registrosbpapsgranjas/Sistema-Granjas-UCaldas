@@ -1,10 +1,11 @@
-// src/pages/StatisticsDashboard.tsx
+// src/pages/GestionEstadisticasPage.tsx
 import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Area, AreaChart
+  PieChart, Pie, Cell
 } from 'recharts';
-import { Calendar, Activity, Leaf, Bug, Flower2, Shield, AlertTriangle, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
+import { Activity, Leaf, AlertTriangle, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
+import DashboardHeader from '../components/Common/DashboardHeader';
 
 // ----------------------------- TIPOS (iguales a los del proyecto) -----------------------------
 interface PlantaBase {
@@ -36,9 +37,9 @@ interface RamaFenologica {
 
 // Datos de enfermedades (por cuadrante)
 interface EnfermedadData {
-  agente: string; // 'hongo','bacteria',...
-  enfermedadesActivas: string[]; // ids
-  detalles: any; // simplificado
+  agente: string;
+  enfermedadesActivas: string[];
+  detalles: any;
 }
 
 // Datos de artrópodos (por cuadrante)
@@ -67,9 +68,9 @@ interface PolinizadorData {
 // Datos completos de una planta
 interface PlantaCompleta extends PlantaBase {
   censo: CensoData;
-  fenologico: RamaFenologica[]; // 4 ramas
-  enfermedades: EnfermedadData[]; // 4 cuadrantes
-  artropodos: ArthropodData[];    // 4 cuadrantes
+  fenologico: RamaFenologica[];
+  enfermedades: EnfermedadData[];
+  artropodos: ArthropodData[];
   controladores: ControladorData;
   polinizadores: PolinizadorData;
 }
@@ -127,14 +128,14 @@ const generateMockPlantas = (): PlantaCompleta[] => {
       enfermedades.push({
         agente,
         enfermedadesActivas,
-        detalles: { /* mock */ }
+        detalles: {}
       });
     }
 
     // Artrópodos
     const artropodos: ArthropodData[] = [];
     for (let i = 0; i < 4; i++) {
-      const presencia = i !== 2; // solo el cuadrante 3 sin presencia
+      const presencia = i !== 2;
       artropodos.push({
         presencia,
         clases: presencia ? (i % 2 === 0 ? ['insecto'] : ['aracnido']) : [],
@@ -174,7 +175,7 @@ const generateMockPlantas = (): PlantaCompleta[] => {
   });
 };
 
-// ----------------------------- COMPONENTES DE ESTADÍSTICAS -----------------------------
+// ----------------------------- COMPONENTE PRINCIPAL -----------------------------
 const GestionEstadisticasPage: React.FC = () => {
   const plantas = useMemo(() => generateMockPlantas(), []);
   const [selectedMetric, setSelectedMetric] = useState<string>('general');
@@ -257,267 +258,275 @@ const GestionEstadisticasPage: React.FC = () => {
     { name: 'Fructificación', value: faseFruc }
   ];
 
-  // Datos de alturas por planta (para línea)
-  const alturaPorPlanta = plantas.map((p, idx) => ({ name: p.label, altura: p.censo.altura, diametro: p.censo.diametro }));
+  // Datos de alturas por planta
+  const alturaPorPlanta = plantas.map(p => ({ name: p.label, altura: p.censo.altura, diametro: p.censo.diametro }));
 
-  // Colores
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#E74C3C'];
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-          <TrendingUp className="w-8 h-8 text-green-600" />
-          Dashboard de Monitoreo Agrícola
-        </h1>
-        <p className="text-gray-600 mb-6">Resumen estadístico basado en datos de censo, fenología, enfermedades, artrópodos, controladores y polinizadores</p>
+    <div className="min-h-screen bg-gray-50">
+      <DashboardHeader
+        title="Estadísticas de Monitoreo"
+        selectedModule="estadisticas"
+        onBack={() => window.history.back()}
+      />
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <TrendingUp className="w-8 h-8 text-green-600" />
+            Dashboard de Monitoreo Agrícola
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Resumen estadístico basado en datos de censo, fenología, enfermedades, artrópodos, controladores y polinizadores
+          </p>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Plantas monitoreadas</p>
-              <p className="text-2xl font-bold">{totalPlantas}</p>
+          {/* KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">Plantas monitoreadas</p>
+                <p className="text-2xl font-bold">{totalPlantas}</p>
+              </div>
+              <Leaf className="w-10 h-10 text-green-500" />
             </div>
-            <Leaf className="w-10 h-10 text-green-500" />
-          </div>
-          <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Condición Buena</p>
-              <p className="text-2xl font-bold text-green-600">{plantasConBuenaObs}</p>
+            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">Condición Buena</p>
+                <p className="text-2xl font-bold text-green-600">{plantasConBuenaObs}</p>
+              </div>
+              <CheckCircle className="w-10 h-10 text-green-500" />
             </div>
-            <CheckCircle className="w-10 h-10 text-green-500" />
-          </div>
-          <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Condición Mala</p>
-              <p className="text-2xl font-bold text-red-600">{plantasConMalaObs}</p>
+            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">Condición Mala</p>
+                <p className="text-2xl font-bold text-red-600">{plantasConMalaObs}</p>
+              </div>
+              <XCircle className="w-10 h-10 text-red-500" />
             </div>
-            <XCircle className="w-10 h-10 text-red-500" />
-          </div>
-          <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm">Altura promedio</p>
-              <p className="text-2xl font-bold">{alturaPromedio.toFixed(2)} m</p>
+            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm">Altura promedio</p>
+                <p className="text-2xl font-bold">{alturaPromedio.toFixed(2)} m</p>
+              </div>
+              <Activity className="w-10 h-10 text-blue-500" />
             </div>
-            <Activity className="w-10 h-10 text-blue-500" />
           </div>
-        </div>
 
-        {/* Selector de métrica */}
-        <div className="mb-6 flex gap-2 flex-wrap">
-          {['general', 'enfermedades', 'artropodos', 'controladores', 'polinizadores', 'fenologico'].map(met => (
-            <button
-              key={met}
-              onClick={() => setSelectedMetric(met)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition ${selectedMetric === met ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-200'}`}
-            >
-              {met === 'general' && 'General'}
-              {met === 'enfermedades' && 'Enfermedades'}
-              {met === 'artropodos' && 'Artrópodos'}
-              {met === 'controladores' && 'Controladores'}
-              {met === 'polinizadores' && 'Polinizadores'}
-              {met === 'fenologico' && 'Fenología'}
-            </button>
-          ))}
-        </div>
+          {/* Selector de métrica */}
+          <div className="mb-6 flex gap-2 flex-wrap">
+            {['general', 'enfermedades', 'artropodos', 'controladores', 'polinizadores', 'fenologico'].map(met => (
+              <button
+                key={met}
+                onClick={() => setSelectedMetric(met)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${selectedMetric === met ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-200'}`}
+              >
+                {met === 'general' && 'General'}
+                {met === 'enfermedades' && 'Enfermedades'}
+                {met === 'artropodos' && 'Artrópodos'}
+                {met === 'controladores' && 'Controladores'}
+                {met === 'polinizadores' && 'Polinizadores'}
+                {met === 'fenologico' && 'Fenología'}
+              </button>
+            ))}
+          </div>
 
-        {/* Contenido dinámico según métrica */}
-        <div className="space-y-6">
-          {selectedMetric === 'general' && (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Distribución de condición general</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie data={observacionChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                        {observacionChart.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+          {/* Contenido dinámico según métrica */}
+          <div className="space-y-6">
+            {selectedMetric === 'general' && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">Distribución de condición general</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie data={observacionChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                          {observacionChart.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">Altura y diámetro por planta</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={alturaPorPlanta}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="altura" fill="#8884d8" name="Altura (m)" />
+                        <Bar dataKey="diametro" fill="#82ca9d" name="Diámetro copa (m)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Altura y diámetro por planta</h3>
+                  <h3 className="text-lg font-semibold mb-4">Detalle por planta</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Observación</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Altura (m)</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Diámetro (m)</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Controladores</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Polinizadores</th></tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {plantas.map(p => (
+                          <tr key={p.codigo}>
+                            <td className="px-4 py-2 text-sm">{p.codigo}</td>
+                            <td className="px-4 py-2 text-sm">{p.censo.observacion}</td>
+                            <td className="px-4 py-2 text-sm">{p.censo.altura}</td>
+                            <td className="px-4 py-2 text-sm">{p.censo.diametro}</td>
+                            <td className="px-4 py-2 text-sm">{p.controladores.insectos.join(', ') || 'Ninguno'}</td>
+                            <td className="px-4 py-2 text-sm">{p.polinizadores.polinizadores.join(', ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {selectedMetric === 'enfermedades' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Enfermedades más frecuentes</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={alturaPorPlanta}>
+                    <BarChart data={enfermedadesChart}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
-                      <Legend />
-                      <Bar dataKey="altura" fill="#8884d8" name="Altura (m)" />
-                      <Bar dataKey="diametro" fill="#82ca9d" name="Diámetro copa (m)" />
+                      <Bar dataKey="value" fill="#E74C3C" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Detalle por planta</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Observación</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Altura (m)</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Diámetro (m)</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Controladores</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Polinizadores</th></tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {plantas.map(p => (
-                        <tr key={p.codigo}>
-                          <td className="px-4 py-2 text-sm">{p.codigo}</td>
-                          <td className="px-4 py-2 text-sm">{p.censo.observacion}</td>
-                          <td className="px-4 py-2 text-sm">{p.censo.altura}</td>
-                          <td className="px-4 py-2 text-sm">{p.censo.diametro}</td>
-                          <td className="px-4 py-2 text-sm">{p.controladores.insectos.join(', ') || 'Ninguno'}</td>
-                          <td className="px-4 py-2 text-sm">{p.polinizadores.polinizadores.join(', ')}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Recomendaciones rápidas</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li>HLB (Huanglongbing) presente en 3 cuadrantes → Control vectorial urgente.</li>
+                    <li>Antracnosis detectada en 2 plantas → Aplicar fungicidas cúpricos.</li>
+                    <li>Phytophthora en 1 planta → Mejorar drenaje y aplicar metalaxil.</li>
+                  </ul>
                 </div>
               </div>
-            </>
-          )}
+            )}
 
-          {selectedMetric === 'enfermedades' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Enfermedades más frecuentes</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={enfermedadesChart}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#E74C3C" />
-                  </BarChart>
-                </ResponsiveContainer>
+            {selectedMetric === 'artropodos' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Presencia de artrópodos</h3>
+                  <p className="text-2xl font-bold">{totalCuadrantesConPlaga} / {totalPlantas * 4} cuadrantes con plaga</p>
+                  <p className="text-sm text-gray-500">Insectos: {totalInsectos} registros | Ácaros: {totalAcaros} registros</p>
+                  <div className="mt-4">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie data={[{ name: 'Con plaga', value: totalCuadrantesConPlaga }, { name: 'Sin plaga', value: totalPlantas * 4 - totalCuadrantesConPlaga }]} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+                          <Cell fill="#F39C12" /><Cell fill="#BDC3C7" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Plagas más comunes</h3>
+                  <ul className="space-y-2">
+                    <li className="flex justify-between"><span>Diaphorina citri (psílido)</span><span className="font-bold">3 cuadrantes</span></li>
+                    <li className="flex justify-between"><span>Polyphagotarsonemus (ácaro blanco)</span><span className="font-bold">2 cuadrantes</span></li>
+                    <li className="flex justify-between"><span>Phyllocoptruta (ácaro tostador)</span><span className="font-bold">1 cuadrante</span></li>
+                  </ul>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Recomendaciones rápidas</h3>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>HLB (Huanglongbing) presente en 3 cuadrantes → Control vectorial urgente.</li>
-                  <li>Antracnosis detectada en 2 plantas → Aplicar fungicidas cúpricos.</li>
-                  <li>Phytophthora en 1 planta → Mejorar drenaje y aplicar metalaxil.</li>
-                </ul>
-              </div>
-            </div>
-          )}
+            )}
 
-          {selectedMetric === 'artropodos' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Presencia de artrópodos</h3>
-                <p className="text-2xl font-bold">{totalCuadrantesConPlaga} / {totalPlantas * 4} cuadrantes con plaga</p>
-                <p className="text-sm text-gray-500">Insectos: {totalInsectos} registros | Ácaros: {totalAcaros} registros</p>
-                <div className="mt-4">
-                  <ResponsiveContainer width="100%" height={200}>
+            {selectedMetric === 'controladores' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Insectos benéficos observados</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={insectosBeneficosChart}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#2ECC71" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Microbianos benéficos</h3>
+                  <ul>
+                    {Object.entries(microbianosBeneficos).map(([k, v]) => <li key={k}>{k}: {v} planta(s)</li>)}
+                  </ul>
+                  <h3 className="text-lg font-semibold mt-4">Nivel de presencia</h3>
+                  <div className="flex gap-2 mt-2">
+                    <span className="bg-green-100 px-2 py-1 rounded">Alta: 1</span>
+                    <span className="bg-yellow-100 px-2 py-1 rounded">Media: 1</span>
+                    <span className="bg-red-100 px-2 py-1 rounded">Baja: 3</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedMetric === 'polinizadores' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Polinizadores registrados</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
-                      <Pie data={[{ name: 'Con plaga', value: totalCuadrantesConPlaga }, { name: 'Sin plaga', value: totalPlantas * 4 - totalCuadrantesConPlaga }]} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                        <Cell fill="#F39C12" /><Cell fill="#BDC3C7" />
+                      <Pie data={polinizadoresChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                        {polinizadoresChart.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
                       </Pie>
+                      <Tooltip />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Plagas más comunes</h3>
-                <ul className="space-y-2">
-                  <li className="flex justify-between"><span>Diaphorina citri (psílido)</span><span className="font-bold">3 cuadrantes</span></li>
-                  <li className="flex justify-between"><span>Polyphagotarsonemus (ácaro blanco)</span><span className="font-bold">2 cuadrantes</span></li>
-                  <li className="flex justify-between"><span>Phyllocoptruta (ácaro tostador)</span><span className="font-bold">1 cuadrante</span></li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {selectedMetric === 'controladores' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Insectos benéficos observados</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={insectosBeneficosChart}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#2ECC71" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Microbianos benéficos</h3>
-                <ul>
-                  {Object.entries(microbianosBeneficos).map(([k, v]) => <li key={k}>{k}: {v} planta(s)</li>)}
-                </ul>
-                <h3 className="text-lg font-semibold mt-4">Nivel de presencia</h3>
-                <div className="flex gap-2 mt-2">
-                  <span className="bg-green-100 px-2 py-1 rounded">Alta: 1</span>
-                  <span className="bg-yellow-100 px-2 py-1 rounded">Media: 1</span>
-                  <span className="bg-red-100 px-2 py-1 rounded">Baja: 3</span>
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Actividad promedio</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between"><span>Alta (≥5 visitas/min)</span><span>1 planta</span></div>
+                    <div className="flex justify-between"><span>Media (2-4 visitas/min)</span><span>1 planta</span></div>
+                    <div className="flex justify-between"><span>Baja (1 visita/min)</span><span>0</span></div>
+                    <div className="flex justify-between"><span>Sin actividad</span><span>3 plantas</span></div>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-500">⚠️ Baja actividad polinizadora en la mayoría del lote.</p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {selectedMetric === 'polinizadores' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Polinizadores registrados</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie data={polinizadoresChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                      {polinizadoresChart.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Actividad promedio</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between"><span>Alta (≥5 visitas/min)</span><span>1 planta</span></div>
-                  <div className="flex justify-between"><span>Media (2-4 visitas/min)</span><span>1 planta</span></div>
-                  <div className="flex justify-between"><span>Baja (1 visita/min)</span><span>0</span></div>
-                  <div className="flex justify-between"><span>Sin actividad</span><span>3 plantas</span></div>
+            {selectedMetric === 'fenologico' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Distribución de fases fenológicas (por rama)</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={fasesChart}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#9B59B6" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-                <p className="mt-4 text-sm text-gray-500">⚠️ Baja actividad polinizadora en la mayoría del lote.</p>
+                <div className="bg-white p-4 rounded-lg shadow">
+                  <h3 className="text-lg font-semibold mb-4">Detalle de estados BBCH (ejemplo vegetativo)</h3>
+                  <ul>
+                    <li>09: Primordios foliares visibles – 2 ramas</li>
+                    <li>15: Más hojas visibles – 5 ramas</li>
+                    <li>19: Hojas tamaño final – 3 ramas</li>
+                    <li>32: Brotes al 20% – 4 ramas</li>
+                  </ul>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {selectedMetric === 'fenologico' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Distribución de fases fenológicas (por rama)</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={fasesChart}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#9B59B6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold mb-4">Detalle de estados BBCH (ejemplo vegetativo)</h3>
-                <ul>
-                  <li>09: Primordios foliares visibles – 2 ramas</li>
-                  <li>15: Más hojas visibles – 5 ramas</li>
-                  <li>19: Hojas tamaño final – 3 ramas</li>
-                  <li>32: Brotes al 20% – 4 ramas</li>
-                </ul>
-              </div>
+          {/* Footer informativo */}
+          <div className="mt-10 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700 flex gap-2 items-start">
+            <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong>Nota:</strong> Los datos mostrados son simulados (mock) para demostración. Conecte con sus APIs reales para obtener estadísticas en vivo.
+              Las recomendaciones se generan automáticamente según umbrales configurados.
             </div>
-          )}
-        </div>
-
-        {/* Footer informativo */}
-        <div className="mt-10 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700 flex gap-2 items-start">
-          <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <strong>Nota:</strong> Los datos mostrados son simulados (mock) para demostración. Conecte con sus APIs reales para obtener estadísticas en vivo.
-            Las recomendaciones se generan automáticamente según umbrales configurados.
           </div>
         </div>
       </div>
