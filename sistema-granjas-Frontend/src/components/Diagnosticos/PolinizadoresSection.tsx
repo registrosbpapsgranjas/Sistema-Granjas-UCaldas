@@ -187,6 +187,7 @@ export const PolinizadoresSection: React.FC<PolinizadoresSectionProps> = ({
 }) => {
   const prefix = 'polinizadores';
   const [modalImage, setModalImage] = useState<string | null>(null);
+  const initialized = useRef<Set<string>>(new Set());
 
   const handleChange = (clave: string, valor: string | boolean) => {
     onCampoChange(clave, String(valor));
@@ -265,6 +266,21 @@ export const PolinizadoresSection: React.FC<PolinizadoresSectionProps> = ({
       });
     }
   };
+
+  // Inicialización: para cada planta, si no hay valor en polinizadores, establecer ["No se observaron"]
+  useEffect(() => {
+    plantas.forEach((planta) => {
+      const codigo = planta.codigo;
+      const baseKey = `${prefix}_${codigo}`;
+      const key = `${baseKey}_polinizadores`;
+      const current = safeParseArray(caracterizacion[key]);
+
+      if (current.length === 0 && !initialized.current.has(key)) {
+        initialized.current.add(key);
+        handleChange(key, JSON.stringify(['No se observaron']));
+      }
+    });
+  }, [plantas, caracterizacion, handleChange]);
 
   const opcionesPolinizadores = [
     'Abeja melífera',

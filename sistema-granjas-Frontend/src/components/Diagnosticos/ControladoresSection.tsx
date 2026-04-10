@@ -200,6 +200,7 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
 }) => {
   const prefix = 'controladores';
   const [modalImage, setModalImage] = useState<string | null>(null);
+  const initialized = useRef<Set<string>>(new Set());
 
   const handleChange = (clave: string, valor: string | boolean) => {
     onCampoChange(clave, String(valor));
@@ -284,6 +285,31 @@ export const ControladoresSection: React.FC<ControladoresSectionProps> = ({
       });
     }
   };
+
+  // Inicialización: para cada planta y cada grupo, si no hay valor seleccionado,
+  // se establece por defecto ["No se observaron"].
+  useEffect(() => {
+    plantas.forEach((planta) => {
+      const codigo = planta.codigo;
+      const baseKey = `${prefix}_${codigo}`;
+
+      // Grupos: insectos, microbianos, evidencias
+      const grupos = [
+        { key: `${baseKey}_insectos`, ninguno: 'No se observaron' },
+        { key: `${baseKey}_microbianos`, ninguno: 'No se observaron' },
+        { key: `${baseKey}_evidencias`, ninguno: 'No se observaron evidencias' },
+      ];
+
+      grupos.forEach((grupo) => {
+        const current = safeParseArray(caracterizacion[grupo.key]);
+        // Si no hay nada seleccionado (array vacío) y aún no se ha inicializado este grupo
+        if (current.length === 0 && !initialized.current.has(grupo.key)) {
+          initialized.current.add(grupo.key);
+          handleChange(grupo.key, JSON.stringify([grupo.ninguno]));
+        }
+      });
+    });
+  }, [plantas, caracterizacion, handleChange]);
 
   const insectosOpciones = [
     'Coccinélidos',
