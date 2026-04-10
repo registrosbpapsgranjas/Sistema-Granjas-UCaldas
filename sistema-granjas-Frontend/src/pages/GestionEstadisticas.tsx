@@ -78,7 +78,7 @@ interface PlantaCompleta extends PlantaBase {
 const generateMockPlantas = (): PlantaCompleta[] => {
   const codigos = ['P001', 'P002', 'P003', 'P004', 'P005'];
   const labels = ['Cítrico 1', 'Cítrico 2', 'Cítrico 3', 'Cítrico 4', 'Cítrico 5'];
-  const observaciones: ('Buena' | 'Regular' | 'Mala' | 'Resiembra' | 'Punto Vacío')[] = 
+  const observaciones: ('Buena' | 'Regular' | 'Mala' | 'Resiembra' | 'Punto Vacío')[] =
     ['Buena', 'Regular', 'Mala', 'Buena', 'Regular'];
   const alturas = [1.8, 2.1, 1.5, 2.5, 1.9];
   const diametros = [2.2, 2.0, 1.7, 2.8, 2.3];
@@ -120,10 +120,10 @@ const generateMockPlantas = (): PlantaCompleta[] => {
       const agentes = ['hongo', 'bacteria', 'virus', 'oomiceto'];
       const agente = agentes[i % agentes.length];
       let enfermedadesActivas: string[] = [];
-      if (agente === 'hongo') enfermedadesActivos = ['antracnosis'];
-      if (agente === 'bacteria') enfermedadesActivos = ['hlb'];
-      if (agente === 'virus') enfermedadesActivos = ['ctv'];
-      if (agente === 'oomiceto') enfermedadesActivos = ['phytophthora'];
+      if (agente === 'hongo') enfermedadesActivas = ['antracnosis'];
+      if (agente === 'bacteria') enfermedadesActivas = ['hlb'];
+      if (agente === 'virus') enfermedadesActivas = ['ctv'];
+      if (agente === 'oomiceto') enfermedadesActivas = ['phytophthora'];
       enfermedades.push({
         agente,
         enfermedadesActivas,
