@@ -16,6 +16,7 @@ import GestionGranjasPage from './pages/GestionGranjas';
 import GestionProgramasPage from './pages/GestionProgramas';
 import GestionLotesPage from './pages/GestionLotes';
 import GestionCultivosPage from './pages/GestionCultivos';
+import GestionPlantasPage from './pages/GestionPlantas';
 import GestionLaboresPage from './pages/GestionLabores';
 import GestionUsuariosPage from './pages/GestionUsuarios';
 import GestionInventarioPage from './pages/GestionInventarios';
@@ -154,6 +155,15 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <GestionCultivosPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/gestion/plantas"
+          element={
+            <ProtectedRoute>
+              <GestionPlantasPage />
             </ProtectedRoute>
           }
         />

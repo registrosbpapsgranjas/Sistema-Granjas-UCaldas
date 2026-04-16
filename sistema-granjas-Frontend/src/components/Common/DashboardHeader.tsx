@@ -49,6 +49,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 { name: 'Programas', path: '/gestion/programas', icon: 'fa-clipboard-list', description: 'Gestionar programas' },
                 { name: 'Lotes', path: '/gestion/lotes', icon: 'fa-tractor', description: 'Control de lotes' },
                 { name: 'Cultivos', path: '/gestion/cultivos', icon: 'fa-leaf', description: 'Cultivos y especies' },
+                { name: 'Plantas', path: '/gestion/plantas', icon: 'fa-seedling', description: 'Gestión de plantas' },
                 { name: 'Usuarios', path: '/gestion/usuarios', icon: 'fa-users', description: 'Gestión de usuarios' },
                 { name: 'Inventario', path: '/gestion/inventario', icon: 'fa-boxes', description: 'Control de inventario' },
                 { name: 'Diagnósticos', path: '/gestion/diagnosticos', icon: 'fa-stethoscope', description: 'Diagnósticos agrícolas' },
