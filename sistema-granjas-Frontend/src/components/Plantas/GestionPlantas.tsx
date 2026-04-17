@@ -135,6 +135,7 @@ export default function GestionPlantas() {
       surco: planta.surco,
       numero: planta.numero,
       codigo: planta.codigo,
+      estado: planta.estado,
     });
     setPlantaSeleccionada(planta);
     setEditando(true);

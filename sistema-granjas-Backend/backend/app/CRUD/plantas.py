@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy.orm import Session
 from app.db.models import Planta, Lote
 from app.schemas.planta_schema import PlantaCreate, PlantaUpdate
@@ -9,16 +11,16 @@ def generar_codigo_planta(lote_nombre: str, surco: int, numero: int) -> str:
     return f"{nombre_limpio}-S{surco:02d}P{numero:02d}"
 
 def get_plantas(db: Session, lote_id: Optional[int] = None, skip: int = 0, limit: int = 100) -> List[Planta]:
-    query = db.query(Planta).filter(Planta.estado == "activa")
+    query = db.query(Planta).filter(Planta.estado != "eliminada")
     if lote_id:
         query = query.filter(Planta.lote_id == lote_id)
     return query.offset(skip).limit(limit).all()
 
 def get_planta(db: Session, planta_id: int) -> Optional[Planta]:
-    return db.query(Planta).filter(Planta.id == planta_id, Planta.estado == "activa").first()
+    return db.query(Planta).filter(Planta.id == planta_id, Planta.estado != "eliminada").first()
 
 def get_planta_by_codigo(db: Session, codigo: str) -> Optional[Planta]:
-    return db.query(Planta).filter(Planta.codigo == codigo, Planta.estado == "activa").first()
+    return db.query(Planta).filter(Planta.codigo == codigo, Planta.estado != "eliminada").first()
 
 def create_planta(db: Session, data: PlantaCreate) -> Planta:
     lote = db.query(Lote).filter(Lote.id == data.lote_id).first()
@@ -28,8 +30,7 @@ def create_planta(db: Session, data: PlantaCreate) -> Planta:
     existente = db.query(Planta).filter(
         Planta.lote_id == data.lote_id,
         Planta.surco == data.surco,
-        Planta.numero == data.numero,
-        Planta.estado == "activa"
+        Planta.numero == data.numero
     ).first()
     if existente:
         raise ValueError(f"Ya existe una planta en surco {data.surco}, número {data.numero}")
@@ -76,7 +77,7 @@ def crear_plantas_para_lote(db: Session, lote_id: int) -> List[Planta]:
                     surco=surco,
                     numero=numero,
                     codigo=codigo,
-                    estado="activa"
+                    estado="Árbol Productivo"
                 )
                 db.add(nueva)
                 plantas_creadas.append(nueva)

@@ -1,6 +1,6 @@
 // src/components/Plantas/PlantasTable.tsx
 import React from 'react';
-import { PlantaResponse } from '../../types/plantaTypes';
+import type { PlantaResponse } from '../../types/plantaTypes';
 
 interface PlantasTableProps {
   plantas: PlantaResponse[];

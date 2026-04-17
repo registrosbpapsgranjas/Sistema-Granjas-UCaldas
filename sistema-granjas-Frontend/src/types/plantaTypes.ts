@@ -4,10 +4,11 @@ export interface PlantaBase {
   lote_id: number;
   surco: number;
   numero: number;
+  estado?: string;
   codigo?: string;
 }
 
-export interface PlantaCreate extends PlantaBase {}
+export type PlantaCreate = PlantaBase
 
 export interface PlantaUpdate {
   surco?: number;
