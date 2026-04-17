@@ -7,6 +7,8 @@ from app.core.dependencies import require_any_role
 from app.CRUD import plantas as crud
 from app.schemas.planta_schema import PlantaCreate, PlantaUpdate, PlantaResponse, GenerarPlantasResponse
 
+from app.db.models import Lote  # 👈 IMPORTACIÓN FALTANTE
+
 router = APIRouter(prefix="/plantas", tags=["Plantas"])
 role_required = Depends(require_any_role(["admin", "docente", "asesor"]))
 
