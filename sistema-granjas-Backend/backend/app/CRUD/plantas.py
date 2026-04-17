@@ -62,7 +62,7 @@ def update_planta(db: Session, planta: Planta, data: PlantaUpdate) -> Planta:
 
 def delete_planta(db: Session, planta: Planta) -> None:
     # Cambia el estado a "para_eliminar" en lugar de borrar físicamente
-    planta.estado = "para_eliminar"
+    db.delete(planta)  # Si quieres eliminar físicamente, usa esto. Si solo quieres marcar, comenta esta línea y descomenta la siguiente.
     db.commit()
 
 def crear_plantas_para_lote(db: Session, lote_id: int) -> List[Planta]:
