@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom'; // 👈 NUEVA IMPORTACIÓN
 import programaService from '../../services/programaService';
 import cultivoService from '../../services/cultivoService';
 import granjaService from '../../services/granjaService';
@@ -14,6 +15,8 @@ const LotesTable: React.FC<LotesTableProps> = ({
     onEditar,
     onEliminar
 }) => {
+    const navigate = useNavigate(); // 👈 PARA NAVEGACIÓN
+
     // Mapas
     const [programasMap, setProgramasMap] = useState<Record<number, string>>({});
     const [cultivosMap, setCultivosMap] = useState<Record<number, any>>({});
@@ -135,6 +138,12 @@ const LotesTable: React.FC<LotesTableProps> = ({
         cargarDatosRelacionados();
     }, [lotes]);
 
+    // 👇 NUEVA FUNCIÓN PARA NAVEGAR A PLANTAS DEL LOTE
+    const verPlantasDelLote = (e: React.MouseEvent, loteId: number, loteNombre: string) => {
+        e.stopPropagation();
+        navigate(`/gestion/plantas?loteId=${loteId}&loteNombre=${encodeURIComponent(loteNombre)}`);
+    };
+
     // Funciones auxiliares
     const getEstadoColor = (estado: string) => {
         switch (estado?.toLowerCase()) {
@@ -170,7 +179,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
             return <span className="text-gray-400 text-sm italic">—</span>;
         }
 
-        const cultivosVisibles = cultivosLote.slice(0, 100); // Mostrar solo los primeros 100 cultivos
+        const cultivosVisibles = cultivosLote.slice(0, 100);
 
         return (
             <div className="flex flex-wrap gap-1">
@@ -189,16 +198,10 @@ const LotesTable: React.FC<LotesTableProps> = ({
         );
     };
 
-    // Función para formatear números con separadores de miles
     const formatearNumero = (numero: number | null | undefined) => {
         if (numero === null || numero === undefined) return '-';
         return numero.toLocaleString('es-ES');
     };
-
-    // Logs para depuración
-    console.log('📋 Lotes recibidos (original):', lotes);
-    console.log('📋 Lotes ordenados:', lotesOrdenados);
-    console.log('🎯 Cultivos por lote en render:', cultivosPorLote);
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -286,6 +289,15 @@ const LotesTable: React.FC<LotesTableProps> = ({
 
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex space-x-3">
+                                            {/* 👇 NUEVO BOTÓN PLANTAS */}
+                                            <button
+                                                onClick={(e) => verPlantasDelLote(e, lote.id, lote.nombre)}
+                                                className="text-green-600 hover:text-green-900 transition-colors p-2 hover:bg-green-50 rounded"
+                                                title="Ver plantas de este lote"
+                                            >
+                                                <i className="fas fa-leaf"></i>
+                                            </button>
+
                                             <button
                                                 onClick={() => onEditar(lote)}
                                                 className="text-yellow-600 hover:text-yellow-900 transition-colors p-2 hover:bg-yellow-50 rounded"
