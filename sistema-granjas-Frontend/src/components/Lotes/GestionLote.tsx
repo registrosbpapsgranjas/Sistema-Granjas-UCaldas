@@ -274,28 +274,6 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
 
     return (
         <div className="p-6">
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-                <StatsCard
-                    icon="fas fa-seedling"
-                    color="bg-green-600"
-                    value={lotes.length}
-                    label="Lotes Totales"
-                />
-                <StatsCard
-                    icon="fas fa-tractor"
-                    color="bg-blue-600"
-                    value={lotes.filter(l => l.estado === 'activo').length}
-                    label="Lotes Activos"
-                />
-                <StatsCard
-                    icon="fas fa-list"
-                    color="bg-yellow-600"
-                    value={tiposLote.length}
-                    label="Tipos de Lote"
-                />
-            </div>
-
             {/* Botones de acción */}
             <div className="mb-6 flex gap-4">
                 <button
