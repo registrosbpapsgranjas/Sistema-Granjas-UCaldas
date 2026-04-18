@@ -214,16 +214,6 @@ export default function GestionPlantas() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Gestión de Plantas</h1>
-      </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
       {/* Filtro por lote */}
       <div className="mb-4 flex items-center gap-4 flex-wrap">
         <div>
@@ -231,7 +221,7 @@ export default function GestionPlantas() {
           <select
             value={loteSeleccionado?.id || ""}
             onChange={cambiarLote}
-            className="border rounded px-3 py-2 min-w-[200px]"
+            className="border rounded px-3 py-2 w-full max-w-xs sm:max-w-sm md:max-w-md"
           >
             <option value="">Todos los lotes</option>
             {lotes.map((l) => (
