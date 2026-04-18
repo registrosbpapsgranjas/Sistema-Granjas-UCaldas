@@ -320,35 +320,6 @@ export default function GestionUsuarios() {
 
     return (
         <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Gestión de Usuarios</h1>
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <StatsCard
-                    icon="fas fa-users"
-                    color="bg-purple-600"
-                    value={estadisticas.total}
-                    label="Usuarios Totales"
-                />
-                <StatsCard
-                    icon="fas fa-user-check"
-                    color="bg-green-600"
-                    value={estadisticas.activos}
-                    label="Usuarios Activos"
-                />
-                <StatsCard
-                    icon="fas fa-user-slash"
-                    color="bg-red-600"
-                    value={estadisticas.inactivos}
-                    label="Usuarios Inactivos"
-                />
-                <StatsCard
-                    icon="fas fa-user-shield"
-                    color="bg-blue-600"
-                    value={Object.keys(estadisticas.porRol).length}
-                    label="Roles Diferentes"
-                />
-            </div>
-
             {/* Estadísticas por Rol */}
             {Object.keys(estadisticas.porRol).length > 0 && (
                 <div className="mb-6 bg-white rounded-lg shadow p-4">
