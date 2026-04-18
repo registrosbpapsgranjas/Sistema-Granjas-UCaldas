@@ -96,13 +96,22 @@ const LoteMapa: React.FC = () => {
     }`;
   };
 
+  // Función para volver atrás en el historial, o a la lista si no hay historial
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1); // Regresa a la página anterior (con el contexto correcto)
+    } else {
+      navigate('/lotes'); // Fallback
+    }
+  };
+
   if (cargando) {
     return (
       <div className="min-h-screen bg-gray-50">
         <DashboardHeader
           title="Mapa del Lote"
           selectedModule="lotes"
-          onBack={() => navigate('/lotes')}
+          onBack={handleBack}
         />
         <div className="flex justify-center items-center h-96">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
@@ -119,11 +128,10 @@ const LoteMapa: React.FC = () => {
       <DashboardHeader
         title={`Mapa del Lote: ${lote.nombre}`}
         selectedModule="lotes"
-        onBack={() => navigate('/lotes')}
+        onBack={handleBack}
       />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Información y botón a lista */}
           <div className="mb-6 flex justify-between items-center">
             <div>
               <p className="text-gray-600 mt-1">
