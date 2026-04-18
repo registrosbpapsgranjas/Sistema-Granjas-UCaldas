@@ -23,11 +23,10 @@ export default function GestionPlantas() {
   const [plantas, setPlantas] = useState<PlantaResponse[]>([]);
   const [lotes, setLotes] = useState<LoteSimple[]>([]);
   const [loteSeleccionado, setLoteSeleccionado] = useState<LoteSimple | null>(null);
-  const [cargando, setCargando] = useState(true);
+  const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [erroresValidacion, setErroresValidacion] = useState<Record<string, string>>({});
 
-  // Estadísticas ajustadas a los nuevos estados
   const [estadisticas, setEstadisticas] = useState({
     total: 0,
     productivo: 0,
@@ -41,10 +40,10 @@ export default function GestionPlantas() {
   const [generando, setGenerando] = useState(false);
 
   const [datosFormulario, setDatosFormulario] = useState<PlantaCreate>({
-    lote_id: loteIdParam ? Number(loteIdParam) : 0,
+    lote_id: 0,
     surco: 1,
     numero: 1,
-    estado: "productivo", // 👈 estado por defecto
+    estado: "productivo",
   });
 
   // Cargar lotes disponibles
@@ -53,9 +52,15 @@ export default function GestionPlantas() {
       try {
         const data = await loteService.obtenerLotes();
         setLotes(data);
+        // Si hay loteId en la URL, seleccionarlo automáticamente
         if (loteIdParam) {
           const lote = data.find((l: LoteSimple) => l.id === Number(loteIdParam));
-          if (lote) setLoteSeleccionado(lote);
+          if (lote) {
+            setLoteSeleccionado(lote);
+            cargarPlantas(lote.id);
+          } else {
+            toast.error("Lote no encontrado");
+          }
         }
       } catch (err) {
         console.error("Error cargando lotes:", err);
@@ -65,23 +70,13 @@ export default function GestionPlantas() {
     cargarLotes();
   }, [loteIdParam]);
 
-  // Cargar plantas cuando cambia el lote seleccionado
-  useEffect(() => {
-    if (loteIdParam) {
-      cargarPlantas(Number(loteIdParam));
-    } else if (lotes.length > 0 && !loteSeleccionado) {
-      cargarPlantas();
-    }
-  }, [loteIdParam, lotes]);
-
-  const cargarPlantas = async (loteId?: number) => {
+  const cargarPlantas = async (loteId: number) => {
     try {
       setCargando(true);
       setError(null);
       const datos = await plantaService.obtenerPlantas(loteId);
       setPlantas(datos);
 
-      // Calcular estadísticas según los nuevos estados
       setEstadisticas({
         total: datos.length,
         productivo: datos.filter((p) => p.estado === "productivo").length,
@@ -104,7 +99,6 @@ export default function GestionPlantas() {
 
     try {
       if (editando && plantaSeleccionada) {
-        // Actualizar: se puede actualizar surco, numero y estado
         await plantaService.actualizarPlanta(plantaSeleccionada.id, {
           surco: datosFormulario.surco,
           numero: datosFormulario.numero,
@@ -112,12 +106,13 @@ export default function GestionPlantas() {
         });
         toast.success("Planta actualizada");
       } else {
-        // Crear nueva planta (con estado incluido)
         await plantaService.crearPlanta(datosFormulario);
         toast.success("Planta creada");
       }
 
-      await cargarPlantas(loteSeleccionado?.id);
+      if (loteSeleccionado) {
+        await cargarPlantas(loteSeleccionado.id);
+      }
       setModalCrear(false);
       setEditando(false);
       resetFormulario();
@@ -142,7 +137,7 @@ export default function GestionPlantas() {
       surco: planta.surco,
       numero: planta.numero,
       codigo: planta.codigo,
-      estado: planta.estado, // 👈 cargar estado actual
+      estado: planta.estado,
     });
     setPlantaSeleccionada(planta);
     setEditando(true);
@@ -151,11 +146,13 @@ export default function GestionPlantas() {
   };
 
   const manejarEliminar = async (id: number) => {
-    if (!window.confirm("¿Eliminar esta planta? (Cambiará a estado 'eliminada')")) return;
+    if (!window.confirm("¿Eliminar permanentemente esta planta? Esta acción no se puede deshacer.")) return;
     try {
       await plantaService.eliminarPlanta(id);
-      toast.success("Planta eliminada");
-      await cargarPlantas(loteSeleccionado?.id);
+      toast.success("Planta eliminada permanentemente");
+      if (loteSeleccionado) {
+        await cargarPlantas(loteSeleccionado.id);
+      }
     } catch (err: any) {
       toast.error(err?.message || "Error al eliminar");
     }
@@ -186,7 +183,7 @@ export default function GestionPlantas() {
       lote_id: loteSeleccionado?.id || 0,
       surco: 1,
       numero: 1,
-      estado: "productivo", // 👈 restablecer estado por defecto
+      estado: "productivo",
     });
     setErroresValidacion({});
   };
@@ -195,12 +192,15 @@ export default function GestionPlantas() {
     const id = Number(e.target.value);
     const lote = lotes.find((l) => l.id === id);
     setLoteSeleccionado(lote || null);
-    if (id) {
+    if (id && lote) {
       cargarPlantas(id);
+      setDatosFormulario((prev) => ({ ...prev, lote_id: id }));
     } else {
-      cargarPlantas();
+      // Si se selecciona la opción vacía, limpiar tabla y estadísticas
+      setPlantas([]);
+      setEstadisticas({ total: 0, productivo: 0, para_eliminar: 0, punto_vacio: 0 });
+      setDatosFormulario((prev) => ({ ...prev, lote_id: 0 }));
     }
-    setDatosFormulario((prev) => ({ ...prev, lote_id: id }));
   };
 
   if (cargando && plantas.length === 0) {
@@ -217,13 +217,13 @@ export default function GestionPlantas() {
       {/* Filtro por lote */}
       <div className="mb-4 flex items-center gap-4 flex-wrap">
         <div>
-          <label className="block text-sm font-medium mb-1">Filtrar por lote</label>
+          <label className="block text-sm font-medium mb-1">Seleccionar lote</label>
           <select
             value={loteSeleccionado?.id || ""}
             onChange={cambiarLote}
             className="border rounded px-3 py-2 w-full max-w-xs sm:max-w-sm md:max-w-md"
           >
-            <option value="">Todos los lotes</option>
+            <option value="">-- Selecciona un lote --</option>
             {lotes.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.nombre}
