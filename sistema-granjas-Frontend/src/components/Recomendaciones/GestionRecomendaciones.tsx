@@ -4,10 +4,11 @@ import { toast } from 'react-hot-toast';
 import recomendacionService from '../../services/recomendacionService';
 import usuarioService from '../../services/usuarioService';
 import loteService from '../../services/loteService';
+import programaService from '../../services/programaService'; // 👈 NUEVO
 import type { Recomendacion, RecomendacionFilters } from '../../types/recomendacionTypes';
 import Modal from '../Common/Modal';
 import RecomendacionesTable from './RecomendacionesTable';
-import RecomendacionForm from './RecomendacionesForm';
+import RecomendacionFormSelector from './RecomendacionFormSelector'; // 👈 NUEVO selector
 import DetallesRecomendacionModal from './DetallesRecomendaciones';
 import EstadisticasModal from './Estadisticas';
 import AprobarRecomendacionModal from './AprobarRecomendacion';
@@ -33,18 +34,31 @@ const GestionRecomendaciones: React.FC = () => {
     const [recomendacionAAprobarTitulo, setRecomendacionAAprobarTitulo] = useState<string>('');
     const [lotes, setLotes] = useState<any[]>([]);
     const [docentes, setDocentes] = useState<any[]>([]);
+    const [programas, setProgramas] = useState<any[]>([]); // 👈 NUEVO: lista de programas
     const [filtros, setFiltros] = useState<RecomendacionFilters>({});
-    // Estados específicos para exportación
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
-    const rolesPermitidos = [1, 2, 5, 6]; // IDs de roles permitidos para crear recomendaciones
+    const rolesPermitidos = [1, 2, 5, 6];
 
-    // Handler para exportar recomendaciones
+    // Cargar programas al inicio
+    useEffect(() => {
+        const cargarProgramas = async () => {
+            try {
+                const data = await programaService.obtenerProgramas();
+                const programasArray = Array.isArray(data) ? data : (data?.items || []);
+                setProgramas(programasArray);
+            } catch (err) {
+                console.error('Error cargando programas:', err);
+            }
+        };
+        cargarProgramas();
+    }, []);
+
+    // Handler para exportar
     const handleExportRecomendaciones = async () => {
         if (exporting) return;
         setExporting(true);
         setExportMessage('Exportando recomendaciones...');
-
         try {
             const result = await exportService.exportarRecomendaciones();
             setExportMessage(`¡Exportación completada! (${result.filename})`);
@@ -76,32 +90,19 @@ const GestionRecomendaciones: React.FC = () => {
                 try {
                     const lotesData = await loteService.obtenerLotes();
                     let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
-
-                    // Obtener nombres de granjas para cada lote
                     lotesArray = await Promise.all(
                         lotesArray.map(async (lote) => {
                             try {
                                 if (lote.granja_id) {
                                     const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
-                                    return {
-                                        ...lote,
-                                        granja_nombre: granja.nombre || 'Sin nombre'
-                                    };
+                                    return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
                                 }
-                                return {
-                                    ...lote,
-                                    granja_nombre: 'Sin granja'
-                                };
-                            } catch (error) {
-                                console.error(`Error obteniendo granja ${lote.granja_id}:`, error);
-                                return {
-                                    ...lote,
-                                    granja_nombre: 'Error al cargar'
-                                };
+                                return { ...lote, granja_nombre: 'Sin granja' };
+                            } catch {
+                                return { ...lote, granja_nombre: 'Error al cargar' };
                             }
                         })
                     );
-                    console.log('Lotes cargados con nombres de granja:', lotesArray);
                     setLotes(lotesArray);
                 } catch (loteError) {
                     console.error('Error cargando lotes:', loteError);
@@ -109,7 +110,6 @@ const GestionRecomendaciones: React.FC = () => {
                 }
             }
 
-            // Cargar docentes
             if (docentes.length === 0) {
                 try {
                     const usuarios = await usuarioService.obtenerUsuarios();
@@ -121,7 +121,6 @@ const GestionRecomendaciones: React.FC = () => {
                     setDocentes([]);
                 }
             }
-
         } catch (err: any) {
             console.error('Error en cargarDatos:', err);
             setError(err.message || 'Error al cargar recomendaciones');
@@ -158,7 +157,6 @@ const GestionRecomendaciones: React.FC = () => {
 
     const handleEliminarRecomendacion = async (id: number) => {
         if (!confirm("¿Estás seguro de eliminar esta recomendación?")) return;
-
         try {
             await recomendacionService.eliminarRecomendacion(id);
             setRecomendaciones(prev => prev.filter(r => r.id !== id));
@@ -169,23 +167,10 @@ const GestionRecomendaciones: React.FC = () => {
     };
 
     const handleAprobarRecomendacion = async (observaciones: string = '') => {
-        console.log('🔄 handleAprobarRecomendacion llamado');
-        console.log('📊 recomendacionAAprobarId:', recomendacionAAprobarId);
-
-        if (!recomendacionAAprobarId) {
-            console.error('❌ recomendacionAAprobarId es null/undefined');
-            return;
-        }
-
+        if (!recomendacionAAprobarId) return;
         try {
-            console.log(`📤 Aprobando recomendación ID: ${recomendacionAAprobarId}`);
-            const aprobada = await recomendacionService.aprobarRecomendacion(
-                recomendacionAAprobarId,
-                observaciones
-            );
-            setRecomendaciones(prev => prev.map(r =>
-                r.id === recomendacionAAprobarId ? aprobada : r
-            ));
+            const aprobada = await recomendacionService.aprobarRecomendacion(recomendacionAAprobarId, observaciones);
+            setRecomendaciones(prev => prev.map(r => r.id === recomendacionAAprobarId ? aprobada : r));
             toast.success('Recomendación aprobada exitosamente');
             setShowAprobarModal(false);
             setRecomendacionAAprobarId(null);
@@ -216,37 +201,34 @@ const GestionRecomendaciones: React.FC = () => {
     // FILTRO POR ROL ---------------------------------------------------
     const recomendacionesFiltradas = Array.isArray(recomendaciones) ? recomendaciones.filter(r => {
         if (!user) return false;
-        if (user.rol_id === 1) return true; // Admin ve todo
-        if (user.rol_id === 2 || user.rol_id === 5) return r.docente_id === user.id; // Docente ve las que creó
-        return true; // Estudiantes ven todas por ahora
+        if (user.rol_id === 1) return true;
+        if (user.rol_id === 2 || user.rol_id === 5) return r.docente_id === user.id;
+        return true;
     }) : [];
-    console.log("Rol", user, rolesPermitidos.find(r => r === user?.rol_id));
+
     // RENDER -----------------------------------------------------------
     return (
         <div className="p-6">
-
-            {/* HEADER CON FILTROS (igual que diagnósticos) */}
+            {/* HEADER CON FILTROS */}
             <div className="mb-6">
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-bold text-gray-800">Gestión de Recomendaciones</h1>
                     <div className="flex items-center space-x-3 m-2">
                         {exportMessage && (
-                            <span className={`text-sm px-3 py-1 rounded ${exportMessage.includes('Error')
-                                ? 'bg-red-100 text-red-600'
-                                : 'bg-green-100 text-green-600'
-                                }`}>
+                            <span className={`text-sm px-3 py-1 rounded ${exportMessage.includes('Error') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                                 {exportMessage}
                             </span>
                         )}
-
-                        {(user && user.rol_id === 1) && (<button
-                            onClick={handleExportRecomendaciones}
-                            disabled={exporting}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 disabled:opacity-50 transition-colors"
-                        >
-                            <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-excel'}`}></i>
-                            <span>{exporting ? 'Exportando...' : 'Exportar a Excel'}</span>
-                        </button>)}
+                        {user && user.rol_id === 1 && (
+                            <button
+                                onClick={handleExportRecomendaciones}
+                                disabled={exporting}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 disabled:opacity-50 transition-colors"
+                            >
+                                <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-excel'}`}></i>
+                                <span>{exporting ? 'Exportando...' : 'Exportar a Excel'}</span>
+                            </button>
+                        )}
                     </div>
                     <div className="flex space-x-3">
                         <button
@@ -256,19 +238,19 @@ const GestionRecomendaciones: React.FC = () => {
                             <i className="fas fa-chart-bar mr-2"></i>
                             Estadísticas
                         </button>
-
-                        {(user && rolesPermitidos.includes(user.rol_id)) && (
+                        {user && rolesPermitidos.includes(user.rol_id) && (
                             <button
                                 onClick={() => setShowCrearModal(true)}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
                             >
                                 <i className="fas fa-plus mr-2"></i>
                                 Nueva Recomendación
-                            </button>)}
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Filtros (igual que en diagnósticos) */}
+                {/* Filtros */}
                 <div className="bg-white p-4 rounded-lg shadow mb-6">
                     <h3 className="font-semibold mb-3">Filtros</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -332,10 +314,7 @@ const GestionRecomendaciones: React.FC = () => {
             ) : error ? (
                 <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
                     <p>Error: {error}</p>
-                    <button
-                        onClick={cargarDatos}
-                        className="mt-2 text-blue-600 hover:text-blue-800"
-                    >
+                    <button onClick={cargarDatos} className="mt-2 text-blue-600 hover:text-blue-800">
                         Reintentar
                     </button>
                 </div>
@@ -350,30 +329,32 @@ const GestionRecomendaciones: React.FC = () => {
                 />
             )}
 
-            {/* MODALES */}
-
-            {/* MODAL CREAR */}
-            <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-2xl">
-                <RecomendacionForm
+            {/* MODAL CREAR con selector de programa */}
+            <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-4xl">
+                <RecomendacionFormSelector
                     onSubmit={handleCrearRecomendacion}
                     onCancel={() => setShowCrearModal(false)}
                     lotes={lotes}
                     docentes={docentes}
                     currentUser={user}
+                    programas={programas} // 👈 pasamos la lista de programas
+                    esEdicion={false}
                 />
             </Modal>
 
-            {/* MODAL EDITAR */}
-            <Modal isOpen={showEditarModal} onClose={() => setShowEditarModal(false)} width="max-w-2xl">
+            {/* MODAL EDITAR: usamos el selector también, pasando el programa del lote */}
+            <Modal isOpen={showEditarModal} onClose={() => setShowEditarModal(false)} width="max-w-4xl">
                 {selectedRecomendacion && (
-                    <RecomendacionForm
+                    <RecomendacionFormSelector
                         recomendacion={selectedRecomendacion}
                         onSubmit={(data) => handleActualizarRecomendacion(selectedRecomendacion.id, data)}
                         onCancel={() => setShowEditarModal(false)}
                         lotes={lotes}
                         docentes={docentes}
                         currentUser={user}
+                        programas={programas}
                         esEdicion={true}
+                        // Opcional: pasar programaInicial si se conoce, pero se deduce del lote en el selector
                     />
                 )}
             </Modal>
@@ -409,7 +390,6 @@ const GestionRecomendaciones: React.FC = () => {
                     tituloRecomendacion={recomendacionAAprobarTitulo}
                 />
             )}
-
         </div>
     );
 };
