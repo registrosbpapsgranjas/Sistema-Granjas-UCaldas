@@ -27,7 +27,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     const [currentTime, setCurrentTime] = useState(new Date());
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-    // Guardar usuario en localStorage cuando cambia
+    // Guardar usuario en localStorage
     useEffect(() => {
         if (user?.nombre) {
             localStorage.setItem("user", user.nombre);
@@ -45,10 +45,21 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         setMobileMenuOpen(false);
     }, [location.pathname]);
 
-    // Definir qué módulos puede ver cada rol (con iconos y descripciones)
+    // Prevenir scroll del body cuando el menú está abierto
+    useEffect(() => {
+        if (mobileMenuOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [mobileMenuOpen]);
+
+    // Definición de módulos por rol (igual que antes)
     const getModulesByRole = (rol: string | undefined): ModuleInfo[] => {
         if (!rol) return [];
-
         const modulesByRole: Record<string, ModuleInfo[]> = {
             admin: [
                 { name: 'Granjas', path: '/gestion/granjas', icon: 'fa-warehouse', description: 'Administrar granjas' },
@@ -85,14 +96,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 { name: 'Labores', path: '/gestion/labores', icon: 'fa-calendar-check', description: 'Ver mis labores' }
             ]
         };
-
         return modulesByRole[rol] || [];
     };
 
-    // Obtener icono por rol
     const getRoleIcon = (rol: string | undefined): string => {
         if (!rol) return 'fa-user';
-
         const roleIcons: Record<string, string> = {
             admin: 'fa-crown',
             asesor: 'fa-chart-line',
@@ -101,14 +109,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             estudiante: 'fa-user-graduate',
             trabajador: 'fa-hard-hat'
         };
-
         return roleIcons[rol] || 'fa-user';
     };
 
-    // Obtener color por rol
     const getRoleColor = (rol: string | undefined): string => {
         if (!rol) return 'bg-amber-500';
-
         const roleColors: Record<string, string> = {
             admin: 'bg-purple-600',
             asesor: 'bg-blue-600',
@@ -117,11 +122,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             estudiante: 'bg-amber-500',
             trabajador: 'bg-orange-500'
         };
-
         return roleColors[rol] || 'bg-amber-500';
     };
 
-    // Obtener mensaje de bienvenida según la hora
     const getGreeting = (): string => {
         const hour = currentTime.getHours();
         if (hour < 12) return 'Buenos días';
@@ -134,39 +137,27 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     const roleColor = getRoleColor(user?.rol);
     const greeting = getGreeting();
 
-    // Verificar si una ruta está activa
-    const isActive = (path: string): boolean => {
-        return location.pathname === path;
+    const isActive = (path: string): boolean => location.pathname === path;
+
+    const toggleMobileMenu = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setMobileMenuOpen(!mobileMenuOpen);
     };
 
-    // Cerrar menú al hacer clic fuera
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as HTMLElement;
-            if (mobileMenuOpen && !target.closest('.mobile-menu-container')) {
-                setMobileMenuOpen(false);
-            }
-        };
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, [mobileMenuOpen]);
+    const closeMenu = () => setMobileMenuOpen(false);
 
     return (
         <header className="bg-white shadow-lg sticky top-0 z-50 border-b">
-            {/* Primera fila: Logo y usuario */}
+            {/* Fila superior */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
                 <div className="flex justify-between items-center gap-3">
-                    {/* Logo y título (responsive) */}
+                    {/* Logo */}
                     <div 
                         className="flex items-center space-x-2 sm:space-x-4 cursor-pointer group flex-1" 
                         onClick={() => navigate('/dashboard')}
                     >
                         <div className="flex h-10 w-10 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-white text-green-700 transition-transform group-hover:scale-105">
-                            <img
-                                src="/icons/icon-512.png"
-                                alt="Sistema de granjas"
-                                className="h-8 w-8 sm:h-14 sm:w-14"
-                            />
+                            <img src="/icons/icon-512.png" alt="Sistema de granjas" className="h-8 w-8 sm:h-14 sm:w-14" />
                         </div>
                         <div>
                             <h1 className="text-base sm:text-2xl font-bold text-green-700">Sistema Granjas</h1>
@@ -174,15 +165,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         </div>
                     </div>
 
-                    {/* Información de usuario (compacta en móvil) */}
+                    {/* Usuario */}
                     {user ? (
                         <div className="flex items-center space-x-2">
-                            {/* Datos de usuario - ocultar en móvil muy pequeño */}
                             <div className="hidden md:block text-right">
                                 <div className="text-xs text-gray-500">{greeting},</div>
-                                <div className="font-semibold text-gray-800 text-sm">
-                                    {user.nombre}
-                                </div>
+                                <div className="font-semibold text-gray-800 text-sm">{user.nombre}</div>
                                 <div className="text-xs text-gray-500 capitalize flex items-center justify-end">
                                     <span className={`w-2 h-2 rounded-full ${roleColor.replace('bg-', 'bg-').replace('600', '400')} mr-1`}></span>
                                     {user.rol?.replace('_', ' ')}
@@ -192,46 +180,22 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                 <div className={`w-8 h-8 sm:w-12 sm:h-12 ${roleColor} rounded-full flex items-center justify-center shadow-md`}>
                                     <i className={`fas ${roleIcon} text-white text-xs sm:text-xl`}></i>
                                 </div>
-                                <LogoutButton
-                                    variant="minimal"
-                                    className="px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm"
-                                />
+                                <LogoutButton variant="minimal" className="px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm" />
                             </div>
                         </div>
                     ) : (
-                        <div className="flex items-center space-x-4">
-                            <a
-                                href="/login"
-                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5 text-sm sm:text-base"
-                            >
-                                Iniciar Sesión
-                            </a>
-                        </div>
+                        <a href="/login" className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium text-sm sm:text-base">
+                            Iniciar Sesión
+                        </a>
                     )}
                 </div>
             </div>
 
-            {/* Navegación por roles - Versión móvil con menú hamburguesa */}
+            {/* Navegación: desktop (horizontal) + móvil (hamburguesa) */}
             {user && !selectedModule && userModules.length > 0 && (
                 <div className="bg-gray-50 border-t border-gray-200">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                        {/* Botón hamburguesa para móvil */}
-                        <div className="sm:hidden py-2 flex justify-between items-center">
-                            <button
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="flex items-center space-x-2 text-gray-700 hover:text-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-lg px-3 py-2 transition"
-                                aria-label="Menú de navegación"
-                            >
-                                <i className={`fas ${mobileMenuOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
-                                <span className="text-sm font-medium">Módulos</span>
-                            </button>
-                            {/* Indicador de módulo activo (opcional) */}
-                            <div className="text-xs text-gray-500">
-                                {location.pathname.split('/').pop() || 'Inicio'}
-                            </div>
-                        </div>
-
-                        {/* Menú desktop (horizontal) */}
+                        {/* Versión desktop */}
                         <div className="hidden sm:block relative">
                             <nav className="flex overflow-x-auto py-2 sm:py-3 space-x-1 sm:space-x-2 scrollbar-hide">
                                 {userModules.map((module) => {
@@ -240,76 +204,72 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                         <a
                                             key={module.path}
                                             href={module.path}
-                                            className={`
-                                                group relative flex items-center px-3 py-2 rounded-lg
-                                                transition-all duration-200 whitespace-nowrap
-                                                ${active 
-                                                    ? 'bg-green-100 text-green-700 font-medium' 
-                                                    : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
-                                                }
-                                            `}
+                                            className={`group relative flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${active ? 'bg-green-100 text-green-700 font-medium' : 'text-gray-700 hover:bg-green-50 hover:text-green-600'}`}
                                             title={module.description}
                                         >
-                                            <i className={`fas ${module.icon} mr-2 text-sm ${
-                                                active ? 'text-green-600' : 'text-gray-500 group-hover:text-green-500'
-                                            }`}></i>
+                                            <i className={`fas ${module.icon} mr-2 text-sm ${active ? 'text-green-600' : 'text-gray-500 group-hover:text-green-500'}`}></i>
                                             <span>{module.name}</span>
-                                            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden lg:block whitespace-nowrap">
-                                                {module.description}
-                                            </span>
                                         </a>
                                     );
                                 })}
                             </nav>
                         </div>
 
-                        {/* Menú móvil desplegable (drawer lateral desde arriba) */}
-                        {mobileMenuOpen && (
-                            <div className="sm:hidden mobile-menu-container fixed inset-0 z-50 bg-black bg-opacity-50 transition-opacity" onClick={() => setMobileMenuOpen(false)}>
-                                <div className="absolute top-0 left-0 right-0 bg-white shadow-xl rounded-b-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                                    <div className="sticky top-0 bg-white border-b px-4 py-3 flex justify-between items-center">
-                                        <h3 className="font-semibold text-gray-800">Módulos disponibles</h3>
-                                        <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-full hover:bg-gray-100">
-                                            <i className="fas fa-times text-gray-500"></i>
-                                        </button>
-                                    </div>
-                                    <div className="p-3 space-y-1">
-                                        {userModules.map((module) => {
-                                            const active = isActive(module.path);
-                                            return (
-                                                <a
-                                                    key={module.path}
-                                                    href={module.path}
-                                                    className={`
-                                                        flex items-center space-x-3 px-4 py-3 rounded-xl
-                                                        transition-all duration-150
-                                                        ${active 
-                                                            ? 'bg-green-50 text-green-700 font-medium' 
-                                                            : 'text-gray-700 hover:bg-gray-50'
-                                                        }
-                                                    `}
-                                                    onClick={() => setMobileMenuOpen(false)}
-                                                >
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${active ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                                        <i className={`fas ${module.icon} ${active ? 'text-green-600' : 'text-gray-500'}`}></i>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div className="text-sm font-medium">{module.name}</div>
-                                                        <div className="text-xs text-gray-500">{module.description}</div>
-                                                    </div>
-                                                    {active && <i className="fas fa-check-circle text-green-500"></i>}
-                                                </a>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {/* Versión móvil: botón hamburguesa + drawer */}
+                        <div className="sm:hidden py-2">
+                            <button
+                                onClick={toggleMobileMenu}
+                                className="flex items-center space-x-2 text-gray-700 hover:text-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-lg px-3 py-2 transition"
+                                aria-label="Menú de navegación"
+                            >
+                                <i className={`fas ${mobileMenuOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
+                                <span className="text-sm font-medium">Módulos</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Título del módulo seleccionado (mejorado para móvil) */}
+            {/* Drawer móvil (se muestra cuando mobileMenuOpen es true) */}
+            {mobileMenuOpen && (
+                <div className="fixed inset-0 z-50 sm:hidden" aria-modal="true" role="dialog">
+                    {/* Fondo oscuro */}
+                    <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={closeMenu}></div>
+                    {/* Panel deslizable desde la izquierda (o derecha) */}
+                    <div className="fixed top-0 left-0 bottom-0 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b px-4 py-3 flex justify-between items-center">
+                            <h3 className="font-semibold text-gray-800">Módulos</h3>
+                            <button onClick={closeMenu} className="p-2 rounded-full hover:bg-gray-100">
+                                <i className="fas fa-times text-gray-500"></i>
+                            </button>
+                        </div>
+                        <div className="p-3 space-y-1">
+                            {userModules.map((module) => {
+                                const active = isActive(module.path);
+                                return (
+                                    <a
+                                        key={module.path}
+                                        href={module.path}
+                                        className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-150 ${active ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                                        onClick={closeMenu}
+                                    >
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${active ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                            <i className={`fas ${module.icon} ${active ? 'text-green-600' : 'text-gray-500'}`}></i>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-sm font-medium">{module.name}</div>
+                                            <div className="text-xs text-gray-500">{module.description}</div>
+                                        </div>
+                                        {active && <i className="fas fa-check-circle text-green-500"></i>}
+                                    </a>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Título del módulo seleccionado */}
             {selectedModule && (
                 <div className="border-t border-gray-200 bg-gray-50/50">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
@@ -318,7 +278,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                 {onBack && (
                                     <button
                                         onClick={onBack}
-                                        className="flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-white transition-all duration-200 touch-manipulation"
+                                        className="flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-white transition-all touch-manipulation"
                                         aria-label="Volver"
                                     >
                                         <i className="fas fa-arrow-left text-base sm:text-lg"></i>
@@ -332,21 +292,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                     </p>
                                 </div>
                             </div>
-                            
-                            {/* Acciones rápidas - mejoradas para táctil */}
                             <div className="flex space-x-3 justify-end">
-                                <button 
-                                    onClick={() => window.location.reload()}
-                                    className="p-2 text-gray-500 hover:text-green-600 rounded-full hover:bg-white transition-all touch-manipulation"
-                                    aria-label="Actualizar página"
-                                >
+                                <button onClick={() => window.location.reload()} className="p-2 text-gray-500 hover:text-green-600 rounded-full hover:bg-white transition-all touch-manipulation" aria-label="Actualizar página">
                                     <i className="fas fa-sync-alt text-sm sm:text-base"></i>
                                 </button>
-                                <button 
-                                    onClick={() => navigate('/dashboard')}
-                                    className="p-2 text-gray-500 hover:text-green-600 rounded-full hover:bg-white transition-all touch-manipulation"
-                                    aria-label="Ir al dashboard"
-                                >
+                                <button onClick={() => navigate('/dashboard')} className="p-2 text-gray-500 hover:text-green-600 rounded-full hover:bg-white transition-all touch-manipulation" aria-label="Ir al dashboard">
                                     <i className="fas fa-home text-sm sm:text-base"></i>
                                 </button>
                             </div>
