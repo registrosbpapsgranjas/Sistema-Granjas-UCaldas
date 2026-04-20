@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
 interface PlantaBase {
+    id: number;          // 👈 AGREGADO: ID real de la planta
     codigo: string;
     label: string;
     surco: number;
@@ -155,6 +156,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             const data = response.data;
             if (data.plantas && data.plantas.length > 0) {
                 const plantasFormateadas: PlantaBase[] = data.plantas.map((p: any) => ({
+                    id: p.id,          // 👈 GUARDAR EL ID REAL
                     codigo: p.codigo,
                     label: `Surco ${p.surco}, Planta ${p.numero}`,
                     surco: p.surco,
@@ -226,7 +228,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Cargar plantas elegibles cuando cambia tipoDiagnostico (en paso 2) ────
     useEffect(() => {
-        // Solo ejecutar si estamos en paso 2 (o si es edición)
         if (paso === 2 && loteId && tipoDiagnostico && tipoDiagnostico !== 'arvenses' && estructuraLote?.total_plantas) {
             cargarPlantasElegibles();
         } else if (tipoDiagnostico === 'arvenses') {
@@ -314,7 +315,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             toast.error('Lote sin plantas configuradas');
             return;
         }
-        // Avanzar al paso 2 sin verificar plantas elegibles (aún no se ha seleccionado tipo)
         setPaso(2);
     };
 
@@ -351,9 +351,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         formData.append('tipo_diagnostico', tipoDiagnostico);
         formData.append('condiciones_dia', condicionesDia);
 
-        // Incluir plantas_ids en el formulario
+        // ✅ ENVIAR LOS IDS REALES DE LAS PLANTAS
         if (tipoDiagnostico !== 'arvenses' && plantas.length > 0) {
-            const plantasIds = plantas.map(p => p.planta); // o p.id? Depende de la estructura real
+            const plantasIds = plantas.map(p => p.id);
             formData.append('plantas_ids', JSON.stringify(plantasIds));
         }
 
