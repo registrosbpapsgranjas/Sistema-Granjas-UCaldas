@@ -59,7 +59,6 @@ def _enriquecer(obj: Diagnostico) -> None:
 
 
 def _cargar_plantas(db: Session, diagnostico: Diagnostico) -> List[PlantaSimpleResponse]:
-    """Carga las plantas asociadas a un diagnóstico (sin filtrar por estado)."""
     plantas = db.query(Planta).join(
         diagnostico_planta,
         diagnostico_planta.c.planta_id == Planta.id
@@ -75,7 +74,7 @@ def _cargar_plantas(db: Session, diagnostico: Diagnostico) -> List[PlantaSimpleR
     ) for p in plantas]
 
 
-# ── NUEVO ENDPOINT: GENERAR PLANTAS ALEATORIAS PARA UN DIAGNÓSTICO ──────────────
+# ── NUEVO ENDPOINT: GENERAR PLANTAS ALEATORIAS ──────────────────────────────
 @router.post("/generar-plantas", response_model=GenerarPlantasResponse)
 def generar_plantas_aleatorias(
     data: GenerarPlantasRequest,
@@ -88,7 +87,6 @@ def generar_plantas_aleatorias(
 
     hace_un_mes = datetime.utcnow() - timedelta(days=30)
 
-    # Subconsulta: plantas que ya tuvieron este diagnóstico en el último mes
     subquery = db.query(diagnostico_planta.c.planta_id).join(
         Diagnostico, Diagnostico.id == diagnostico_planta.c.diagnostico_id
     ).filter(
@@ -96,7 +94,6 @@ def generar_plantas_aleatorias(
         Diagnostico.fecha_creacion >= hace_un_mes
     ).subquery()
 
-    # Plantas elegibles: productivas y no repetidas
     query = db.query(Planta).filter(
         Planta.lote_id == data.lote_id,
         Planta.estado == "productivo",
@@ -107,7 +104,6 @@ def generar_plantas_aleatorias(
     productivas = db.query(Planta).filter(Planta.lote_id == data.lote_id, Planta.estado == "productivo").count()
     elegibles = query.count()
 
-    # Selección aleatoria
     plantas_elegibles = query.order_by(func.random()).limit(data.cantidad).all()
 
     advertencias = []
@@ -186,7 +182,6 @@ async def crear_diagnostico(
     except ValueError as e:
         raise HTTPException(400, f"Error en tipo de dato: {str(e)}")
 
-    # Extraer plantas_ids (opcional)
     plantas_ids_raw = form_data.get("plantas_ids")
     plantas_ids = None
     if plantas_ids_raw:
@@ -202,23 +197,19 @@ async def crear_diagnostico(
     except json.JSONDecodeError:
         raise HTTPException(400, "El campo 'formulario' debe ser un JSON válido")
 
-    # Subir archivos a R2
     fotos_por_prefix = procesar_archivos_r2(form_data)
     if fotos_por_prefix:
         formulario["fotos_subidas"] = fotos_por_prefix
         logger.info(f"Archivos subidos: {list(fotos_por_prefix.keys())}")
 
-    # Validar permisos
     if user.rol.nombre == "estudiante" and usuario_id != user.id:
         raise HTTPException(403, "Solo puede crear diagnósticos para su propio usuario")
 
-    # Validar FK
     get_or_404(db, Programa, programa_id, "Programa no encontrado")
     get_or_404(db, Monitoreo, tipo_monitoreo_id, "Tipo de monitoreo no encontrado")
     lote = get_or_404(db, Lote, lote_id, "Lote no encontrado")
     get_or_404(db, Usuario, usuario_id, "Usuario no encontrado")
 
-    # Validar que las plantas enviadas cumplan los criterios (productivo y no repetido en último mes)
     if plantas_ids:
         hace_un_mes = datetime.utcnow() - timedelta(days=30)
         subquery = db.query(diagnostico_planta.c.planta_id).join(
@@ -316,7 +307,6 @@ async def actualizar_diagnostico(
         except json.JSONDecodeError:
             raise HTTPException(400, "plantas_ids debe ser un JSON válido")
 
-    # Subir nuevos archivos
     fotos_por_prefix = procesar_archivos_r2(form_data)
     if fotos_por_prefix:
         formulario_actual = update_data.get("formulario", obj.formulario or {})
@@ -327,7 +317,6 @@ async def actualizar_diagnostico(
         update_data["formulario"] = formulario_actual
         logger.info(f"Nuevos archivos añadidos en actualización: {list(fotos_por_prefix.keys())}")
 
-    # Validar plantas nuevas
     if plantas_ids:
         hace_un_mes = datetime.utcnow() - timedelta(days=30)
         subquery = db.query(diagnostico_planta.c.planta_id).join(
@@ -335,7 +324,7 @@ async def actualizar_diagnostico(
         ).filter(
             Diagnostico.tipo_diagnostico == obj.tipo_diagnostico,
             Diagnostico.fecha_creacion >= hace_un_mes,
-            Diagnostico.id != id  # excluir el mismo diagnóstico en actualización
+            Diagnostico.id != id
         ).subquery()
 
         plantas = db.query(Planta).filter(
