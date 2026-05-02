@@ -93,6 +93,7 @@ class Programa(Base):
     insumos = relationship("Insumo", back_populates="programa")
     monitoreos = relationship("Monitoreo", back_populates="programa", cascade="all, delete-orphan")
     diagnosticos = relationship("Diagnostico", back_populates="programa")
+    tipos_inventario = relationship("ProgramaInventarioTipo", back_populates="programa", cascade="all, delete-orphan")
 
 class Granja(Base):
     __tablename__ = "granjas"
