@@ -136,40 +136,6 @@ class Lote(Base):
     # NUEVA relación uno a muchos con Planta
     plantas = relationship("Planta", back_populates="lote", cascade="all, delete-orphan")
 
-class CategoriaInventario(Base):
-    __tablename__ = "categorias_inventario"
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(50), nullable=False)
-    descripcion = Column(String(255))
-
-class Herramienta(Base):
-    __tablename__ = "herramientas"
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(100), nullable=False)
-    descripcion = Column(String(255))
-    categoria_id = Column(Integer, ForeignKey("categorias_inventario.id"))
-    cantidad_total = Column(Integer, default=0)
-    cantidad_disponible = Column(Integer, default=0)
-    estado = Column(String(50), default="disponible")
-    categoria = relationship("CategoriaInventario")
-    movimientos = relationship("MovimientoHerramienta", back_populates="herramienta")
-    asignaciones = relationship("AsignacionHerramienta", back_populates="herramienta")
-
-class Insumo(Base):
-    __tablename__ = "insumos"
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(100), nullable=False)
-    descripcion = Column(String(255))
-    programa_id = Column(Integer, ForeignKey("programas.id"))
-    cantidad_total = Column(Float, default=0.0)
-    cantidad_disponible = Column(Float, default=0.0)
-    unidad_medida = Column(String(50))
-    nivel_alerta = Column(Float, default=0.0)
-    fecha_vencimiento = Column(DateTime, nullable=True)
-    estado = Column(String(50), default="disponible")
-    programa = relationship("Programa", back_populates="insumos")
-    movimientos = relationship("MovimientoInsumo", back_populates="insumo")
-
 class TipoLabor(Base):
     __tablename__ = "tipos_labor"
     id = Column(Integer, primary_key=True, index=True)
@@ -252,39 +218,6 @@ class Diagnostico(Base):
 
     # NUEVA relación muchos a muchos con Planta
     plantas = relationship("Planta", secondary=diagnostico_planta, back_populates="diagnosticos")
-
-class MovimientoHerramienta(Base):
-    __tablename__ = "movimientos_herramientas"
-    id = Column(Integer, primary_key=True, index=True)
-    herramienta_id = Column(Integer, ForeignKey("herramientas.id"))
-    labor_id = Column(Integer, ForeignKey("labores.id"))
-    cantidad = Column(Integer, nullable=False)
-    tipo_movimiento = Column(String(50), nullable=False)
-    fecha_movimiento = Column(DateTime, default=colombia_now)
-    observaciones = Column(Text)
-    herramienta = relationship("Herramienta", back_populates="movimientos")
-    labor = relationship("Labor", back_populates="uso_herramientas")
-
-class MovimientoInsumo(Base):
-    __tablename__ = "movimientos_insumos"
-    id = Column(Integer, primary_key=True, index=True)
-    insumo_id = Column(Integer, ForeignKey("insumos.id"))
-    labor_id = Column(Integer, ForeignKey("labores.id"))
-    cantidad = Column(Float, nullable=False)
-    tipo_movimiento = Column(String(50), nullable=False)
-    fecha_movimiento = Column(DateTime, default=colombia_now)
-    observaciones = Column(Text)
-    insumo = relationship("Insumo", back_populates="movimientos")
-    labor = relationship("Labor", back_populates="uso_insumos")
-
-class AsignacionHerramienta(Base):
-    __tablename__ = "asignaciones_herramientas"
-    id = Column(Integer, primary_key=True, index=True)
-    herramienta_id = Column(Integer, ForeignKey("herramientas.id"))
-    labor_id = Column(Integer, ForeignKey("labores.id"))
-    cantidad = Column(Integer, default=1)
-    fecha_asignacion = Column(DateTime, default=colombia_now)
-    herramienta = relationship("Herramienta", back_populates="asignaciones")
 
 class Monitoreo(Base):
     __tablename__ = "monitoreos"
