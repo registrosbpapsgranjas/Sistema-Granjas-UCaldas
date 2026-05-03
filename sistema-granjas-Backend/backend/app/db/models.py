@@ -51,7 +51,7 @@ diagnostico_planta = Table(
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# MODELOS EXISTENTES
+# MODELOS EXISTENTES (SIN REFERENCIAS A INVENTARIO ANTIGUO)
 # ──────────────────────────────────────────────────────────────────────────────
 class Rol(Base):
     __tablename__ = "roles"
@@ -192,9 +192,9 @@ class Labor(Base):
     lote = relationship("Lote", back_populates="labores")
     evidencias = relationship("Evidencia", back_populates="labor")
     tipo_labor = relationship("TipoLabor", back_populates="labores")
-    # NOTA: Se han eliminado las relaciones uso_herramientas y uso_insumos porque los modelos
-    # MovimientoHerramienta, MovimientoInsumo y las tablas asociadas fueron eliminados.
-    # La gestión de recursos se realizará mediante el nuevo inventario dinámico.
+    # ⚠️ Se han eliminado las relaciones uso_herramientas y uso_insumos porque los modelos
+    # MovimientoHerramienta y MovimientoInsumo fueron eliminados. La gestión de recursos
+    # se realizará mediante el nuevo inventario dinámico.
 
 class Diagnostico(Base):
     __tablename__ = "diagnosticos"
@@ -243,12 +243,12 @@ class Planta(Base):
     lote_id = Column(Integer, ForeignKey("lotes.id", ondelete="CASCADE"), nullable=False)
     surco = Column(Integer, nullable=False)
     numero = Column(Integer, nullable=False)
-    codigo = Column(String(50), unique=True, nullable=False, index=True)   # Ej: "CITRICO1-S01P02"
+    codigo = Column(String(50), unique=True, nullable=False, index=True)
     estado = Column(String(20), default="productivo")
     created_at = Column(DateTime, default=colombia_now)
     updated_at = Column(DateTime, default=colombia_now, onupdate=colombia_now)
     lote = relationship("Lote", back_populates="plantas")
-    diagnosticos = relationship("Diagnostico", secondary=diagnostico_planta, back_populates="plantas")
+    diagnosticos = relationship("Diagnostico", secondary=diagnostico_planta, back_populates="diagnosticos")
 
 # ===================== INVENTARIO DINÁMICO POR PROGRAMA =====================
 
