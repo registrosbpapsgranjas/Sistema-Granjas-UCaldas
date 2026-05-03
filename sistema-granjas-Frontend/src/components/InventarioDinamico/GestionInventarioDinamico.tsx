@@ -143,7 +143,6 @@ const GestionInventarioDinamico: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DashboardHeader title="Inventario Dinámico" selectedModule="inventario" onBack={() => window.history.back()} />
       <div className="container mx-auto px-4 py-8">
         <SelectorPrograma onProgramaChange={setProgramaId} programaIdSeleccionado={programaId || undefined} />
 
