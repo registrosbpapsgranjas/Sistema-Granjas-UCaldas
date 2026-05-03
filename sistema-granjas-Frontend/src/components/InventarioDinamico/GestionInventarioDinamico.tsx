@@ -1,3 +1,4 @@
+// src/components/InventarioDinamico/GestionInventarioDinamico.tsx
 import React, { useState, useEffect } from 'react';
 import DashboardHeader from '../Common/DashboardHeader';
 import SelectorPrograma from './SelectorPrograma';
@@ -8,10 +9,13 @@ import CampoInventarioForm from './CampoInventarioForm';
 import ItemsInventarioList from './ItemsInventarioList';
 import ItemInventarioForm from './ItemInventarioForm';
 import { inventarioDinamicoService } from '../../services/inventarioDinamicoService';
+import programaService from '../../services/programaService';
 import type { TipoInventario, Campo, ItemInventario, TipoConItems } from '../../types/inventarioDinamicoTypes';
 import { toast } from 'react-hot-toast';
 
 const GestionInventarioDinamico: React.FC = () => {
+  const [programas, setProgramas] = useState<any[]>([]);
+  const [cargandoProgramas, setCargandoProgramas] = useState(true);
   const [programaId, setProgramaId] = useState<number | null>(null);
   const [tipos, setTipos] = useState<TipoInventario[]>([]);
   const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoInventario | null>(null);
@@ -27,6 +31,23 @@ const GestionInventarioDinamico: React.FC = () => {
   const [editandoCampo, setEditandoCampo] = useState<Campo | null>(null);
   const [editandoItem, setEditandoItem] = useState<ItemInventario | null>(null);
 
+  // Cargar programas al montar
+  useEffect(() => {
+    const cargarProgramas = async () => {
+      try {
+        const data = await programaService.obtenerProgramas();
+        setProgramas(data);
+      } catch (error) {
+        console.error('Error cargando programas:', error);
+        toast.error('No se pudieron cargar los programas');
+      } finally {
+        setCargandoProgramas(false);
+      }
+    };
+    cargarProgramas();
+  }, []);
+
+  // Cuando cambia el programa, cargar los tipos de inventario
   useEffect(() => {
     if (programaId) {
       cargarTipos();
@@ -82,7 +103,7 @@ const GestionInventarioDinamico: React.FC = () => {
 
   // CRUD Tipos
   const handleCrearTipo = async (data: any) => {
-    if (!programaId) throw new Error('Seleccione programa');
+    if (!programaId) throw new Error('Seleccione un programa');
     await inventarioDinamicoService.crearTipo({ ...data, programa_id: programaId });
     toast.success('Tipo creado');
     await cargarTipos();
@@ -143,8 +164,14 @@ const GestionInventarioDinamico: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardHeader title="Inventario Dinámico" selectedModule="inventario" onBack={() => window.history.back()} />
       <div className="container mx-auto px-4 py-8">
-        <SelectorPrograma onProgramaChange={setProgramaId} programaIdSeleccionado={programaId || undefined} />
+        <SelectorPrograma
+          programas={programas}
+          programaIdSeleccionado={programaId}
+          onProgramaChange={setProgramaId}
+          cargando={cargandoProgramas}
+        />
 
         {programaId ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
@@ -184,10 +211,12 @@ const GestionInventarioDinamico: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">Selecciona un programa para comenzar.</div>
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            Selecciona un programa para comenzar.
+          </div>
         )}
 
-        {/* Modales */}
+        {/* Modales (sin cambios) */}
         <TipoInventarioForm
           isOpen={modalTipo}
           onClose={() => { setModalTipo(false); setEditandoTipo(null); }}
