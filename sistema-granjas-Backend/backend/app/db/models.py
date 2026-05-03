@@ -39,7 +39,7 @@ class LoteCultivo(Base):
     cultivo = relationship("CultivoEspecie", back_populates="lotes_asignados")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# NUEVA TABLA INTERMEDIA DIAGNOSTICO-PLANTA (MUCHOS A MUCHOS)
+# TABLA INTERMEDIA DIAGNOSTICO-PLANTA (MUCHOS A MUCHOS)
 # ──────────────────────────────────────────────────────────────────────────────
 diagnostico_planta = Table(
     "diagnostico_planta",
@@ -51,7 +51,7 @@ diagnostico_planta = Table(
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# MODELOS EXISTENTES (CON LAS ADAPTACIONES NECESARIAS)
+# MODELOS EXISTENTES
 # ──────────────────────────────────────────────────────────────────────────────
 class Rol(Base):
     __tablename__ = "roles"
@@ -74,7 +74,7 @@ class Usuario(Base):
     fecha_creacion = Column(DateTime, default=colombia_now)
     rol = relationship("Rol", back_populates="usuarios")
     granjas = relationship("Granja", secondary=usuario_granja, back_populates="usuarios")
-    programas = relationship("Programa", secondary=usuario_programa, back_populates="usuarios")
+    programas = relationship("Programa", secondary=usuario_programa, back_populates="programas")
     labores_asignadas = relationship("Labor", back_populates="trabajador")
     recomendaciones_generadas = relationship("Recomendacion", back_populates="docente")
     diagnosticos = relationship("Diagnostico", back_populates="usuario")
@@ -90,7 +90,6 @@ class Programa(Base):
     granjas = relationship("Granja", secondary="granja_programa", back_populates="programas")
     usuarios = relationship("Usuario", secondary=usuario_programa, back_populates="programas")
     lotes = relationship("Lote", back_populates="programa")
-    insumos = relationship("Insumo", back_populates="programa")
     monitoreos = relationship("Monitoreo", back_populates="programa", cascade="all, delete-orphan")
     diagnosticos = relationship("Diagnostico", back_populates="programa")
     tipos_inventario = relationship("ProgramaInventarioTipo", back_populates="programa", cascade="all, delete-orphan")
@@ -133,8 +132,6 @@ class Lote(Base):
     labores = relationship("Labor", back_populates="lote")
     diagnosticos = relationship("Diagnostico", back_populates="lote")
     recomendaciones = relationship("Recomendacion", back_populates="lote")
-    
-    # NUEVA relación uno a muchos con Planta
     plantas = relationship("Planta", back_populates="lote", cascade="all, delete-orphan")
 
 class TipoLabor(Base):
@@ -142,6 +139,7 @@ class TipoLabor(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
     descripcion = Column(String(255))
+    labores = relationship("Labor", back_populates="tipo_labor")
 
 class Recomendacion(Base):
     __tablename__ = "recomendaciones"
@@ -193,9 +191,10 @@ class Labor(Base):
     trabajador = relationship("Usuario", back_populates="labores_asignadas")
     lote = relationship("Lote", back_populates="labores")
     evidencias = relationship("Evidencia", back_populates="labor")
-    tipo_labor = relationship("TipoLabor")
-    uso_herramientas = relationship("MovimientoHerramienta", back_populates="labor")
-    uso_insumos = relationship("MovimientoInsumo", back_populates="labor")
+    tipo_labor = relationship("TipoLabor", back_populates="labores")
+    # NOTA: Se han eliminado las relaciones uso_herramientas y uso_insumos porque los modelos
+    # MovimientoHerramienta, MovimientoInsumo y las tablas asociadas fueron eliminados.
+    # La gestión de recursos se realizará mediante el nuevo inventario dinámico.
 
 class Diagnostico(Base):
     __tablename__ = "diagnosticos"
@@ -216,8 +215,6 @@ class Diagnostico(Base):
     usuario = relationship("Usuario", back_populates="diagnosticos")
     recomendaciones = relationship("Recomendacion", back_populates="diagnostico")
     evidencias = relationship("Evidencia", back_populates="diagnostico")
-
-    # NUEVA relación muchos a muchos con Planta
     plantas = relationship("Planta", secondary=diagnostico_planta, back_populates="diagnosticos")
 
 class Monitoreo(Base):
@@ -240,9 +237,6 @@ class CultivoEspecie(Base):
     granja = relationship("Granja", back_populates="cultivos")
     lotes_asignados = relationship("LoteCultivo", back_populates="cultivo", cascade="all, delete-orphan")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# NUEVO MODELO: PLANTA (con relación muchos a uno con Lote)
-# ──────────────────────────────────────────────────────────────────────────────
 class Planta(Base):
     __tablename__ = "plantas"
     id = Column(Integer, primary_key=True, index=True)
@@ -250,11 +244,9 @@ class Planta(Base):
     surco = Column(Integer, nullable=False)
     numero = Column(Integer, nullable=False)
     codigo = Column(String(50), unique=True, nullable=False, index=True)   # Ej: "CITRICO1-S01P02"
-    estado = Column(String(20), default="productivo")   # activa, eliminada
+    estado = Column(String(20), default="productivo")
     created_at = Column(DateTime, default=colombia_now)
     updated_at = Column(DateTime, default=colombia_now, onupdate=colombia_now)
-
-    # Relaciones
     lote = relationship("Lote", back_populates="plantas")
     diagnosticos = relationship("Diagnostico", secondary=diagnostico_planta, back_populates="plantas")
 
@@ -264,13 +256,12 @@ class ProgramaInventarioTipo(Base):
     __tablename__ = "programas_inventario_tipos"
     id = Column(Integer, primary_key=True, index=True)
     programa_id = Column(Integer, ForeignKey("programas.id", ondelete="CASCADE"), nullable=False)
-    nombre = Column(String(100), nullable=False)          # ej: "Fertilizantes sólidos"
+    nombre = Column(String(100), nullable=False)
     descripcion = Column(Text)
     orden = Column(Integer, default=0)
     activo = Column(Boolean, default=True)
     created_at = Column(DateTime, default=colombia_now)
     updated_at = Column(DateTime, default=colombia_now, onupdate=colombia_now)
-
     programa = relationship("Programa", back_populates="tipos_inventario")
     campos = relationship("InventarioCampo", back_populates="tipo", cascade="all, delete-orphan")
     items = relationship("ItemInventarioPrograma", back_populates="tipo", cascade="all, delete-orphan")
@@ -279,14 +270,13 @@ class InventarioCampo(Base):
     __tablename__ = "inventario_campos"
     id = Column(Integer, primary_key=True, index=True)
     tipo_id = Column(Integer, ForeignKey("programas_inventario_tipos.id", ondelete="CASCADE"), nullable=False)
-    nombre_campo = Column(String(100), nullable=False)    # "COMPOSICIÓN", "NOMBRE COMERCIAL", etc.
+    nombre_campo = Column(String(100), nullable=False)
     tipo_dato = Column(String(20), nullable=False)       # "text", "number", "date", "select", "boolean"
     requerido = Column(Boolean, default=False)
     opciones = Column(JSON, nullable=True)               # para "select": ["op1", "op2"]
     orden = Column(Integer, default=0)
-    ancho = Column(String(10), default="auto")           # sugerencia para frontend
+    ancho = Column(String(10), default="auto")
     created_at = Column(DateTime, default=colombia_now)
-
     tipo = relationship("ProgramaInventarioTipo", back_populates="campos")
 
 class ItemInventarioPrograma(Base):
@@ -295,10 +285,9 @@ class ItemInventarioPrograma(Base):
     tipo_id = Column(Integer, ForeignKey("programas_inventario_tipos.id", ondelete="CASCADE"), nullable=False)
     fecha_inventario = Column(Date, default=colombia_now().date())
     cantidad_disponible = Column(Float, default=0.0)
-    unidad_medida = Column(String(50), nullable=True)     # kg, L, bultos, etc.
-    valores = Column(JSON, nullable=False, default={})    # todos los campos personalizados
+    unidad_medida = Column(String(50), nullable=True)
+    valores = Column(JSON, nullable=False, default={})
     observaciones = Column(Text, nullable=True)
     created_at = Column(DateTime, default=colombia_now)
     updated_at = Column(DateTime, default=colombia_now, onupdate=colombia_now)
-
     tipo = relationship("ProgramaInventarioTipo", back_populates="items")
