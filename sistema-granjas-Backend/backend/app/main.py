@@ -16,7 +16,6 @@ from app.api import (
     labores,
     evidencias,
     upload,
-    movimientos,
     roles,
     exportRoutes,
     asignaciones,
@@ -284,7 +283,6 @@ app.include_router(recomendaciones.router, prefix="/api")
 app.include_router(labores.router, prefix="/api")
 app.include_router(evidencias.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
-app.include_router(movimientos.router, prefix="/api")
 app.include_router(roles.router, prefix="/api")
 app.include_router(exportRoutes.router, prefix="/api")
 app.include_router(asignaciones.router, prefix="/api")
