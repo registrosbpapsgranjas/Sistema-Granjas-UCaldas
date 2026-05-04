@@ -1,7 +1,7 @@
 // src/components/Plantas/PlantaForm.tsx
 import React from "react";
 import Modal from "../Common/Modal";
-import { PlantaCreate } from "../../types/plantaTypes";
+import type { PlantaCreate } from "../../types/plantaTypes";
 
 interface LoteOption {
   id: number;

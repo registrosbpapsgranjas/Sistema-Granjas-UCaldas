@@ -12,6 +12,11 @@ export interface Recomendacion {
   granja_nombre?: string;
   programa_nombre?: string;
   diagnostico_id?: number;
+  inventario_item_id?: number;
+  inventario_item_nombre?: string;
+  inventario_item_unidad?: string;
+  inventario_item_disponible?: number;
+  cantidad_sugerida?: number;
   fecha_creacion: string;
   fecha_aprobacion?: string;
   evidencias?: Evidencia[];
@@ -47,6 +52,8 @@ export interface CreateRecomendacionDto {
   docente_id: number;
   lote_id: number;
   diagnostico_id?: number;
+  inventario_item_id?: number;
+  cantidad_sugerida?: number;
 }
 
 export interface UpdateRecomendacionDto {

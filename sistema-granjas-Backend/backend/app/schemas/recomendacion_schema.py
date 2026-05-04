@@ -27,6 +27,8 @@ class RecomendacionBase(BaseModel):
     estado: EstadoRecomendacion = Field(EstadoRecomendacion.PENDIENTE, description="Estado de la recomendación")
     lote_id: int = Field(..., gt=0, description="ID del lote donde aplicar")
     diagnostico_id: Optional[int] = Field(None, gt=0, description="ID del diagnóstico relacionado")
+    inventario_item_id: Optional[int] = Field(None, gt=0, description="Item de inventario sugerido")
+    cantidad_sugerida: Optional[float] = Field(None, gt=0, description="Cantidad sugerida del insumo")
 
     @validator('titulo')
     def titulo_no_vacio(cls, v):
@@ -81,6 +83,9 @@ class RecomendacionResponse(RecomendacionBase):
     granja_nombre: Optional[str] = None
     programa_nombre: Optional[str] = None
     diagnostico_tipo: Optional[str] = None
+    inventario_item_nombre: Optional[str] = None
+    inventario_item_unidad: Optional[str] = None
+    inventario_item_disponible: Optional[float] = None
     
     class Config:
         from_attributes = True

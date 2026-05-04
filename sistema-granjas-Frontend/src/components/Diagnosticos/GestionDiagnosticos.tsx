@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import diagnosticoService from '../../services/diagnosticoService';
 import loteService from '../../services/loteService';
 import programaService from '../../services/programaService';
@@ -16,6 +17,7 @@ import exportService from '../../services/exportService';
 
 const GestionDiagnosticos: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [diagnosticos, setDiagnosticos] = useState<DiagnosticoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +179,16 @@ const GestionDiagnosticos: React.FC = () => {
   const openEvidenciaModal = (diag: DiagnosticoItem) => { setSelectedDiagnostico(diag); setShowEvidenciaModal(true); };
   const openDetallesModal = (diag: DiagnosticoItem) => { setSelectedDiagnostico(diag); setShowDetallesModal(true); };
 
+  const crearRecomendacionDesdeDiagnostico = (diag: DiagnosticoItem) => {
+    const params = new URLSearchParams({
+      diagnostico_id: String(diag.id),
+      lote_id: String((diag as any).lote_id || ''),
+    });
+    navigate(`/gestion/recomendaciones?${params.toString()}`);
+  };
+
+  const esDocenteOAdmin = user && (user.rol_id === 1 || user.rol_id === 2 || user.rol_id === 5);
+
   const diagnosticosFiltrados = diagnosticos.filter(d => {
     if (!user) return false;
     if (user.rol_id === 1) return true;
@@ -228,7 +240,15 @@ const GestionDiagnosticos: React.FC = () => {
       ) : error ? (
         <div className="bg-red-50 p-4 rounded text-red-700"><p>{error}</p><button onClick={cargarDatos} className="mt-2 text-blue-600 underline">Reintentar</button></div>
       ) : (
-        <DiagnosticosTable diagnosticos={diagnosticosFiltrados} onEditar={openEditarModal} onEliminar={handleEliminarDiagnostico} onAgregarEvidencia={openEvidenciaModal} onVerDetalles={openDetallesModal} currentUser={user} />
+        <DiagnosticosTable
+          diagnosticos={diagnosticosFiltrados}
+          onEditar={openEditarModal}
+          onEliminar={handleEliminarDiagnostico}
+          onAgregarEvidencia={openEvidenciaModal}
+          onVerDetalles={openDetallesModal}
+          currentUser={user}
+          onCrearRecomendacion={esDocenteOAdmin ? crearRecomendacionDesdeDiagnostico : undefined}
+        />
       )}
 
       <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-2xl">

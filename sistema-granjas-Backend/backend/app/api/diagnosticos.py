@@ -376,6 +376,83 @@ def eliminar_diagnostico(
     return {"message": "Diagnóstico eliminado correctamente"}
 
 
+@router.get("/mapa/{lote_id}")
+def obtener_datos_mapa(
+    lote_id: int,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "trabajador", "talento_humano"]))
+):
+    """Retorna datos de diagnósticos agregados por planta para colorear el mapa del lote."""
+    diagnosticos = db.query(Diagnostico).filter(Diagnostico.lote_id == lote_id).all()
+
+    plant_data: Dict[int, Dict[str, Any]] = {}
+
+    for diag in diagnosticos:
+        formulario = diag.formulario or {}
+
+        # Extraer presión de plagas desde formulario JSON
+        presion = "ninguna"
+        try:
+            articulos = formulario.get("artropodos", {})
+            if isinstance(articulos, dict):
+                total_plagas = sum(
+                    int(v) for v in articulos.values() if str(v).isdigit()
+                )
+                if total_plagas >= 10:
+                    presion = "alta"
+                elif total_plagas >= 5:
+                    presion = "media"
+                elif total_plagas >= 1:
+                    presion = "baja"
+        except Exception:
+            pass
+
+        # Extraer enfermedades
+        tiene_enfermedades = False
+        try:
+            enf = formulario.get("enfermedades", {})
+            if isinstance(enf, dict):
+                tiene_enfermedades = any(
+                    str(v).lower() not in ("0", "false", "no", "", "ninguna")
+                    for v in enf.values()
+                )
+            elif isinstance(enf, list):
+                tiene_enfermedades = len(enf) > 0
+        except Exception:
+            pass
+
+        # Obtener plantas asociadas via pivot
+        try:
+            rows = db.execute(
+                diagnostico_planta.select().where(diagnostico_planta.c.diagnostico_id == diag.id)
+            ).fetchall()
+            plant_ids = [r[1] for r in rows]
+        except Exception:
+            plant_ids = []
+
+        for pid in plant_ids:
+            if pid not in plant_data:
+                plant_data[pid] = {
+                    "planta_id": pid,
+                    "diagnosticos_count": 0,
+                    "ultima_fecha": None,
+                    "presion_plagas": "ninguna",
+                    "tiene_enfermedades": False,
+                }
+            d = plant_data[pid]
+            d["diagnosticos_count"] += 1
+            fecha_str = diag.fecha_creacion.isoformat() if diag.fecha_creacion else None
+            if not d["ultima_fecha"] or (fecha_str and fecha_str > d["ultima_fecha"]):
+                d["ultima_fecha"] = fecha_str
+            prioridad = {"alta": 3, "media": 2, "baja": 1, "ninguna": 0}
+            if prioridad.get(presion, 0) > prioridad.get(d["presion_plagas"], 0):
+                d["presion_plagas"] = presion
+            if tiene_enfermedades:
+                d["tiene_enfermedades"] = True
+
+    return {"lote_id": lote_id, "plants": list(plant_data.values())}
+
+
 @router.get("/estadisticas/resumen", response_model=EstadisticasDiagnosticosResponse)
 def obtener_estadisticas(
     programa_id: Optional[int] = None,

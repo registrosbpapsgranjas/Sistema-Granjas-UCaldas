@@ -105,6 +105,16 @@ def _validar_valores_segun_campos(db: Session, tipo_id: int, valores: dict):
                 if valor not in [True, False, "true", "false", 1, 0]:
                     raise HTTPException(400, f"El campo '{nombre}' debe ser booleano")
 
+@router.get("/programas/{programa_id}/items-planos", response_model=List[ItemInventarioProgramaResponse])
+def listar_todos_items_programa(programa_id: int, db: Session = Depends(get_db)):
+    """Devuelve todos los ítems de inventario de un programa, sin importar el tipo."""
+    tipos = crud.get_tipos_por_programa(db, programa_id)
+    todos = []
+    for tipo in tipos:
+        items = crud.get_items_por_tipo(db, tipo.id, skip=0, limit=500)
+        todos.extend(items)
+    return todos
+
 @router.get("/tipos/{tipo_id}/items", response_model=List[ItemInventarioProgramaResponse])
 def listar_items(tipo_id: int, skip: int = 0, limit: int = 500, db: Session = Depends(get_db), _=role_required):
     items = crud.get_items_por_tipo(db, tipo_id, skip=skip, limit=limit)

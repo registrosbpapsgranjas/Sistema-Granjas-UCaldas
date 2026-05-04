@@ -1,8 +1,5 @@
 import json
-import boto3
-import ssl
 import logging
-from botocore.config import Config
 from pydantic_settings import BaseSettings
 from typing import Dict, List, Optional
 
@@ -11,8 +8,8 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     # === Base de datos ===
     DATABASE_URL: str
-    SECRET_KEY: str
-    GOOGLE_CLIENT_ID: str
+    SECRET_KEY: str = "dev-secret-key-please-change-in-production"
+    GOOGLE_CLIENT_ID: str = ""
 
     # === Directorio temporal (solo para procesamiento, no guardado final) ===
     TEMP_DIR: str = "/tmp/uploads"
@@ -21,13 +18,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
-    # === Cloudflare R2 ===
-    R2_ACCOUNT_ID: str
-    R2_ACCESS_KEY: str
-    R2_SECRET_KEY: str
-    R2_BUCKET_NAME: str
-    R2_ENDPOINT: str
-    R2_PUBLIC_URL: str   # Ej: "https://pub-xxx.r2.dev"
+    # === Cloudflare R2 (opcional en desarrollo) ===
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY: str = ""
+    R2_SECRET_KEY: str = ""
+    R2_BUCKET_NAME: str = ""
+    R2_ENDPOINT: str = ""
+    R2_PUBLIC_URL: str = ""
 
     # === Datos semilla (opcionales) ===
     ROLES_POR_DEFECTO: Optional[Dict] = None
@@ -42,8 +39,16 @@ class Settings(BaseSettings):
 
     def init_storage(self):
         """Inicializa el cliente de Cloudflare R2."""
+        if not self.R2_ENDPOINT or not self.R2_ACCESS_KEY or not self.R2_SECRET_KEY:
+            logger.warning("R2 credentials not configured, file uploads will be unavailable")
+            self.r2_client = None
+            return False
+        
         logger.info("Inicializando cliente R2...")
         try:
+            import boto3
+            import ssl
+            from botocore.config import Config
             s3_config = Config(
                 region_name="auto",
                 signature_version='s3v4',

@@ -1,6 +1,6 @@
 // src/services/inventarioDinamicoService.ts
 import { api } from './api';
-import {
+import type {
   TipoInventario,
   Campo,
   ItemInventario,
@@ -56,6 +56,11 @@ export const inventarioDinamicoService = {
   // Items
   async listarItems(tipoId: number, skip = 0, limit = 500): Promise<ItemInventario[]> {
     const res = await api.get(`${BASE}/tipos/${tipoId}/items`, { params: { skip, limit } });
+    return res.data;
+  },
+
+  async listarTodosItemsPrograma(programaId: number): Promise<ItemInventario[]> {
+    const res = await api.get(`${BASE}/programas/${programaId}/items-planos`);
     return res.data;
   },
   async obtenerTipoCompleto(tipoId: number): Promise<TipoConItems> {

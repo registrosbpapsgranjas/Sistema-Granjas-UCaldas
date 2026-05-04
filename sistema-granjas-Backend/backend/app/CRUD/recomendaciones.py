@@ -1,12 +1,11 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import datetime, timedelta
-from app.db.models import Recomendacion, Labor, Usuario, Lote, Diagnostico
+from app.db.models import Recomendacion, Labor, Usuario, Lote, Diagnostico, ItemInventarioPrograma
 from app.schemas.recomendacion_schema import RecomendacionCreate, RecomendacionUpdate, AprobacionRecomendacionRequest
 from fastapi import HTTPException
 
 def crear_recomendacion(db: Session, data: RecomendacionCreate, usuario_id: int):
-    # CORRECCIÓN: Usar docente_id en lugar de usuario_id
     rec = Recomendacion(
         titulo=data.titulo,
         descripcion=data.descripcion,
@@ -14,7 +13,9 @@ def crear_recomendacion(db: Session, data: RecomendacionCreate, usuario_id: int)
         estado=data.estado,
         lote_id=data.lote_id,
         diagnostico_id=data.diagnostico_id,
-        docente_id=data.docente_id  # ← CORREGIDO
+        docente_id=data.docente_id,
+        inventario_item_id=data.inventario_item_id,
+        cantidad_sugerida=data.cantidad_sugerida,
     )
     db.add(rec)
     db.commit()
@@ -249,6 +250,12 @@ def _cargar_relaciones_recomendacion(recomendacion: Recomendacion):
             recomendacion.programa_nombre = recomendacion.lote.programa.nombre
     if recomendacion.diagnostico:
         recomendacion.diagnostico_tipo = recomendacion.diagnostico.tipo
+    if recomendacion.inventario_item:
+        item = recomendacion.inventario_item
+        nombre = item.valores.get("nombre") or item.valores.get("producto") or f"Item #{item.id}"
+        recomendacion.inventario_item_nombre = nombre
+        recomendacion.inventario_item_unidad = item.unidad_medida
+        recomendacion.inventario_item_disponible = item.cantidad_disponible
 
 def obtener_recomendacion_vista_completa(db: Session, id: int, usuario: Usuario):
     recomendacion = obtener_recomendacion(db, id, usuario)

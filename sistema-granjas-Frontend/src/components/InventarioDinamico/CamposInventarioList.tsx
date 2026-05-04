@@ -1,6 +1,6 @@
 // src/components/InventarioDinamico/CamposInventarioList.tsx
 import React from 'react';
-import { Campo } from '../../types/inventarioDinamicoTypes';
+import type { Campo } from '../../types/inventarioDinamicoTypes';
 
 interface Props {
   campos: Campo[];

@@ -1,7 +1,7 @@
 // src/components/InventarioDinamico/CampoInventarioForm.tsx
 import React, { useState } from 'react';
 import Modal from '../Common/Modal';
-import { Campo } from '../../types/inventarioDinamicoTypes';
+import type { Campo } from '../../types/inventarioDinamicoTypes';
 
 interface Props {
   isOpen: boolean;

@@ -1,7 +1,7 @@
 // src/components/InventarioDinamico/TipoInventarioForm.tsx
 import React, { useState } from 'react';
 import Modal from '../Common/Modal';
-import { TipoInventario } from '../../types/inventarioDinamicoTypes';
+import type { TipoInventario } from '../../types/inventarioDinamicoTypes';
 
 interface Props {
   isOpen: boolean;

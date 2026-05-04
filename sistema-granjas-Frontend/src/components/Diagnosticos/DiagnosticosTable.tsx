@@ -5,10 +5,11 @@ interface DiagnosticosTableProps {
     diagnosticos: DiagnosticoItem[];
     onEditar: (diagnostico: DiagnosticoItem) => void;
     onEliminar: (id: number) => void;
-    onAsignarDocente: (diagnostico: DiagnosticoItem) => void;
+    onAsignarDocente?: (diagnostico: DiagnosticoItem) => void;
     onAgregarEvidencia: (diagnostico: DiagnosticoItem) => void;
     onVerDetalles: (diagnostico: DiagnosticoItem) => void;
-    onCerrar: (diagnostico: DiagnosticoItem) => void;
+    onCerrar?: (diagnostico: DiagnosticoItem) => void;
+    onCrearRecomendacion?: (diagnostico: DiagnosticoItem) => void;
     currentUser: any;
 }
 
@@ -20,6 +21,7 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
     onAgregarEvidencia,
     onVerDetalles,
     onCerrar,
+    onCrearRecomendacion,
     currentUser
 }) => {
 
@@ -106,11 +108,12 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
 
                                     {/* Acciones */}
                                     <td className="px-4 py-3 text-sm">
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 flex-wrap">
 
                                             <button
                                                 onClick={() => onVerDetalles(d)}
                                                 className="text-blue-600 hover:text-blue-800"
+                                                title="Ver detalles"
                                             >
                                                 👁
                                             </button>
@@ -118,6 +121,7 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                                             <button
                                                 onClick={() => onEditar(d)}
                                                 className="text-yellow-600 hover:text-yellow-800"
+                                                title="Editar"
                                             >
                                                 ✏️
                                             </button>
@@ -125,9 +129,20 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                                             <button
                                                 onClick={() => onEliminar(d.id)}
                                                 className="text-red-600 hover:text-red-800"
+                                                title="Eliminar"
                                             >
                                                 🗑
                                             </button>
+
+                                            {onCrearRecomendacion && (
+                                                <button
+                                                    onClick={() => onCrearRecomendacion(d)}
+                                                    className="text-green-600 hover:text-green-800 text-xs font-semibold border border-green-300 rounded px-2 py-0.5 bg-green-50 hover:bg-green-100"
+                                                    title="Crear recomendación desde este diagnóstico"
+                                                >
+                                                    + Rec.
+                                                </button>
+                                            )}
 
                                         </div>
                                     </td>

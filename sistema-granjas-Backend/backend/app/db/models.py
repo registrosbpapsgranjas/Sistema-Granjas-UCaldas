@@ -139,6 +139,8 @@ class Recomendacion(Base):
     docente_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=False)
     diagnostico_id = Column(Integer, ForeignKey("diagnosticos.id"), nullable=True)
+    inventario_item_id = Column(Integer, ForeignKey("items_inventario_programa.id"), nullable=True)
+    cantidad_sugerida = Column(Float, nullable=True)
     fecha_creacion = Column(DateTime, default=colombia_now)
     fecha_aprobacion = Column(DateTime, nullable=True)
     evidencias = relationship("Evidencia", back_populates="recomendacion")
@@ -146,6 +148,7 @@ class Recomendacion(Base):
     lote = relationship("Lote", back_populates="recomendaciones")
     labores = relationship("Labor", back_populates="recomendacion")
     diagnostico = relationship("Diagnostico", back_populates="recomendaciones", foreign_keys=[diagnostico_id])
+    inventario_item = relationship("ItemInventarioPrograma", foreign_keys=[inventario_item_id])
 
 class Evidencia(Base):
     __tablename__ = "evidencias"
@@ -175,11 +178,14 @@ class Labor(Base):
     recomendacion_id = Column(Integer, ForeignKey("recomendaciones.id"), nullable=False)
     trabajador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     lote_id = Column(Integer, ForeignKey("lotes.id"), nullable=True)
+    inventario_item_id = Column(Integer, ForeignKey("items_inventario_programa.id"), nullable=True)
+    cantidad_usada = Column(Float, nullable=True)
     recomendacion = relationship("Recomendacion", back_populates="labores")
     trabajador = relationship("Usuario", back_populates="labores_asignadas")
     lote = relationship("Lote", back_populates="labores")
     evidencias = relationship("Evidencia", back_populates="labor")
     tipo_labor = relationship("TipoLabor", back_populates="labores")
+    inventario_item = relationship("ItemInventarioPrograma", foreign_keys=[inventario_item_id])
 
 class Diagnostico(Base):
     __tablename__ = "diagnosticos"
@@ -231,7 +237,7 @@ class Planta(Base):
     created_at = Column(DateTime, default=colombia_now)
     updated_at = Column(DateTime, default=colombia_now, onupdate=colombia_now)
     lote = relationship("Lote", back_populates="plantas")
-    diagnosticos = relationship("Diagnostico", secondary=diagnostico_planta, back_populates="diagnosticos")
+    diagnosticos = relationship("Diagnostico", secondary=diagnostico_planta, back_populates="plantas")
 
 # ---------- Inventario dinámico ----------
 class ProgramaInventarioTipo(Base):

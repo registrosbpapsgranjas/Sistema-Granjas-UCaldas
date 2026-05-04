@@ -1,6 +1,7 @@
 // src/components/Recomendaciones/RecomendacionForm.tsx
 import React, { useState, useEffect } from 'react';
-import diagnosticoService from '../../services/diagnosticoService'; // Importar servicio de diagnósticos
+import diagnosticoService from '../../services/diagnosticoService';
+import { inventarioDinamicoService } from '../../services/inventarioDinamicoService';
 import type { Recomendacion } from '../../types/recomendacionTypes';
 
 interface RecomendacionFormProps {
@@ -31,7 +32,12 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
         docente_id: recomendacion?.docente_id || (currentUser?.rol_id === 2 || currentUser?.rol_id === 5 ? currentUser.id : ''),
         lote_id: recomendacion?.lote_id || '',
         diagnostico_id: recomendacion?.diagnostico_id || '',
+        inventario_item_id: recomendacion?.inventario_item_id || '',
+        cantidad_sugerida: recomendacion?.cantidad_sugerida || '',
     });
+
+    const [itemsInventario, setItemsInventario] = useState<any[]>([]);
+    const [loadingInventario, setLoadingInventario] = useState(false);
 
     // Estados para diagnósticos
     const [diagnosticos, setDiagnosticos] = useState<any[]>([]);
@@ -110,9 +116,10 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
                 docente_id: recomendacion.docente_id || (esDocente ? currentUser.id : ''),
                 lote_id: recomendacion.lote_id || '',
                 diagnostico_id: recomendacion.diagnostico_id || '',
+                inventario_item_id: recomendacion.inventario_item_id || '',
+                cantidad_sugerida: recomendacion.cantidad_sugerida || '',
             });
         } else if (!esEdicion) {
-            // Reset para creación
             setFormData({
                 titulo: '',
                 descripcion: '',
@@ -121,9 +128,31 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
                 docente_id: esDocente ? currentUser.id : '',
                 lote_id: '',
                 diagnostico_id: '',
+                inventario_item_id: '',
+                cantidad_sugerida: '',
             });
         }
     }, [recomendacion, esEdicion, esDocente, currentUser]);
+
+    // Cargar items de inventario cuando cambia el lote (obteniendo programa_id del lote)
+    useEffect(() => {
+        const cargarInventario = async () => {
+            if (!formData.lote_id) { setItemsInventario([]); return; }
+            const lote = lotes.find((l: any) => l.id === parseInt(formData.lote_id as string));
+            const programaId = lote?.programa_id;
+            if (!programaId) { setItemsInventario([]); return; }
+            try {
+                setLoadingInventario(true);
+                const items = await inventarioDinamicoService.listarTodosItemsPrograma(programaId);
+                setItemsInventario(Array.isArray(items) ? items : []);
+            } catch {
+                setItemsInventario([]);
+            } finally {
+                setLoadingInventario(false);
+            }
+        };
+        cargarInventario();
+    }, [formData.lote_id, lotes]);
 
     // Cuando se selecciona un diagnóstico específico, verificar si pertenece al lote seleccionado
     useEffect(() => {
@@ -233,7 +262,13 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
             datosSubmit.diagnostico_id = parseInt(formData.diagnostico_id as string);
         }
 
-        // Incluir evidencias si hay
+        if (formData.inventario_item_id) {
+            datosSubmit.inventario_item_id = parseInt(formData.inventario_item_id as string);
+        }
+        if (formData.cantidad_sugerida) {
+            datosSubmit.cantidad_sugerida = parseFloat(formData.cantidad_sugerida as string);
+        }
+
         if (evidencias.length > 0) {
             datosSubmit.evidencias = evidencias;
         }
@@ -410,6 +445,68 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
                         <p className="text-xs text-gray-500 mt-1">
                             Si esta recomendación está asociada a un diagnóstico específico
                         </p>
+                    </div>
+
+                    {/* Ítem de inventario sugerido */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Insumo / Ítem de inventario sugerido (Opcional)
+                        </label>
+                        {!formData.lote_id ? (
+                            <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded border border-amber-200">
+                                <i className="fas fa-info-circle mr-2"></i>
+                                Selecciona un lote para ver los ítems disponibles
+                            </div>
+                        ) : loadingInventario ? (
+                            <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded border">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                <span className="text-sm text-gray-600">Cargando inventario...</span>
+                            </div>
+                        ) : itemsInventario.length === 0 ? (
+                            <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded border">
+                                <i className="fas fa-box-open mr-2"></i>
+                                No hay ítems de inventario para este programa
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <select
+                                        name="inventario_item_id"
+                                        value={formData.inventario_item_id}
+                                        onChange={handleChange}
+                                        className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    >
+                                        <option value="">Sin insumo específico</option>
+                                        {itemsInventario.map((item: any) => {
+                                            const nombre = item.valores?.nombre || item.valores?.producto || item.valores?.Nombre || `Ítem #${item.id}`;
+                                            const unidad = item.valores?.unidad || item.valores?.unidad_medida || '';
+                                            const disponible = item.cantidad_disponible ?? '';
+                                            return (
+                                                <option key={item.id} value={item.id}>
+                                                    {nombre}{unidad ? ` (${unidad})` : ''}{disponible !== '' ? ` — Disp: ${disponible}` : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                                <div>
+                                    <input
+                                        type="number"
+                                        name="cantidad_sugerida"
+                                        value={formData.cantidad_sugerida}
+                                        onChange={handleChange}
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="Cantidad sugerida"
+                                        className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                        disabled={!formData.inventario_item_id}
+                                    />
+                                    {formData.inventario_item_id && (
+                                        <p className="text-xs text-gray-500 mt-1">Cantidad a usar de este insumo</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Docente */}

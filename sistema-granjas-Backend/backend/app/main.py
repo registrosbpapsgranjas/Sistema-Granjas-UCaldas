@@ -96,9 +96,16 @@ allow_origins = [
     "https://sistemagranjasucaldas-production.up.railway.app",  # Producción frontend
     "http://localhost:3000",  # Desarrollo local React/Vite
     "http://localhost:5173",  # Alternativa de Vite
+    "http://localhost:5000",  # Vite en Replit
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5000",
 ]
+
+# Agregar dominio de Replit dinámicamente
+replit_domain = os.getenv("REPLIT_DEV_DOMAIN")
+if replit_domain:
+    allow_origins.append(f"https://{replit_domain}")
 
 # Si hay una variable de entorno para orígenes adicionales
 if os.getenv("CORS_ORIGINS"):

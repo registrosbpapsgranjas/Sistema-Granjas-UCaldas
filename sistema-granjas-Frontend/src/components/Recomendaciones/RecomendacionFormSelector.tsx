@@ -12,8 +12,10 @@ interface RecomendacionFormSelectorProps {
     docentes: any[];
     currentUser: any;
     esEdicion?: boolean;
-    programas?: any[];         // Lista de programas disponibles para seleccionar
-    programaInicial?: any;     // Programa pre-seleccionado (para edición)
+    programas?: any[];
+    programaInicial?: any;
+    diagnosticoIdInicial?: number;
+    loteIdInicial?: number;
 }
 
 const RecomendacionFormSelector: React.FC<RecomendacionFormSelectorProps> = ({
@@ -26,36 +28,46 @@ const RecomendacionFormSelector: React.FC<RecomendacionFormSelectorProps> = ({
     esEdicion = false,
     programas = [],
     programaInicial,
+    diagnosticoIdInicial,
+    loteIdInicial,
 }) => {
-    // Estado para el programa seleccionado (solo en creación)
     const [programaSeleccionado, setProgramaSeleccionado] = useState<any>(null);
 
-    // Determinar si es el programa FCC (Frutales de Clima Cálido)
     const esProgramaFCC = (programa: any) => {
         if (!programa) return false;
-        // Puedes ajustar la condición según tu lógica (nombre, tipo, id)
         return programa.nombre?.toLowerCase().includes('frutales') ||
                programa.nombre?.toLowerCase().includes('clima cálido') ||
-               programa.id === 1; // Cambia por el ID real del programa FCC
+               programa.id === 1;
     };
 
-    // Al montar, si hay programaInicial o si es edición, seleccionar el programa adecuado
     useEffect(() => {
         if (esEdicion && recomendacion?.lote_id) {
-            // En modo edición, obtenemos el programa del lote seleccionado
             const lote = lotes.find(l => l.id === recomendacion.lote_id);
             if (lote && lote.programa) {
                 setProgramaSeleccionado(lote.programa);
             }
         } else if (programaInicial) {
             setProgramaSeleccionado(programaInicial);
+        } else if (loteIdInicial && lotes.length > 0) {
+            const lote = lotes.find((l: any) => l.id === loteIdInicial);
+            if (lote?.programa_id) {
+                const prog = programas.find((p: any) => p.id === lote.programa_id);
+                if (prog) setProgramaSeleccionado(prog);
+            }
         } else if (programas.length > 0 && !programaSeleccionado) {
-            // Opcional: seleccionar el primer programa por defecto
             setProgramaSeleccionado(programas[0]);
         }
-    }, [esEdicion, recomendacion, lotes, programaInicial, programas]);
+    }, [esEdicion, recomendacion, lotes, programaInicial, programas, loteIdInicial]);
 
-    // Si es edición y ya tenemos programa, mostrar el formulario directamente
+    const recomendacionConPreFill = recomendacion
+        ? recomendacion
+        : (diagnosticoIdInicial || loteIdInicial)
+            ? {
+                diagnostico_id: diagnosticoIdInicial,
+                lote_id: loteIdInicial,
+              } as unknown as Recomendacion
+            : undefined;
+
     if (esEdicion && programaSeleccionado) {
         return esProgramaFCC(programaSeleccionado) ? (
             <RecomendacionFormFCC
@@ -80,14 +92,17 @@ const RecomendacionFormSelector: React.FC<RecomendacionFormSelectorProps> = ({
         );
     }
 
-    // En creación: mostrar selector de programa y luego el formulario correspondiente
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 border-b pb-3">
                 Nueva Recomendación
+                {diagnosticoIdInicial && (
+                    <span className="ml-2 text-sm font-normal text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+                        Vinculada al Diagnóstico #{diagnosticoIdInicial}
+                    </span>
+                )}
             </h2>
 
-            {/* Selector de programa */}
             <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                     Programa *
@@ -111,11 +126,10 @@ const RecomendacionFormSelector: React.FC<RecomendacionFormSelectorProps> = ({
                 </select>
             </div>
 
-            {/* Renderizar el formulario correspondiente si hay programa seleccionado */}
             {programaSeleccionado ? (
                 esProgramaFCC(programaSeleccionado) ? (
                     <RecomendacionFormFCC
-                        recomendacion={recomendacion}
+                        recomendacion={recomendacionConPreFill}
                         onSubmit={onSubmit}
                         onCancel={onCancel}
                         lotes={lotes}
@@ -125,7 +139,7 @@ const RecomendacionFormSelector: React.FC<RecomendacionFormSelectorProps> = ({
                     />
                 ) : (
                     <RecomendacionForm
-                        recomendacion={recomendacion}
+                        recomendacion={recomendacionConPreFill}
                         onSubmit={onSubmit}
                         onCancel={onCancel}
                         lotes={lotes}

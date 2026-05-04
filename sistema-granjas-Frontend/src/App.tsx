@@ -24,6 +24,7 @@ import GestionDiagnosticosPage from './pages/GestionDiagnosticos';
 import GestionRecomendacionesPage from './pages/GestionRecomendaciones';
 import GestionEstadisticasPage from './pages/GestionEstadisticas';
 import LoteMapa from './components/Lotes/LoteMapa';
+import TableroLaboresPage from './pages/TableroLaboresPage';
 
 
 function AppContent() {
@@ -175,6 +176,15 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <GestionPlantasPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tablero"
+          element={
+            <ProtectedRoute>
+              <TableroLaboresPage />
             </ProtectedRoute>
           }
         />

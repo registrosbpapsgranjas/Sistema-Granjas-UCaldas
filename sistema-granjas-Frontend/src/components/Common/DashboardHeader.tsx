@@ -93,6 +93,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 { name: 'Recomendaciones', path: '/gestion/recomendaciones', icon: 'fa-lightbulb', description: 'Recibir recomendaciones' }
             ],
             trabajador: [
+                { name: 'Tablero', path: '/tablero', icon: 'fa-th-large', description: 'Tablero de tareas' },
                 { name: 'Labores', path: '/gestion/labores', icon: 'fa-calendar-check', description: 'Ver mis labores' }
             ]
         };

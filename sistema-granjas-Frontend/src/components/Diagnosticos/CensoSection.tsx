@@ -1,5 +1,5 @@
 import React from "react";
-import { PlantaBase } from "../types";
+import type { PlantaBase } from '../types';
 
 interface Props {
   plantas: PlantaBase[];

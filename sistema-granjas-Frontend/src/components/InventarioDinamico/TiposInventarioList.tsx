@@ -1,6 +1,6 @@
 // src/components/InventarioDinamico/TiposInventarioList.tsx
 import React from 'react';
-import { TipoInventario } from '../../types/inventarioDinamicoTypes';
+import type { TipoInventario } from '../../types/inventarioDinamicoTypes';
 
 interface Props {
   tipos: TipoInventario[];

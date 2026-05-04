@@ -1,5 +1,5 @@
 import React, { forwardRef, useImperativeHandle, useState } from "react";
-import { PlantaBase } from "../types";
+import type { PlantaBase } from '../types';
 import { toast } from "react-toastify";
 
 interface PlantaFenologico extends PlantaBase {}

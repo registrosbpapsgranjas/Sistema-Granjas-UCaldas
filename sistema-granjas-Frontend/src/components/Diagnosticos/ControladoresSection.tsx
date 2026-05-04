@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { PlantaBase } from '../../types/diagnosticoTypes';
+import type { PlantaBase } from '../../types/diagnosticoTypes';
 import { toast } from 'react-toastify';
 
 // ----------------------------------------------------------------------

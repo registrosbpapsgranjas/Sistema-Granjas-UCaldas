@@ -1,14 +1,15 @@
 // src/components/Recomendaciones/GestionRecomendaciones.tsx
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import recomendacionService from '../../services/recomendacionService';
 import usuarioService from '../../services/usuarioService';
 import loteService from '../../services/loteService';
-import programaService from '../../services/programaService'; // 👈 NUEVO
+import programaService from '../../services/programaService';
 import type { Recomendacion, RecomendacionFilters } from '../../types/recomendacionTypes';
 import Modal from '../Common/Modal';
 import RecomendacionesTable from './RecomendacionesTable';
-import RecomendacionFormSelector from './RecomendacionFormSelector'; // 👈 NUEVO selector
+import RecomendacionFormSelector from './RecomendacionFormSelector';
 import DetallesRecomendacionModal from './DetallesRecomendaciones';
 import EstadisticasModal from './Estadisticas';
 import AprobarRecomendacionModal from './AprobarRecomendacion';
@@ -18,6 +19,7 @@ import exportService from '../../services/exportService';
 
 const GestionRecomendaciones: React.FC = () => {
     const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [recomendaciones, setRecomendaciones] = useState<Recomendacion[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,10 @@ const GestionRecomendaciones: React.FC = () => {
     const [exportMessage, setExportMessage] = useState('');
     const rolesPermitidos = [1, 2, 5, 6];
 
-    // Cargar programas al inicio
+    const [urlDiagnosticoId, setUrlDiagnosticoId] = useState<number | undefined>(undefined);
+    const [urlLoteId, setUrlLoteId] = useState<number | undefined>(undefined);
+
+    // Cargar programas al inicio + leer URL params para abrir modal de crear recomendación
     useEffect(() => {
         const cargarProgramas = async () => {
             try {
@@ -52,6 +57,15 @@ const GestionRecomendaciones: React.FC = () => {
             }
         };
         cargarProgramas();
+
+        const diagId = searchParams.get('diagnostico_id');
+        const loteId = searchParams.get('lote_id');
+        if (diagId) {
+            setUrlDiagnosticoId(parseInt(diagId));
+            setUrlLoteId(loteId ? parseInt(loteId) : undefined);
+            setShowCrearModal(true);
+            setSearchParams({}, { replace: true });
+        }
     }, []);
 
     // Handler para exportar
@@ -330,15 +344,17 @@ const GestionRecomendaciones: React.FC = () => {
             )}
 
             {/* MODAL CREAR con selector de programa */}
-            <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-4xl">
+            <Modal isOpen={showCrearModal} onClose={() => { setShowCrearModal(false); setUrlDiagnosticoId(undefined); setUrlLoteId(undefined); }} width="max-w-4xl">
                 <RecomendacionFormSelector
                     onSubmit={handleCrearRecomendacion}
-                    onCancel={() => setShowCrearModal(false)}
+                    onCancel={() => { setShowCrearModal(false); setUrlDiagnosticoId(undefined); setUrlLoteId(undefined); }}
                     lotes={lotes}
                     docentes={docentes}
                     currentUser={user}
-                    programas={programas} // 👈 pasamos la lista de programas
+                    programas={programas}
                     esEdicion={false}
+                    diagnosticoIdInicial={urlDiagnosticoId}
+                    loteIdInicial={urlLoteId}
                 />
             </Modal>
 

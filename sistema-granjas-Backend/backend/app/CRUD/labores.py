@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from app.db.models import (
     Labor, Usuario, Recomendacion, Lote,
-    Evidencia, TipoLabor, Granja, Programa, usuario_programa
+    Evidencia, TipoLabor, Granja, Programa, usuario_programa, ItemInventarioPrograma
 )
 from app.schemas.labor_schema import (
     LaborCreate, LaborUpdate, AsignacionHerramientaRequest,
@@ -258,12 +258,25 @@ def registrar_avance_crud(db: Session, labor: Labor, data: RegistroAvanceRequest
     if labor.trabajador_id != usuario.id:
         raise HTTPException(403, "Solo el trabajador asignado puede registrar avance")
     
+    ya_estaba_completada = labor.estado == "completada"
     labor.avance_porcentaje = data.avance_porcentaje
     labor.comentario = data.comentario
     
     if data.avance_porcentaje == 100:
         labor.estado = "completada"
-        labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5)) 
+        labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5))
+        # Descontar inventario si recién se completa
+        if not ya_estaba_completada:
+            item_id = labor.inventario_item_id
+            cantidad = labor.cantidad_usada
+            if not item_id and labor.recomendacion:
+                item_id = labor.recomendacion.inventario_item_id
+                if not cantidad:
+                    cantidad = labor.recomendacion.cantidad_sugerida
+            if item_id and cantidad:
+                item = db.query(ItemInventarioPrograma).filter(ItemInventarioPrograma.id == item_id).first()
+                if item:
+                    item.cantidad_disponible = max(0.0, item.cantidad_disponible - cantidad)
     elif data.avance_porcentaje > 0 and labor.estado == "pendiente":
         labor.estado = "en_progreso"
     
@@ -279,7 +292,21 @@ def completar_labor_crud(db: Session, labor: Labor, usuario: Usuario):
     
     labor.estado = "completada"
     labor.avance_porcentaje = 100
-    labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5)) 
+    labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5))
+    
+    # Descontar del inventario si tiene item asignado
+    item_id = labor.inventario_item_id
+    cantidad = labor.cantidad_usada
+    if not item_id and labor.recomendacion:
+        item_id = labor.recomendacion.inventario_item_id
+        if not cantidad and labor.recomendacion:
+            cantidad = labor.recomendacion.cantidad_sugerida
+    
+    if item_id and cantidad:
+        item = db.query(ItemInventarioPrograma).filter(ItemInventarioPrograma.id == item_id).first()
+        if item:
+            nueva_cantidad = max(0.0, item.cantidad_disponible - cantidad)
+            item.cantidad_disponible = nueva_cantidad
     
     db.commit()
     db.refresh(labor)
