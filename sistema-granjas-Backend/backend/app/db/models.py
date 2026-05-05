@@ -149,6 +149,7 @@ class Recomendacion(Base):
     labores = relationship("Labor", back_populates="recomendacion")
     diagnostico = relationship("Diagnostico", back_populates="recomendaciones", foreign_keys=[diagnostico_id])
     inventario_item = relationship("ItemInventarioPrograma", foreign_keys=[inventario_item_id])
+    items_sugeridos = relationship("RecomendacionItem", back_populates="recomendacion", cascade="all, delete-orphan")
 
 class Evidencia(Base):
     __tablename__ = "evidencias"
@@ -279,3 +280,14 @@ class ItemInventarioPrograma(Base):
     created_at = Column(DateTime, default=colombia_now)
     updated_at = Column(DateTime, default=colombia_now, onupdate=colombia_now)
     tipo = relationship("ProgramaInventarioTipo", back_populates="items")
+
+class RecomendacionItem(Base):
+    __tablename__ = "recomendacion_items"
+    id = Column(Integer, primary_key=True, index=True)
+    recomendacion_id = Column(Integer, ForeignKey("recomendaciones.id", ondelete="CASCADE"), nullable=False)
+    inventario_item_id = Column(Integer, ForeignKey("items_inventario_programa.id", ondelete="SET NULL"), nullable=True)
+    cantidad_sugerida = Column(Float, nullable=True)
+    descripcion = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=colombia_now)
+    recomendacion = relationship("Recomendacion", back_populates="items_sugeridos")
+    inventario_item = relationship("ItemInventarioPrograma")

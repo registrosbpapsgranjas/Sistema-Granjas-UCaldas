@@ -13,7 +13,7 @@ interface RecomendacionFormFCCProps {
     esEdicion?: boolean;
 }
 
-// ========== CONSTANTES DE PRODUCTOS ==========
+// Datos estáticos de productos (podrían venir de la BD)
 const HERBICIDAS = [
     "Amina 720 SL - IA: 2,4 D Amina acido - DR: 0.4 L/ha - PC: NA PR: 12h - R. ICA: 941",
     "Profiamina 480 SL - IA: 2,4-D 480 g/l - DR: 0.5 L/ha - PC: NA PR: 0h - R. ICA: 1234",
@@ -349,28 +349,21 @@ const RecomendacionFormFCC: React.FC<RecomendacionFormFCCProps> = ({
                         )}
                     </div>
 
-                    {/* Lote a intervenir (con indicador de carga) */}
+                    {/* Lote a intervenir */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Lote a intervenir *</label>
-                        {lotes.length === 0 ? (
-                            <div className="text-center py-2 text-gray-500 bg-gray-50 rounded-lg border">
-                                <i className="fas fa-spinner fa-spin mr-2"></i>
-                                Cargando lotes disponibles...
-                            </div>
-                        ) : (
-                            <select
-                                name="lote_id"
-                                value={formData.lote_id}
-                                onChange={handleChange}
-                                className="w-full border rounded-lg p-3"
-                                required
-                            >
-                                <option value="">Seleccionar lote</option>
-                                {lotes.map(lote => (
-                                    <option key={lote.id} value={lote.id}>{lote.nombre}</option>
-                                ))}
-                            </select>
-                        )}
+                        <select
+                            name="lote_id"
+                            value={formData.lote_id}
+                            onChange={handleChange}
+                            className="w-full border rounded-lg p-3"
+                            required
+                        >
+                            <option value="">Seleccionar lote</option>
+                            {lotes.map(lote => (
+                                <option key={lote.id} value={lote.id}>{lote.nombre}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Diagnóstico asociado (opcional) */}

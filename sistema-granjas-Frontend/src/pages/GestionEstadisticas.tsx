@@ -1,267 +1,112 @@
-// src/pages/GestionEstadisticasPage.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
-import { Activity, Leaf, AlertTriangle, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
+import { Activity, Leaf, AlertTriangle, TrendingUp, CheckCircle, ClipboardList } from 'lucide-react';
 import DashboardHeader from '../components/Common/DashboardHeader';
+import { api } from '../services/api';
 
-// ----------------------------- TIPOS (iguales a los del proyecto) -----------------------------
-interface PlantaBase {
-  codigo: string;
-  label: string;
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#E74C3C', '#16A085', '#D35400'];
+
+interface Programa {
+  id: number;
+  nombre: string;
 }
 
-// Datos de censo
-interface CensoData {
-  observacion: 'Buena' | 'Regular' | 'Mala' | 'Resiembra' | 'Punto Vacío';
-  altura: number;
-  diametro: number;
+interface EstadDiagnosticos {
+  total: number;
+  por_monitoreo: Record<string, number>;
+  por_lote: Record<string, number>;
+  por_tipo: Record<string, number>;
+  por_programa: Record<string, number>;
 }
 
-// Datos fenológicos (por rama)
-interface RamaFenologica {
-  fases: string[];
-  totalPuntosCrecimiento?: number;
-  bbchVegetativo?: string;
-  totalFlores?: number;
-  bbchFloracion?: string;
-  totalFrutos?: number;
-  frutosCanica?: number;
-  frutosPinpon?: number;
-  frutosBolaTenis?: number;
-  frutosCuarto?: number;
-  bbchFructificacion?: string;
+interface EstadLabores {
+  total: number;
+  pendientes: number;
+  en_progreso: number;
+  completadas: number;
+  canceladas: number;
+  promedio_avance: number;
 }
 
-// Datos de enfermedades (por cuadrante)
-interface EnfermedadData {
-  agente: string;
-  enfermedadesActivas: string[];
-  detalles: any;
+interface EstadRecomendaciones {
+  total: number;
+  pendientes: number;
+  aprobadas: number;
+  en_ejecucion: number;
+  completadas: number;
+  canceladas: number;
+  por_tipo: Record<string, number>;
 }
 
-// Datos de artrópodos (por cuadrante)
-interface ArthropodData {
-  presencia: boolean;
-  clases: string[];
-  insectos: string[];
-  acaros: string[];
-  otro?: any;
-}
+type Tab = 'general' | 'diagnosticos' | 'labores' | 'recomendaciones';
 
-// Controladores biológicos (por planta)
-interface ControladorData {
-  insectos: string[];
-  microbianos: string[];
-  evidencias: string[];
-  nivel: string;
-}
+const toChartData = (record: Record<string, number>) =>
+  Object.entries(record).map(([name, value]) => ({ name, value }));
 
-// Polinizadores (por planta)
-interface PolinizadorData {
-  polinizadores: string[];
-  actividad: string;
-}
+const KpiCard: React.FC<{ label: string; value: string | number; icon: React.ReactNode; color?: string }> = ({
+  label, value, icon, color = 'text-blue-600'
+}) => (
+  <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+    <div>
+      <p className="text-gray-500 text-sm">{label}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    </div>
+    {icon}
+  </div>
+);
 
-// Datos completos de una planta
-interface PlantaCompleta extends PlantaBase {
-  censo: CensoData;
-  fenologico: RamaFenologica[];
-  enfermedades: EnfermedadData[];
-  artropodos: ArthropodData[];
-  controladores: ControladorData;
-  polinizadores: PolinizadorData;
-}
-
-// ----------------------------- MOCK DATA (datos quemados) -----------------------------
-const generateMockPlantas = (): PlantaCompleta[] => {
-  const codigos = ['P001', 'P002', 'P003', 'P004', 'P005'];
-  const labels = ['Cítrico 1', 'Cítrico 2', 'Cítrico 3', 'Cítrico 4', 'Cítrico 5'];
-  const observaciones: ('Buena' | 'Regular' | 'Mala' | 'Resiembra' | 'Punto Vacío')[] =
-    ['Buena', 'Regular', 'Mala', 'Buena', 'Regular'];
-  const alturas = [1.8, 2.1, 1.5, 2.5, 1.9];
-  const diametros = [2.2, 2.0, 1.7, 2.8, 2.3];
-
-  return codigos.map((cod, idx) => {
-    // Datos fenológicos simulados (4 ramas)
-    const fenologico: RamaFenologica[] = [];
-    for (let i = 0; i < 4; i++) {
-      const hasVeg = i % 2 === 0;
-      const hasFlor = i === 1 || i === 3;
-      const hasFruc = i === 2;
-      const fases: string[] = [];
-      if (hasVeg) fases.push('vegetativa');
-      if (hasFlor) fases.push('floracion');
-      if (hasFruc) fases.push('fructificacion');
-      const rama: RamaFenologica = { fases };
-      if (hasVeg) {
-        rama.totalPuntosCrecimiento = Math.floor(Math.random() * 50) + 20;
-        rama.bbchVegetativo = ['09', '15', '19', '32'][Math.floor(Math.random() * 4)];
-      }
-      if (hasFlor) {
-        rama.totalFlores = Math.floor(Math.random() * 80) + 10;
-        rama.bbchFloracion = ['55', '60', '65', '67'][Math.floor(Math.random() * 4)];
-      }
-      if (hasFruc) {
-        rama.totalFrutos = Math.floor(Math.random() * 60) + 5;
-        rama.frutosCanica = Math.floor(Math.random() * 20);
-        rama.frutosPinpon = Math.floor(Math.random() * 15);
-        rama.frutosBolaTenis = Math.floor(Math.random() * 10);
-        rama.frutosCuarto = Math.floor(Math.random() * 5);
-        rama.bbchFructificacion = ['71', '74', '79'][Math.floor(Math.random() * 3)];
-      }
-      fenologico.push(rama);
-    }
-
-    // Enfermedades (simular por cuadrante)
-    const enfermedades: EnfermedadData[] = [];
-    for (let i = 0; i < 4; i++) {
-      const agentes = ['hongo', 'bacteria', 'virus', 'oomiceto'];
-      const agente = agentes[i % agentes.length];
-      let enfermedadesActivas: string[] = [];
-      if (agente === 'hongo') enfermedadesActivas = ['antracnosis'];
-      if (agente === 'bacteria') enfermedadesActivas = ['hlb'];
-      if (agente === 'virus') enfermedadesActivas = ['ctv'];
-      if (agente === 'oomiceto') enfermedadesActivas = ['phytophthora'];
-      enfermedades.push({
-        agente,
-        enfermedadesActivas,
-        detalles: {}
-      });
-    }
-
-    // Artrópodos
-    const artropodos: ArthropodData[] = [];
-    for (let i = 0; i < 4; i++) {
-      const presencia = i !== 2;
-      artropodos.push({
-        presencia,
-        clases: presencia ? (i % 2 === 0 ? ['insecto'] : ['aracnido']) : [],
-        insectos: presencia && i % 2 === 0 ? ['diaphorina'] : [],
-        acaros: presencia && i % 2 === 1 ? ['polyphagotarsonemus'] : []
-      });
-    }
-
-    // Controladores
-    const controladores: ControladorData = {
-      insectos: idx === 0 ? ['Coccinélidos'] : idx === 1 ? ['Crisopas', 'Avispas parasitoides'] : ['No se observaron'],
-      microbianos: idx === 2 ? ['Beauveria'] : idx === 4 ? ['Bacillus'] : ['No se observaron'],
-      evidencias: idx === 0 ? ['Larvas depredando'] : idx === 3 ? ['Plagas parasitadas'] : ['No se observaron evidencias'],
-      nivel: idx === 0 ? 'alta' : idx === 1 ? 'media' : 'baja'
-    };
-
-    // Polinizadores
-    const polinizadores: PolinizadorData = {
-      polinizadores: idx === 0 ? ['Abeja melífera', 'Mariposas'] : idx === 2 ? ['Abejorros'] : ['No se observaron'],
-      actividad: idx === 0 ? 'alta' : idx === 1 ? 'media' : 'sin_actividad'
-    };
-
-    return {
-      codigo: cod,
-      label: labels[idx],
-      censo: {
-        observacion: observaciones[idx],
-        altura: alturas[idx],
-        diametro: diametros[idx]
-      },
-      fenologico,
-      enfermedades,
-      artropodos,
-      controladores,
-      polinizadores
-    };
-  });
-};
-
-// ----------------------------- COMPONENTE PRINCIPAL -----------------------------
 const GestionEstadisticasPage: React.FC = () => {
-  const plantas = useMemo(() => generateMockPlantas(), []);
-  const [selectedMetric, setSelectedMetric] = useState<string>('general');
+  const [tab, setTab] = useState<Tab>('general');
+  const [programas, setProgramas] = useState<Programa[]>([]);
+  const [programaId, setProgramaId] = useState<number | ''>('');
+  const [loadingProgs, setLoadingProgs] = useState(true);
 
-  // ---- Cálculos agregados ----
-  const totalPlantas = plantas.length;
-  const plantasConBuenaObs = plantas.filter(p => p.censo.observacion === 'Buena').length;
-  const plantasConMalaObs = plantas.filter(p => p.censo.observacion === 'Mala').length;
-  const alturaPromedio = plantas.reduce((acc, p) => acc + p.censo.altura, 0) / totalPlantas;
-  const diametroPromedio = plantas.reduce((acc, p) => acc + p.censo.diametro, 0) / totalPlantas;
+  const [estadDiag, setEstatDiag] = useState<EstadDiagnosticos | null>(null);
+  const [estadLab, setEstatLab] = useState<EstadLabores | null>(null);
+  const [estadRec, setEstatRec] = useState<EstadRecomendaciones | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Estadísticas de enfermedades
-  const enfermedadesCount: Record<string, number> = {};
-  plantas.forEach(planta => {
-    planta.enfermedades.forEach(enf => {
-      enf.enfermedadesActivas.forEach(enfId => {
-        enfermedadesCount[enfId] = (enfermedadesCount[enfId] || 0) + 1;
-      });
-    });
-  });
+  useEffect(() => {
+    api.get('/programas').then(res => {
+      const data = res.data;
+      setProgramas(Array.isArray(data) ? data : (data?.items || []));
+    }).catch(() => {}).finally(() => setLoadingProgs(false));
+  }, []);
 
-  // Estadísticas de artrópodos
-  let totalCuadrantesConPlaga = 0;
-  let totalInsectos = 0, totalAcaros = 0;
-  plantas.forEach(planta => {
-    planta.artropodos.forEach(art => {
-      if (art.presencia) {
-        totalCuadrantesConPlaga++;
-        totalInsectos += art.insectos.length;
-        totalAcaros += art.acaros.length;
-      }
-    });
-  });
+  const cargarEstadisticas = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = programaId ? `?programa_id=${programaId}` : '';
+      const [diagRes, labRes, recRes] = await Promise.all([
+        api.get(`/diagnosticos/estadisticas/resumen${params}`),
+        api.get(`/labores/estadisticas/resumen`),
+        api.get(`/recomendaciones/estadisticas/resumen`),
+      ]);
+      setEstatDiag(diagRes.data);
+      setEstatLab(labRes.data);
+      setEstatRec(recRes.data);
+    } catch (e: any) {
+      setError('No se pudieron cargar las estadísticas. Verifica tu conexión.');
+    } finally {
+      setLoading(false);
+    }
+  }, [programaId]);
 
-  // Controladores más comunes
-  const insectosBeneficos: Record<string, number> = {};
-  const microbianosBeneficos: Record<string, number> = {};
-  plantas.forEach(planta => {
-    planta.controladores.insectos.forEach(ins => {
-      if (ins !== 'No se observaron') insectosBeneficos[ins] = (insectosBeneficos[ins] || 0) + 1;
-    });
-    planta.controladores.microbianos.forEach(mic => {
-      if (mic !== 'No se observaron') microbianosBeneficos[mic] = (microbianosBeneficos[mic] || 0) + 1;
-    });
-  });
+  useEffect(() => {
+    cargarEstadisticas();
+  }, [cargarEstadisticas]);
 
-  // Polinizadores
-  const polinizadoresCount: Record<string, number> = {};
-  plantas.forEach(planta => {
-    planta.polinizadores.polinizadores.forEach(pol => {
-      if (pol !== 'No se observaron') polinizadoresCount[pol] = (polinizadoresCount[pol] || 0) + 1;
-    });
-  });
-
-  // Datos para gráficos
-  const observacionChart = [
-    { name: 'Buena', value: plantasConBuenaObs },
-    { name: 'Regular', value: plantas.filter(p => p.censo.observacion === 'Regular').length },
-    { name: 'Mala', value: plantasConMalaObs },
-    { name: 'Resiembra', value: plantas.filter(p => p.censo.observacion === 'Resiembra').length },
-    { name: 'Punto Vacío', value: plantas.filter(p => p.censo.observacion === 'Punto Vacío').length }
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'general', label: 'General' },
+    { key: 'diagnosticos', label: 'Diagnósticos' },
+    { key: 'labores', label: 'Labores' },
+    { key: 'recomendaciones', label: 'Recomendaciones' },
   ];
-
-  const enfermedadesChart = Object.entries(enfermedadesCount).map(([name, value]) => ({ name, value }));
-  const insectosBeneficosChart = Object.entries(insectosBeneficos).map(([name, value]) => ({ name, value }));
-  const polinizadoresChart = Object.entries(polinizadoresCount).map(([name, value]) => ({ name, value }));
-
-  // Datos fenológicos: distribución de fases por rama
-  let faseVeg = 0, faseFlor = 0, faseFruc = 0;
-  plantas.forEach(planta => {
-    planta.fenologico.forEach(rama => {
-      if (rama.fases.includes('vegetativa')) faseVeg++;
-      if (rama.fases.includes('floracion')) faseFlor++;
-      if (rama.fases.includes('fructificacion')) faseFruc++;
-    });
-  });
-  const fasesChart = [
-    { name: 'Vegetativa', value: faseVeg },
-    { name: 'Floración', value: faseFlor },
-    { name: 'Fructificación', value: faseFruc }
-  ];
-
-  // Datos de alturas por planta
-  const alturaPorPlanta = plantas.map(p => ({ name: p.label, altura: p.censo.altura, diametro: p.censo.diametro }));
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#E74C3C'];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -272,262 +117,407 @@ const GestionEstadisticasPage: React.FC = () => {
       />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center gap-2">
-            <TrendingUp className="w-8 h-8 text-green-600" />
-            Dashboard de Monitoreo Agrícola
-          </h1>
-          <p className="text-gray-600 mb-6">
-            Resumen estadístico basado en datos de censo, fenología, enfermedades, artrópodos, controladores y polinizadores
-          </p>
 
-          {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Plantas monitoreadas</p>
-                <p className="text-2xl font-bold">{totalPlantas}</p>
-              </div>
-              <Leaf className="w-10 h-10 text-green-500" />
+          {/* Header */}
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                <TrendingUp className="w-8 h-8 text-green-600" />
+                Dashboard de Monitoreo
+              </h1>
+              <p className="text-gray-600 mt-1">Estadísticas en tiempo real del sistema</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Condición Buena</p>
-                <p className="text-2xl font-bold text-green-600">{plantasConBuenaObs}</p>
-              </div>
-              <CheckCircle className="w-10 h-10 text-green-500" />
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Condición Mala</p>
-                <p className="text-2xl font-bold text-red-600">{plantasConMalaObs}</p>
-              </div>
-              <XCircle className="w-10 h-10 text-red-500" />
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Altura promedio</p>
-                <p className="text-2xl font-bold">{alturaPromedio.toFixed(2)} m</p>
-              </div>
-              <Activity className="w-10 h-10 text-blue-500" />
-            </div>
-          </div>
 
-          {/* Selector de métrica */}
-          <div className="mb-6 flex gap-2 flex-wrap">
-            {['general', 'enfermedades', 'artropodos', 'controladores', 'polinizadores', 'fenologico'].map(met => (
+            {/* Selector de programa */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Filtrar por programa:</label>
+              {loadingProgs ? (
+                <div className="border rounded-lg px-4 py-2 text-sm text-gray-400">Cargando...</div>
+              ) : (
+                <select
+                  value={programaId}
+                  onChange={e => setProgramaId(e.target.value ? parseInt(e.target.value) : '')}
+                  className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Todos los programas</option>
+                  {programas.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
+              )}
               <button
-                key={met}
-                onClick={() => setSelectedMetric(met)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition ${selectedMetric === met ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-200'}`}
+                onClick={cargarEstadisticas}
+                disabled={loading}
+                className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
               >
-                {met === 'general' && 'General'}
-                {met === 'enfermedades' && 'Enfermedades'}
-                {met === 'artropodos' && 'Artrópodos'}
-                {met === 'controladores' && 'Controladores'}
-                {met === 'polinizadores' && 'Polinizadores'}
-                {met === 'fenologico' && 'Fenología'}
+                <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync'} mr-1`}></i>
+                Actualizar
               </button>
-            ))}
-          </div>
-
-          {/* Contenido dinámico según métrica */}
-          <div className="space-y-6">
-            {selectedMetric === 'general' && (
-              <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold mb-4">Distribución de condición general</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie data={observacionChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                          {observacionChart.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold mb-4">Altura y diámetro por planta</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={alturaPorPlanta}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="altura" fill="#8884d8" name="Altura (m)" />
-                        <Bar dataKey="diametro" fill="#82ca9d" name="Diámetro copa (m)" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Detalle por planta</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Código</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Observación</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Altura (m)</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Diámetro (m)</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Controladores</th><th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Polinizadores</th></tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {plantas.map(p => (
-                          <tr key={p.codigo}>
-                            <td className="px-4 py-2 text-sm">{p.codigo}</td>
-                            <td className="px-4 py-2 text-sm">{p.censo.observacion}</td>
-                            <td className="px-4 py-2 text-sm">{p.censo.altura}</td>
-                            <td className="px-4 py-2 text-sm">{p.censo.diametro}</td>
-                            <td className="px-4 py-2 text-sm">{p.controladores.insectos.join(', ') || 'Ninguno'}</td>
-                            <td className="px-4 py-2 text-sm">{p.polinizadores.polinizadores.join(', ')}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {selectedMetric === 'enfermedades' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Enfermedades más frecuentes</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={enfermedadesChart}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#E74C3C" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Recomendaciones rápidas</h3>
-                  <ul className="list-disc pl-5 space-y-2">
-                    <li>HLB (Huanglongbing) presente en 3 cuadrantes → Control vectorial urgente.</li>
-                    <li>Antracnosis detectada en 2 plantas → Aplicar fungicidas cúpricos.</li>
-                    <li>Phytophthora en 1 planta → Mejorar drenaje y aplicar metalaxil.</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {selectedMetric === 'artropodos' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Presencia de artrópodos</h3>
-                  <p className="text-2xl font-bold">{totalCuadrantesConPlaga} / {totalPlantas * 4} cuadrantes con plaga</p>
-                  <p className="text-sm text-gray-500">Insectos: {totalInsectos} registros | Ácaros: {totalAcaros} registros</p>
-                  <div className="mt-4">
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie data={[{ name: 'Con plaga', value: totalCuadrantesConPlaga }, { name: 'Sin plaga', value: totalPlantas * 4 - totalCuadrantesConPlaga }]} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                          <Cell fill="#F39C12" /><Cell fill="#BDC3C7" />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Plagas más comunes</h3>
-                  <ul className="space-y-2">
-                    <li className="flex justify-between"><span>Diaphorina citri (psílido)</span><span className="font-bold">3 cuadrantes</span></li>
-                    <li className="flex justify-between"><span>Polyphagotarsonemus (ácaro blanco)</span><span className="font-bold">2 cuadrantes</span></li>
-                    <li className="flex justify-between"><span>Phyllocoptruta (ácaro tostador)</span><span className="font-bold">1 cuadrante</span></li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {selectedMetric === 'controladores' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Insectos benéficos observados</h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={insectosBeneficosChart}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#2ECC71" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Microbianos benéficos</h3>
-                  <ul>
-                    {Object.entries(microbianosBeneficos).map(([k, v]) => <li key={k}>{k}: {v} planta(s)</li>)}
-                  </ul>
-                  <h3 className="text-lg font-semibold mt-4">Nivel de presencia</h3>
-                  <div className="flex gap-2 mt-2">
-                    <span className="bg-green-100 px-2 py-1 rounded">Alta: 1</span>
-                    <span className="bg-yellow-100 px-2 py-1 rounded">Media: 1</span>
-                    <span className="bg-red-100 px-2 py-1 rounded">Baja: 3</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {selectedMetric === 'polinizadores' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Polinizadores registrados</h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie data={polinizadoresChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                        {polinizadoresChart.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Actividad promedio</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between"><span>Alta (≥5 visitas/min)</span><span>1 planta</span></div>
-                    <div className="flex justify-between"><span>Media (2-4 visitas/min)</span><span>1 planta</span></div>
-                    <div className="flex justify-between"><span>Baja (1 visita/min)</span><span>0</span></div>
-                    <div className="flex justify-between"><span>Sin actividad</span><span>3 plantas</span></div>
-                  </div>
-                  <p className="mt-4 text-sm text-gray-500">⚠️ Baja actividad polinizadora en la mayoría del lote.</p>
-                </div>
-              </div>
-            )}
-
-            {selectedMetric === 'fenologico' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Distribución de fases fenológicas (por rama)</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={fasesChart}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#9B59B6" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <h3 className="text-lg font-semibold mb-4">Detalle de estados BBCH (ejemplo vegetativo)</h3>
-                  <ul>
-                    <li>09: Primordios foliares visibles – 2 ramas</li>
-                    <li>15: Más hojas visibles – 5 ramas</li>
-                    <li>19: Hojas tamaño final – 3 ramas</li>
-                    <li>32: Brotes al 20% – 4 ramas</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer informativo */}
-          <div className="mt-10 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700 flex gap-2 items-start">
-            <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <strong>Nota:</strong> Los datos mostrados son simulados (mock) para demostración. Conecte con sus APIs reales para obtener estadísticas en vivo.
-              Las recomendaciones se generan automáticamente según umbrales configurados.
             </div>
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {loading && !estadDiag && (
+            <div className="flex justify-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600"></div>
+            </div>
+          )}
+
+          {!loading || estadDiag ? (
+            <>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <KpiCard
+                  label="Total Diagnósticos"
+                  value={estadDiag?.total ?? '—'}
+                  icon={<Activity className="w-10 h-10 text-blue-400" />}
+                  color="text-blue-700"
+                />
+                <KpiCard
+                  label="Labores Completadas"
+                  value={estadLab?.completadas ?? '—'}
+                  icon={<CheckCircle className="w-10 h-10 text-green-400" />}
+                  color="text-green-700"
+                />
+                <KpiCard
+                  label="Labores Pendientes"
+                  value={estadLab?.pendientes ?? '—'}
+                  icon={<ClipboardList className="w-10 h-10 text-yellow-400" />}
+                  color="text-yellow-700"
+                />
+                <KpiCard
+                  label="Recomendaciones"
+                  value={estadRec?.total ?? '—'}
+                  icon={<Leaf className="w-10 h-10 text-purple-400" />}
+                  color="text-purple-700"
+                />
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6 flex-wrap">
+                {tabs.map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                      tab === t.key ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Content */}
+              {tab === 'general' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Diagnósticos por monitoreo */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Diagnósticos por tipo de monitoreo</h3>
+                      {estadDiag && Object.keys(estadDiag.por_monitoreo || {}).length > 0 ? (
+                        <ResponsiveContainer width="100%" height={280}>
+                          <PieChart>
+                            <Pie
+                              data={toChartData(estadDiag.por_monitoreo)}
+                              dataKey="value" nameKey="name"
+                              cx="50%" cy="50%" outerRadius={100} label
+                            >
+                              {toChartData(estadDiag.por_monitoreo).map((_, i) => (
+                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-400">Sin datos</div>
+                      )}
+                    </div>
+
+                    {/* Estado de labores */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Estado de labores</h3>
+                      {estadLab ? (
+                        <ResponsiveContainer width="100%" height={280}>
+                          <BarChart data={[
+                            { name: 'Pendientes', value: estadLab.pendientes },
+                            { name: 'En Progreso', value: estadLab.en_progreso },
+                            { name: 'Completadas', value: estadLab.completadas },
+                            { name: 'Canceladas', value: estadLab.canceladas },
+                          ]}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="value" fill="#4ade80" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-400">Sin datos</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tabla resumen */}
+                  <div className="bg-white p-4 rounded-lg shadow">
+                    <h3 className="text-lg font-semibold mb-4">Resumen General</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <p className="text-3xl font-bold text-blue-700">{estadDiag?.total ?? 0}</p>
+                        <p className="text-sm text-gray-600">Diagnósticos totales</p>
+                      </div>
+                      <div className="p-4 bg-green-50 rounded-lg">
+                        <p className="text-3xl font-bold text-green-700">{estadLab?.completadas ?? 0}</p>
+                        <p className="text-sm text-gray-600">Labores completadas</p>
+                      </div>
+                      <div className="p-4 bg-yellow-50 rounded-lg">
+                        <p className="text-3xl font-bold text-yellow-700">{estadRec?.aprobadas ?? 0}</p>
+                        <p className="text-sm text-gray-600">Recomendaciones aprobadas</p>
+                      </div>
+                      <div className="p-4 bg-purple-50 rounded-lg">
+                        <p className="text-3xl font-bold text-purple-700">
+                          {estadLab?.promedio_avance != null ? `${estadLab.promedio_avance}%` : '—'}
+                        </p>
+                        <p className="text-sm text-gray-600">Avance promedio labores</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'diagnosticos' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Por tipo de monitoreo */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Por tipo de monitoreo (dinámico)</h3>
+                      {estadDiag && Object.keys(estadDiag.por_monitoreo || {}).length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={toChartData(estadDiag.por_monitoreo)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="value" fill="#3B82F6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-400">Sin datos</div>
+                      )}
+                    </div>
+
+                    {/* Por lote */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Por lote</h3>
+                      {estadDiag && Object.keys(estadDiag.por_lote || {}).length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={toChartData(estadDiag.por_lote)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="value" fill="#10B981" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-400">Sin datos</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Por programa */}
+                  {!programaId && estadDiag && Object.keys(estadDiag.por_programa || {}).length > 0 && (
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Por programa</h3>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={toChartData(estadDiag.por_programa)}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#8B5CF6" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Lista por monitoreo */}
+                  {estadDiag && (
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Detalle por tipo de monitoreo</h3>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Tipo de Monitoreo</th>
+                              <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase">Diagnósticos</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {Object.entries(estadDiag.por_monitoreo || {}).map(([tipo, count]) => (
+                              <tr key={tipo} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 font-medium text-gray-800">{tipo}</td>
+                                <td className="px-4 py-3 text-right text-blue-700 font-semibold">{count}</td>
+                              </tr>
+                            ))}
+                            {Object.keys(estadDiag.por_monitoreo || {}).length === 0 && (
+                              <tr><td colSpan={2} className="px-4 py-6 text-center text-gray-400">Sin diagnósticos registrados</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {tab === 'labores' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-2">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-yellow-700">{estadLab?.pendientes ?? 0}</p>
+                      <p className="text-sm text-gray-600">Pendientes</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-blue-700">{estadLab?.en_progreso ?? 0}</p>
+                      <p className="text-sm text-gray-600">En Progreso</p>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-green-700">{estadLab?.completadas ?? 0}</p>
+                      <p className="text-sm text-gray-600">Completadas</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                      <p className="text-3xl font-bold text-red-700">{estadLab?.canceladas ?? 0}</p>
+                      <p className="text-sm text-gray-600">Canceladas</p>
+                    </div>
+                  </div>
+
+                  {estadLab && (
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Distribución de labores</h3>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Pendientes', value: estadLab.pendientes },
+                              { name: 'En Progreso', value: estadLab.en_progreso },
+                              { name: 'Completadas', value: estadLab.completadas },
+                              { name: 'Canceladas', value: estadLab.canceladas },
+                            ].filter(d => d.value > 0)}
+                            dataKey="value" nameKey="name"
+                            cx="50%" cy="50%" outerRadius={110} label
+                          >
+                            {['#F59E0B', '#3B82F6', '#10B981', '#EF4444'].map((color, i) => (
+                              <Cell key={i} fill={color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-gray-600">
+                          Avance promedio: <span className="font-bold text-green-700">{estadLab.promedio_avance}%</span>
+                          {' | '}Total: <span className="font-bold">{estadLab.total}</span> labores
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {tab === 'recomendaciones' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Estado de recomendaciones</h3>
+                      {estadRec && (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Pendientes', value: estadRec.pendientes },
+                                { name: 'Aprobadas', value: estadRec.aprobadas },
+                                { name: 'En Ejecución', value: estadRec.en_ejecucion },
+                                { name: 'Completadas', value: estadRec.completadas },
+                                { name: 'Canceladas', value: estadRec.canceladas },
+                              ].filter(d => d.value > 0)}
+                              dataKey="value" nameKey="name"
+                              cx="50%" cy="50%" outerRadius={100} label
+                            >
+                              {['#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444'].map((c, i) => (
+                                <Cell key={i} fill={c} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
+                    {/* Por tipo (dinámico) */}
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Por tipo de recomendación (dinámico)</h3>
+                      {estadRec && Object.keys(estadRec.por_tipo || {}).length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={toChartData(estadRec.por_tipo)}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="value" fill="#8B5CF6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-500">
+                          <p className="text-sm">No hay tipos de recomendación registrados.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {estadRec && (
+                    <div className="bg-white p-4 rounded-lg shadow">
+                      <h3 className="text-lg font-semibold mb-4">Resumen de recomendaciones</h3>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Estado</th>
+                              <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase">Cantidad</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {[
+                              { label: 'Pendientes', val: estadRec.pendientes, color: 'text-yellow-700' },
+                              { label: 'Aprobadas', val: estadRec.aprobadas, color: 'text-green-700' },
+                              { label: 'En Ejecución', val: estadRec.en_ejecucion, color: 'text-blue-700' },
+                              { label: 'Completadas', val: estadRec.completadas, color: 'text-purple-700' },
+                              { label: 'Canceladas', val: estadRec.canceladas, color: 'text-red-700' },
+                            ].map(row => (
+                              <tr key={row.label} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 font-medium text-gray-800">{row.label}</td>
+                                <td className={`px-4 py-3 text-right font-semibold ${row.color}`}>{row.val}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
       </div>
     </div>

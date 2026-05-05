@@ -466,13 +466,36 @@ def obtener_estadisticas(
         query = query.filter(Diagnostico.programa_id == programa_id)
 
     total = query.count()
-    por_tipo = {}
+
+    # Group by tipo_diagnostico (free string, derived from Monitoreo.nombre)
+    por_tipo: Dict[str, int] = {}
     for row in db.query(Diagnostico.tipo_diagnostico).distinct():
         t = row[0]
         if t:
             por_tipo[t] = query.filter(Diagnostico.tipo_diagnostico == t).count()
-    por_lote = {}
+
+    # Group by tipo_monitoreo (Monitoreo.nombre) — dynamic per program
+    por_monitoreo: Dict[str, int] = {}
+    for d in query.all():
+        nombre_mon = d.tipo_monitoreo.nombre if d.tipo_monitoreo else f"monitoreo_{d.tipo_monitoreo_id}"
+        por_monitoreo[nombre_mon] = por_monitoreo.get(nombre_mon, 0) + 1
+
+    # Group by lote
+    por_lote: Dict[str, int] = {}
     for d in query.all():
         nombre_lote = d.lote.nombre if d.lote else f"lote_{d.lote_id}"
         por_lote[nombre_lote] = por_lote.get(nombre_lote, 0) + 1
-    return EstadisticasDiagnosticosResponse(total=total, por_tipo=por_tipo, por_lote=por_lote)
+
+    # Group by programa
+    por_programa: Dict[str, int] = {}
+    for d in query.all():
+        nombre_prog = d.programa.nombre if d.programa else f"programa_{d.programa_id}"
+        por_programa[nombre_prog] = por_programa.get(nombre_prog, 0) + 1
+
+    return EstadisticasDiagnosticosResponse(
+        total=total,
+        por_tipo=por_tipo,
+        por_monitoreo=por_monitoreo,
+        por_lote=por_lote,
+        por_programa=por_programa
+    )

@@ -36,7 +36,7 @@ const GestionRecomendaciones: React.FC = () => {
     const [recomendacionAAprobarTitulo, setRecomendacionAAprobarTitulo] = useState<string>('');
     const [lotes, setLotes] = useState<any[]>([]);
     const [docentes, setDocentes] = useState<any[]>([]);
-    const [programas, setProgramas] = useState<any[]>([]);
+    const [programas, setProgramas] = useState<any[]>([]); // 👈 NUEVO: lista de programas
     const [filtros, setFiltros] = useState<RecomendacionFilters>({});
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
@@ -44,8 +44,8 @@ const GestionRecomendaciones: React.FC = () => {
 
     const [urlDiagnosticoId, setUrlDiagnosticoId] = useState<number | undefined>(undefined);
     const [urlLoteId, setUrlLoteId] = useState<number | undefined>(undefined);
-    const [loadingLotes, setLoadingLotes] = useState(true);
 
+    // Cargar programas al inicio + leer URL params para abrir modal de crear recomendación
     useEffect(() => {
         const cargarProgramas = async () => {
             try {
@@ -68,6 +68,7 @@ const GestionRecomendaciones: React.FC = () => {
         }
     }, []);
 
+    // Handler para exportar
     const handleExportRecomendaciones = async () => {
         if (exporting) return;
         setExporting(true);
@@ -94,33 +95,33 @@ const GestionRecomendaciones: React.FC = () => {
             setLoading(true);
             setError(null);
 
+            // Cargar recomendaciones
             const data = await recomendacionService.obtenerRecomendaciones(filtros);
             const recomendacionesData = Array.isArray(data) ? data : (data?.items || data || []);
             setRecomendaciones(recomendacionesData);
 
-            setLoadingLotes(true);
-            try {
-                const lotesData = await loteService.obtenerLotes();
-                let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
-                lotesArray = await Promise.all(
-                    lotesArray.map(async (lote) => {
-                        try {
-                            if (lote.granja_id) {
-                                const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
-                                return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
+            if (lotes.length === 0) {
+                try {
+                    const lotesData = await loteService.obtenerLotes();
+                    let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
+                    lotesArray = await Promise.all(
+                        lotesArray.map(async (lote) => {
+                            try {
+                                if (lote.granja_id) {
+                                    const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
+                                    return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
+                                }
+                                return { ...lote, granja_nombre: 'Sin granja' };
+                            } catch {
+                                return { ...lote, granja_nombre: 'Error al cargar' };
                             }
-                            return { ...lote, granja_nombre: 'Sin granja' };
-                        } catch {
-                            return { ...lote, granja_nombre: 'Error al cargar' };
-                        }
-                    })
-                );
-                setLotes(lotesArray);
-            } catch (loteError) {
-                console.error('Error cargando lotes:', loteError);
-                setLotes([]);
-            } finally {
-                setLoadingLotes(false);
+                        })
+                    );
+                    setLotes(lotesArray);
+                } catch (loteError) {
+                    console.error('Error cargando lotes:', loteError);
+                    setLotes([]);
+                }
             }
 
             if (docentes.length === 0) {
@@ -143,6 +144,7 @@ const GestionRecomendaciones: React.FC = () => {
         }
     };
 
+    // CRUD HANDLERS ----------------------------------------------------
     const handleCrearRecomendacion = async (data: any) => {
         try {
             const nueva = await recomendacionService.crearRecomendacion(data, user);
@@ -193,6 +195,7 @@ const GestionRecomendaciones: React.FC = () => {
         }
     };
 
+    // OPEN MODAL HANDLERS ----------------------------------------------
     const openEditarModal = (recomendacion: Recomendacion) => {
         setSelectedRecomendacion(recomendacion);
         setShowEditarModal(true);
@@ -209,6 +212,7 @@ const GestionRecomendaciones: React.FC = () => {
         setShowAprobarModal(true);
     };
 
+    // FILTRO POR ROL ---------------------------------------------------
     const recomendacionesFiltradas = Array.isArray(recomendaciones) ? recomendaciones.filter(r => {
         if (!user) return false;
         if (user.rol_id === 1) return true;
@@ -216,8 +220,10 @@ const GestionRecomendaciones: React.FC = () => {
         return true;
     }) : [];
 
+    // RENDER -----------------------------------------------------------
     return (
         <div className="p-6">
+            {/* HEADER CON FILTROS */}
             <div className="mb-6">
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-bold text-gray-800">Gestión de Recomendaciones</h1>
@@ -249,16 +255,16 @@ const GestionRecomendaciones: React.FC = () => {
                         {user && rolesPermitidos.includes(user.rol_id) && (
                             <button
                                 onClick={() => setShowCrearModal(true)}
-                                disabled={loadingLotes}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center disabled:opacity-50 transition-colors"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
                             >
                                 <i className="fas fa-plus mr-2"></i>
-                                {loadingLotes ? 'Cargando lotes...' : 'Nueva Recomendación'}
+                                Nueva Recomendación
                             </button>
                         )}
                     </div>
                 </div>
 
+                {/* Filtros */}
                 <div className="bg-white p-4 rounded-lg shadow mb-6">
                     <h3 className="font-semibold mb-3">Filtros</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -313,6 +319,7 @@ const GestionRecomendaciones: React.FC = () => {
                 </div>
             </div>
 
+            {/* TABLA */}
             {loading ? (
                 <div className="text-center py-8">
                     <i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i>
@@ -336,6 +343,7 @@ const GestionRecomendaciones: React.FC = () => {
                 />
             )}
 
+            {/* MODAL CREAR con selector de programa */}
             <Modal isOpen={showCrearModal} onClose={() => { setShowCrearModal(false); setUrlDiagnosticoId(undefined); setUrlLoteId(undefined); }} width="max-w-4xl">
                 <RecomendacionFormSelector
                     onSubmit={handleCrearRecomendacion}
@@ -350,6 +358,7 @@ const GestionRecomendaciones: React.FC = () => {
                 />
             </Modal>
 
+            {/* MODAL EDITAR: usamos el selector también, pasando el programa del lote */}
             <Modal isOpen={showEditarModal} onClose={() => setShowEditarModal(false)} width="max-w-4xl">
                 {selectedRecomendacion && (
                     <RecomendacionFormSelector
@@ -361,10 +370,12 @@ const GestionRecomendaciones: React.FC = () => {
                         currentUser={user}
                         programas={programas}
                         esEdicion={true}
+                        // Opcional: pasar programaInicial si se conoce, pero se deduce del lote en el selector
                     />
                 )}
             </Modal>
 
+            {/* MODAL DETALLES */}
             {selectedRecomendacion && (
                 <DetallesRecomendacionModal
                     isOpen={showDetallesModal}
@@ -376,11 +387,13 @@ const GestionRecomendaciones: React.FC = () => {
                 />
             )}
 
+            {/* MODAL ESTADÍSTICAS */}
             <EstadisticasModal
                 isOpen={showEstadisticasModal}
                 onClose={() => setShowEstadisticasModal(false)}
             />
 
+            {/* MODAL APROBAR */}
             {recomendacionAAprobarId && (
                 <AprobarRecomendacionModal
                     isOpen={showAprobarModal}

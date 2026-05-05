@@ -1,34 +1,39 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
 from datetime import datetime
-from enum import Enum
 
-class TipoRecomendacion(str, Enum):
-    APLICACIÓN_AL_SUELO = "Aplicación al suelo"
-    APLICACIÓN_FOLIAR = "Aplicación foliar"
-    PODAS = "podas"
-    COSECHA_Y_SANEAMIENTO = "Cosecha y saneamiento"
-    MANEJO_DE_ARVENSES = "Manejo de arvenses"
-    CENSO_POBLACIONAL = "Censo poblacional"
-    HORMIGA_ARRIERA = "Hormiga arriera"
-    OTRO = "otro"
+class EstadoRecomendacion(str):
+    pass
 
-class EstadoRecomendacion(str, Enum):
-    PENDIENTE = "pendiente"
-    APROBADA = "aprobada"
-    EN_EJECUCION = "en_ejecucion"
-    COMPLETADA = "completada"
-    CANCELADA = "cancelada"
+ESTADOS_RECOMENDACION = ["pendiente", "aprobada", "en_ejecucion", "completada", "cancelada"]
+
+class RecomendacionItemCreate(BaseModel):
+    inventario_item_id: Optional[int] = Field(None, gt=0)
+    cantidad_sugerida: Optional[float] = Field(None, gt=0)
+    descripcion: Optional[str] = Field(None, max_length=200)
+
+class RecomendacionItemResponse(BaseModel):
+    id: int
+    recomendacion_id: int
+    inventario_item_id: Optional[int] = None
+    cantidad_sugerida: Optional[float] = None
+    descripcion: Optional[str] = None
+    inventario_item_nombre: Optional[str] = None
+    inventario_item_unidad: Optional[str] = None
+    inventario_item_disponible: Optional[float] = None
+
+    class Config:
+        from_attributes = True
 
 class RecomendacionBase(BaseModel):
-    titulo: str = Field(..., min_length=5, max_length=200, description="Título de la recomendación")
-    descripcion: str = Field(..., min_length=10, max_length=2000, description="Descripción detallada")
-    tipo: TipoRecomendacion = Field(..., description="Tipo de recomendación")
-    estado: EstadoRecomendacion = Field(EstadoRecomendacion.PENDIENTE, description="Estado de la recomendación")
-    lote_id: int = Field(..., gt=0, description="ID del lote donde aplicar")
-    diagnostico_id: Optional[int] = Field(None, gt=0, description="ID del diagnóstico relacionado")
-    inventario_item_id: Optional[int] = Field(None, gt=0, description="Item de inventario sugerido")
-    cantidad_sugerida: Optional[float] = Field(None, gt=0, description="Cantidad sugerida del insumo")
+    titulo: str = Field(..., min_length=5, max_length=200)
+    descripcion: str = Field(..., min_length=10, max_length=2000)
+    tipo: Optional[str] = Field(None, max_length=150)
+    estado: str = Field("pendiente")
+    lote_id: int = Field(..., gt=0)
+    diagnostico_id: Optional[int] = Field(None, gt=0)
+    inventario_item_id: Optional[int] = Field(None, gt=0)
+    cantidad_sugerida: Optional[float] = Field(None, gt=0)
 
     @validator('titulo')
     def titulo_no_vacio(cls, v):
@@ -42,22 +47,25 @@ class RecomendacionBase(BaseModel):
             raise ValueError('La descripción debe tener al menos 10 caracteres')
         return v.strip()
 
-class RecomendacionCreate(RecomendacionBase):
-    docente_id: int = Field(..., gt=0, description="ID del docente/asesor/administrador que genera la recomendación")
-
-    @validator('docente_id')
-    def docente_valido(cls, v):
-        if v <= 0:
-            raise ValueError('ID de usuario debe ser mayor a 0')
+    @validator('estado')
+    def validar_estado(cls, v):
+        if v not in ESTADOS_RECOMENDACION:
+            raise ValueError(f"Estado debe ser uno de: {', '.join(ESTADOS_RECOMENDACION)}")
         return v
 
+class RecomendacionCreate(RecomendacionBase):
+    docente_id: int = Field(..., gt=0)
+    items_sugeridos: List[RecomendacionItemCreate] = []
+
 class RecomendacionUpdate(BaseModel):
-    titulo: Optional[str] = Field(None, min_length=5, max_length=200, description="Título de la recomendación")
-    descripcion: Optional[str] = Field(None, min_length=10, max_length=2000, description="Descripción detallada")
-    tipo: Optional[TipoRecomendacion] = Field(None, description="Tipo de recomendación")
-    estado: Optional[EstadoRecomendacion] = Field(None, description="Estado de la recomendación")
-    diagnostico_id: Optional[int] = Field(None, gt=0, description="ID del diagnóstico relacionado")  # ← AÑADIR
-    fecha_aprobacion: Optional[datetime] = Field(None, description="Fecha de aprobación")
+    titulo: Optional[str] = Field(None, min_length=5, max_length=200)
+    descripcion: Optional[str] = Field(None, min_length=10, max_length=2000)
+    tipo: Optional[str] = Field(None, max_length=150)
+    estado: Optional[str] = None
+    diagnostico_id: Optional[int] = Field(None, gt=0)
+    fecha_aprobacion: Optional[datetime] = None
+    inventario_item_id: Optional[int] = Field(None, gt=0)
+    cantidad_sugerida: Optional[float] = Field(None, gt=0)
 
     @validator('titulo')
     def titulo_no_vacio(cls, v):
@@ -71,22 +79,28 @@ class RecomendacionUpdate(BaseModel):
             raise ValueError('La descripción debe tener al menos 10 caracteres')
         return v.strip() if v else v
 
+    @validator('estado')
+    def validar_estado(cls, v):
+        if v is not None and v not in ESTADOS_RECOMENDACION:
+            raise ValueError(f"Estado debe ser uno de: {', '.join(ESTADOS_RECOMENDACION)}")
+        return v
+
 class RecomendacionResponse(RecomendacionBase):
     id: int
     docente_id: int
     fecha_creacion: datetime
     fecha_aprobacion: Optional[datetime] = None
-    
-    # Información relacionada
     docente_nombre: Optional[str] = None
     lote_nombre: Optional[str] = None
     granja_nombre: Optional[str] = None
     programa_nombre: Optional[str] = None
+    programa_id: Optional[int] = None
     diagnostico_tipo: Optional[str] = None
     inventario_item_nombre: Optional[str] = None
     inventario_item_unidad: Optional[str] = None
     inventario_item_disponible: Optional[float] = None
-    
+    items_sugeridos: List[RecomendacionItemResponse] = []
+
     class Config:
         from_attributes = True
 
@@ -94,14 +108,13 @@ class RecomendacionListResponse(BaseModel):
     items: List[RecomendacionResponse]
     total: int
     paginas: int
-    
+
     class Config:
         from_attributes = True
 
-# Schema para aprobación de recomendación
 class AprobacionRecomendacionRequest(BaseModel):
     aprobar: bool = Field(..., description="True para aprobar, False para rechazar")
-    observaciones: Optional[str] = Field(None, max_length=1000, description="Observaciones de aprobación/rechazo")
+    observaciones: Optional[str] = Field(None, max_length=1000)
 
     @validator('observaciones')
     def observaciones_no_vacias(cls, v):
@@ -109,7 +122,6 @@ class AprobacionRecomendacionRequest(BaseModel):
             raise ValueError('Las observaciones no pueden estar vacías')
         return v.strip() if v else v
 
-# Schema para estadísticas de recomendaciones
 class EstadisticasRecomendacionesResponse(BaseModel):
     total: int
     pendientes: int
@@ -118,14 +130,13 @@ class EstadisticasRecomendacionesResponse(BaseModel):
     completadas: int
     canceladas: int
     por_tipo: dict = {}
-    
+
     class Config:
         from_attributes = True
-        
-# En recomendacion_schema.py - Agregar este schema
+
 class RecomendacionWithLaboresDetalladasResponse(RecomendacionResponse):
-    labores_detalladas: List[dict] = []  # Labores con info extendida
+    labores_detalladas: List[dict] = []
     diagnostico_info: Optional[dict] = None
-    
+
     class Config:
         from_attributes = True

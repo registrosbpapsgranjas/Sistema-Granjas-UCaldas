@@ -64,6 +64,7 @@ const TableroLabores: React.FC = () => {
   const [online, setOnline] = useState(navigator.onLine);
   const [pendientesSync, setPendientesSync] = useState(0);
   const [avanceModal, setAvanceModal] = useState<{ labor: Labor | null; valor: number; comentario: string }>({ labor: null, valor: 0, comentario: '' });
+  const [completarModal, setCompletarModal] = useState<{ labor: Labor | null; itemsInventario: any[]; loadingItems: boolean; cantidadUsada: string; inventarioItemId: string; comentario: string }>({ labor: null, itemsInventario: [], loadingItems: false, cantidadUsada: '', inventarioItemId: '', comentario: '' });
   const [vistaMovil, setVistaMovil] = useState<string>('todas');
 
   useEffect(() => {
@@ -203,28 +204,66 @@ const TableroLabores: React.FC = () => {
     }
   };
 
-  const completarLabor = async (labor: Labor) => {
-    if (!window.confirm(`¿Completar la labor "${labor.tipo_labor_nombre}"?`)) return;
+  const abrirCompletarModal = async (labor: Labor) => {
+    setCompletarModal(prev => ({ ...prev, labor, loadingItems: true, cantidadUsada: '', inventarioItemId: '', comentario: '' }));
+    // Try to load inventory items for the program of this labor's lote
+    try {
+      const laborRes = await fetch(`${API_BASE}/labores/${labor.id}`, { headers: getHeaders() });
+      if (laborRes.ok) {
+        const laborData = await laborRes.json();
+        const recomId = laborData.recomendacion_id;
+        if (recomId) {
+          const recRes = await fetch(`${API_BASE}/recomendaciones/${recomId}`, { headers: getHeaders() });
+          if (recRes.ok) {
+            const recData = await recRes.json();
+            const programaId = recData.programa_id;
+            if (programaId) {
+              const invRes = await fetch(`${API_BASE}/inventario-dinamico/items?programa_id=${programaId}&limit=200`, { headers: getHeaders() });
+              if (invRes.ok) {
+                const invData = await invRes.json();
+                const items = Array.isArray(invData) ? invData : (invData?.items || []);
+                setCompletarModal(prev => ({ ...prev, loadingItems: false, itemsInventario: items }));
+                return;
+              }
+            }
+          }
+        }
+      }
+    } catch { /* ignore, show empty */ }
+    setCompletarModal(prev => ({ ...prev, loadingItems: false, itemsInventario: [] }));
+  };
+
+  const confirmarCompletar = async () => {
+    const { labor, inventarioItemId, cantidadUsada, comentario } = completarModal;
+    if (!labor) return;
+
+    const body: any = {};
+    if (comentario) body.comentario = comentario;
+    if (inventarioItemId) body.inventario_item_id = parseInt(inventarioItemId);
+    if (cantidadUsada) body.cantidad_usada = parseFloat(cantidadUsada);
+
     const optimistic = labores.map(l => l.id === labor.id ? { ...l, estado: 'completada', avance_porcentaje: 100 } : l);
     setLabores(optimistic);
     await guardarEnCache(optimistic);
+    setCompletarModal({ labor: null, itemsInventario: [], loadingItems: false, cantidadUsada: '', inventarioItemId: '', comentario: '' });
+
     if (navigator.onLine) {
       try {
         const res = await fetch(`${API_BASE}/labores/${labor.id}/completar`, {
           method: 'POST',
           headers: getHeaders(),
-          body: JSON.stringify({}),
+          body: JSON.stringify(body),
         });
         if (res.ok) {
           toast.success('Labor completada e inventario actualizado');
           await cargarLabores();
         } else throw new Error();
       } catch {
-        await encolarAccion({ tipo: 'completar', labor_id: labor.id });
+        await encolarAccion({ tipo: 'completar', labor_id: labor.id, ...body });
         toast('Guardado localmente, se sincronizará cuando haya conexión', { icon: '💾' });
       }
     } else {
-      await encolarAccion({ tipo: 'completar', labor_id: labor.id });
+      await encolarAccion({ tipo: 'completar', labor_id: labor.id, ...body });
       toast('Sin conexión — guardado localmente', { icon: '📵' });
     }
   };
@@ -320,7 +359,7 @@ const TableroLabores: React.FC = () => {
                       key={labor.id}
                       labor={labor}
                       onAvance={() => setAvanceModal({ labor, valor: labor.avance_porcentaje, comentario: labor.comentario || '' })}
-                      onCompletar={() => completarLabor(labor)}
+                      onCompletar={() => abrirCompletarModal(labor)}
                       formatFecha={formatFecha}
                     />
                   ))
@@ -343,7 +382,7 @@ const TableroLabores: React.FC = () => {
                 key={labor.id}
                 labor={labor}
                 onAvance={() => setAvanceModal({ labor, valor: labor.avance_porcentaje, comentario: labor.comentario || '' })}
-                onCompletar={() => completarLabor(labor)}
+                onCompletar={() => abrirCompletarModal(labor)}
                 formatFecha={formatFecha}
                 fullWidth
               />
@@ -351,6 +390,98 @@ const TableroLabores: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de completar labor */}
+      {completarModal.labor && (
+        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="p-5 border-b">
+              <h3 className="font-bold text-lg text-gray-900">Completar Labor</h3>
+              <p className="text-sm text-gray-500 mt-1">{completarModal.labor.tipo_labor_nombre}</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-gray-600">
+                Estás por marcar como completada esta labor.
+                Puedes reportar el consumo de insumos utilizado.
+              </p>
+
+              {/* Comentario */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Comentario de finalización (opcional)</label>
+                <textarea
+                  value={completarModal.comentario}
+                  onChange={e => setCompletarModal(prev => ({ ...prev, comentario: e.target.value }))}
+                  rows={2}
+                  placeholder="Describe el trabajo realizado..."
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              {/* Inventario */}
+              <div className="border-t pt-3">
+                <p className="text-sm font-medium text-gray-700 mb-2">Reporte de consumo de insumos (opcional)</p>
+                {completarModal.loadingItems ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                    Cargando inventario...
+                  </div>
+                ) : completarModal.itemsInventario.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Insumo usado</label>
+                      <select
+                        value={completarModal.inventarioItemId}
+                        onChange={e => setCompletarModal(prev => ({ ...prev, inventarioItemId: e.target.value }))}
+                        className="w-full border rounded-lg p-2 text-sm"
+                      >
+                        <option value="">Sin insumo</option>
+                        {completarModal.itemsInventario.map((item: any) => {
+                          const nombre = item.valores?.nombre || item.valores?.producto || `Ítem #${item.id}`;
+                          const unidad = item.unidad_medida || '';
+                          return (
+                            <option key={item.id} value={item.id}>
+                              {nombre}{unidad ? ` (${unidad})` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Cantidad usada</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={completarModal.cantidadUsada}
+                        onChange={e => setCompletarModal(prev => ({ ...prev, cantidadUsada: e.target.value }))}
+                        disabled={!completarModal.inventarioItemId}
+                        className="w-full border rounded-lg p-2 text-sm disabled:bg-gray-50"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">No hay ítems de inventario disponibles para este programa.</p>
+                )}
+              </div>
+            </div>
+            <div className="p-4 flex gap-3 border-t">
+              <button
+                onClick={() => setCompletarModal({ labor: null, itemsInventario: [], loadingItems: false, cantidadUsada: '', inventarioItemId: '', comentario: '' })}
+                className="flex-1 py-3 border border-gray-300 rounded-xl text-gray-600 font-medium hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarCompletar}
+                className="flex-1 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700"
+              >
+                ✓ Completar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de avance */}
       {avanceModal.labor && (

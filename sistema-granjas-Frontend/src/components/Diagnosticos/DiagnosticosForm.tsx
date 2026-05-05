@@ -10,7 +10,23 @@ import { ArvensesSection, type ArvensesSectionRef } from './ArvensesSection';
 import { EnfermedadesSection, type EnfermedadesSectionRef } from './EnfermedadesSection';
 import { ControladoresSection } from './ControladoresSection';
 import { PolinizadoresSection } from './PolinizadoresSection';
+import GenericDynamicSection from './GenericDynamicSection';
 import { toast } from 'react-toastify';
+
+// ── Normaliza el nombre de un monitoreo al tipo de sección interno ────────────
+const normalizarTipo = (nombre: string): string => {
+    const n = (nombre || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    if (n.includes('artropod')) return 'artropodos';
+    if (n.includes('fenolog')) return 'monitoreo_fenologico';
+    if (n.includes('enfermedad')) return 'enfermedades';
+    if (n.includes('censo') || n.includes('poblacional')) return 'censo_poblacional';
+    if (n.includes('arvense')) return 'arvenses';
+    if (n.includes('controlador')) return 'controladores_biologicos';
+    if (n.includes('polinizador')) return 'polinizadores';
+    return 'generico';
+};
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
 interface PlantaBase {
@@ -54,15 +70,6 @@ interface DiagnosticoFormProps {
     porcentajeMuestreo?: number;
 }
 
-const TIPOS_DIAGNOSTICO = [
-    { value: 'censo_poblacional', label: 'Censo Poblacional' },
-    { value: 'monitoreo_fenologico', label: 'Monitoreo Fenológico' },
-    { value: 'artropodos', label: 'Artrópodos' },
-    { value: 'enfermedades', label: 'Enfermedades' },
-    { value: 'arvenses', label: 'Arvenses' },
-    { value: 'controladores_biologicos', label: 'Controladores Biológicos' },
-    { value: 'polinizadores', label: 'Polinizadores' },
-];
 
 const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     isOpen,
@@ -135,7 +142,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Función para obtener plantas elegibles ────────────────────────────────
     const cargarPlantasElegibles = async () => {
-        if (!loteId || !tipoDiagnostico || tipoDiagnostico === 'arvenses') {
+        const tipoSeccion = normalizarTipo(tipoDiagnostico);
+        if (!loteId || !tipoDiagnostico || tipoSeccion === 'arvenses' || tipoSeccion === 'generico') {
             setPlantas([]);
             setErrorPlantas(null);
             return;
@@ -229,9 +237,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Cargar plantas elegibles cuando cambia tipoDiagnostico ────────────────
     useEffect(() => {
-        if (paso === 2 && loteId && tipoDiagnostico && tipoDiagnostico !== 'arvenses' && estructuraLote?.total_plantas) {
+        const tipoSeccion = normalizarTipo(tipoDiagnostico);
+        if (paso === 2 && loteId && tipoDiagnostico && tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && estructuraLote?.total_plantas) {
             cargarPlantasElegibles();
-        } else if (tipoDiagnostico === 'arvenses') {
+        } else if (tipoSeccion === 'arvenses' || tipoSeccion === 'generico') {
             setPlantas([]);
             setErrorPlantas(null);
         }
@@ -239,7 +248,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Regenerar manual ─────────────────────────────────────────────────────
     const regenerarSeleccionPlantas = () => {
-        if (tipoDiagnostico === 'arvenses') {
+        const tipoSeccion = normalizarTipo(tipoDiagnostico);
+        if (tipoSeccion === 'arvenses') {
             toast.info('Arvenses usa puntos fijos, no se regeneran plantas aleatorias');
             return;
         }
@@ -316,30 +326,39 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             toast.error('Lote sin plantas configuradas');
             return;
         }
+        // Auto-derive tipo_diagnostico from Monitoreo.nombre
+        const nombreMonitoreo = monitoreoSeleccionado?.nombre || '';
+        setTipoDiagnostico(nombreMonitoreo);
+        setCaracterizacion({});
+        setPlantas([]);
+        setErrorPlantas(null);
         setPaso(2);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (submitting) return; // Evitar doble envío
-        if (!tipoDiagnostico) { toast.error('Selecciona un tipo de diagnóstico'); return; }
+        if (submitting) return;
+        if (!tipoDiagnostico) { toast.error('No se pudo determinar el tipo de diagnóstico'); return; }
         if (!condicionesDia) { toast.error('Selecciona condiciones del día'); return; }
-        if (tipoDiagnostico !== 'arvenses' && plantas.length === 0) {
+
+        const tipoSeccion = normalizarTipo(tipoDiagnostico);
+
+        if (tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && plantas.length === 0) {
             toast.error('No hay plantas elegibles para este diagnóstico');
             return;
         }
 
-        // Validaciones específicas
-        if (tipoDiagnostico === 'artropodos' && arthropodRef.current) {
+        // Validaciones específicas por sección conocida
+        if (tipoSeccion === 'artropodos' && arthropodRef.current) {
             if (!arthropodRef.current.validate()) return;
         }
-        if (tipoDiagnostico === 'arvenses' && arvensesRef.current) {
+        if (tipoSeccion === 'arvenses' && arvensesRef.current) {
             if (!arvensesRef.current.validate()) return;
         }
-        if (tipoDiagnostico === 'monitoreo_fenologico' && fenologicoRef.current) {
+        if (tipoSeccion === 'monitoreo_fenologico' && fenologicoRef.current) {
             if (!fenologicoRef.current.validate()) return;
         }
-        if (tipoDiagnostico === 'enfermedades' && enfermedadesRef.current) {
+        if (tipoSeccion === 'enfermedades' && enfermedadesRef.current) {
             if (!enfermedadesRef.current.validate()) return;
         }
 
@@ -353,43 +372,38 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         formData.append('tipo_diagnostico', tipoDiagnostico);
         formData.append('condiciones_dia', condicionesDia);
 
-        if (tipoDiagnostico !== 'arvenses' && plantas.length > 0) {
+        if (tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && plantas.length > 0) {
             const plantasIds = plantas.map(p => p.id);
             formData.append('plantas_ids', JSON.stringify(plantasIds));
         }
 
         const formulario = {
-            plantas: tipoDiagnostico !== 'arvenses' ? plantas : [],
+            plantas: tipoSeccion !== 'arvenses' ? plantas : [],
             caracterizacion,
             porcentaje_muestreo: porcentajeMuestreo,
             total_plantas_lote: estructuraLote?.total_plantas || 0,
             plantas_totales_lote: plantasOriginales.length,
+            tipo_seccion: tipoSeccion,
         };
         formData.append('formulario', JSON.stringify(formulario));
 
-        // Archivos
-        if (tipoDiagnostico === 'artropodos' && arthropodRef.current) {
+        // Archivos de secciones específicas
+        if (tipoSeccion === 'artropodos' && arthropodRef.current) {
             const filesMap = arthropodRef.current.getFiles();
             for (const [prefix, files] of filesMap.entries()) {
-                files.forEach((file, idx) => {
-                    formData.append(`files[${prefix}][${idx}]`, file);
-                });
+                files.forEach((file, idx) => formData.append(`files[${prefix}][${idx}]`, file));
             }
         }
-        if (tipoDiagnostico === 'enfermedades' && enfermedadesRef.current) {
+        if (tipoSeccion === 'enfermedades' && enfermedadesRef.current) {
             const filesMap = enfermedadesRef.current.getFiles();
             for (const [prefix, files] of filesMap.entries()) {
-                files.forEach((file, idx) => {
-                    formData.append(`files[${prefix}][${idx}]`, file);
-                });
+                files.forEach((file, idx) => formData.append(`files[${prefix}][${idx}]`, file));
             }
         }
-        if (tipoDiagnostico === 'arvenses' && arvensesRef.current) {
+        if (tipoSeccion === 'arvenses' && arvensesRef.current) {
             const filesMap = arvensesRef.current.getFiles();
             for (const [prefix, files] of filesMap.entries()) {
-                files.forEach((file, idx) => {
-                    formData.append(`files[${prefix}][${idx}]`, file);
-                });
+                files.forEach((file, idx) => formData.append(`files[${prefix}][${idx}]`, file));
             }
         }
 
@@ -549,22 +563,13 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         </div>
 
-                        {/* Tipo de diagnóstico */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Diagnóstico *</label>
-                            <select
-                                value={tipoDiagnostico}
-                                onChange={e => {
-                                    setTipoDiagnostico(e.target.value);
-                                    setCaracterizacion({});
-                                }}
-                                className="w-full border rounded-lg p-3"
-                                required
-                            >
-                                <option value="">Seleccionar tipo</option>
-                                {TIPOS_DIAGNOSTICO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                            </select>
-                        </div>
+                        {/* Tipo de diagnóstico — auto-derivado del monitoreo seleccionado */}
+                        {tipoDiagnostico && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-800 flex items-center gap-2">
+                                <i className="fas fa-tag"></i>
+                                <span><strong>Tipo de diagnóstico:</strong> {tipoDiagnostico}</span>
+                            </div>
+                        )}
 
                         {/* Condiciones del día */}
                         <div>
@@ -575,66 +580,78 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </select>
                         </div>
 
-                        {/* Secciones específicas */}
-                        {tipoDiagnostico && (
-                            <div>
-                                {tipoDiagnostico !== 'arvenses' && (
-                                    <>
-                                        {cargandoPlantas && (
-                                            <div className="bg-blue-50 p-4 rounded-lg text-blue-700 mb-4 flex items-center">
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                                Cargando plantas elegibles...
-                                            </div>
-                                        )}
-                                        {errorPlantas && !cargandoPlantas && (
-                                            <div className="bg-red-50 p-4 rounded-lg text-red-700 mb-4">
-                                                {errorPlantas}
-                                            </div>
-                                        )}
-                                        {!cargandoPlantas && plantas.length === 0 && !errorPlantas && tipoDiagnostico !== 'arvenses' && (
-                                            <div className="bg-yellow-50 p-4 rounded-lg text-yellow-700 mb-4">
-                                                No hay plantas elegibles para este diagnóstico.
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                                <div className="mb-3 text-sm text-gray-600">
-                                    <i className="fas fa-info-circle mr-1"></i>
-                                    {tipoDiagnostico === 'arvenses'
-                                        ? `Evaluando 5 árboles de referencia del lote`
-                                        : `Evaluando ${plantas.length} plantas (productivas y sin diagnóstico reciente)`}
+                        {/* Secciones específicas — basadas en normalizarTipo(monitoreo.nombre) */}
+                        {tipoDiagnostico && (() => {
+                            const tipoSeccion = normalizarTipo(tipoDiagnostico);
+                            return (
+                                <div>
+                                    {tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && (
+                                        <>
+                                            {cargandoPlantas && (
+                                                <div className="bg-blue-50 p-4 rounded-lg text-blue-700 mb-4 flex items-center">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                    Cargando plantas elegibles...
+                                                </div>
+                                            )}
+                                            {errorPlantas && !cargandoPlantas && (
+                                                <div className="bg-red-50 p-4 rounded-lg text-red-700 mb-4">{errorPlantas}</div>
+                                            )}
+                                            {!cargandoPlantas && plantas.length === 0 && !errorPlantas && (
+                                                <div className="bg-yellow-50 p-4 rounded-lg text-yellow-700 mb-4">
+                                                    No hay plantas elegibles para este diagnóstico.
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    {tipoSeccion !== 'generico' && (
+                                        <div className="mb-3 text-sm text-gray-600">
+                                            <i className="fas fa-info-circle mr-1"></i>
+                                            {tipoSeccion === 'arvenses'
+                                                ? `Evaluando 5 árboles de referencia del lote`
+                                                : `Evaluando ${plantas.length} plantas (productivas y sin diagnóstico reciente)`}
+                                        </div>
+                                    )}
+                                    {tipoSeccion === 'censo_poblacional' && <CensoSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                    {tipoSeccion === 'monitoreo_fenologico' && <FenologicoSection ref={fenologicoRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                    {tipoSeccion === 'artropodos' && <ArthropodSection ref={arthropodRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                    {tipoSeccion === 'enfermedades' && <EnfermedadesSection ref={enfermedadesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                    {tipoSeccion === 'arvenses' && (
+                                        <ArvensesSection
+                                            ref={arvensesRef}
+                                            todasLasPlantas={plantasOriginales}
+                                            metodoMuestreo={metodoMuestreo}
+                                            surcos={estructuraLote?.surcos || 1}
+                                            plantasPorSurco={estructuraLote?.plantas_por_surco || 1}
+                                            caracterizacion={caracterizacion}
+                                            onCampoChange={handleCaracterizacionChange}
+                                        />
+                                    )}
+                                    {tipoSeccion === 'controladores_biologicos' && <ControladoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                    {tipoSeccion === 'polinizadores' && <PolinizadoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
+                                    {tipoSeccion === 'generico' && (
+                                        <GenericDynamicSection
+                                            tipoNombre={tipoDiagnostico}
+                                            caracterizacion={caracterizacion}
+                                            onCampoChange={handleCaracterizacionChange}
+                                        />
+                                    )}
                                 </div>
-                                {tipoDiagnostico === 'censo_poblacional' && <CensoSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'monitoreo_fenologico' && <FenologicoSection ref={fenologicoRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'artropodos' && <ArthropodSection ref={arthropodRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'enfermedades' && <EnfermedadesSection ref={enfermedadesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'arvenses' && (
-                                    <ArvensesSection
-                                        ref={arvensesRef}
-                                        todasLasPlantas={plantasOriginales}
-                                        metodoMuestreo={metodoMuestreo}
-                                        surcos={estructuraLote?.surcos || 1}
-                                        plantasPorSurco={estructuraLote?.plantas_por_surco || 1}
-                                        caracterizacion={caracterizacion}
-                                        onCampoChange={handleCaracterizacionChange}
-                                    />
-                                )}
-                                {tipoDiagnostico === 'controladores_biologicos' && <ControladoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                {tipoDiagnostico === 'polinizadores' && <PolinizadoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                            </div>
-                        )}
+                            );
+                        })()}
 
-                        {(!tipoDiagnostico || !condicionesDia) && (
-                            <div className="bg-yellow-50 p-4 rounded-lg">
-                                {!tipoDiagnostico ? 'Selecciona un tipo de diagnóstico.' : 'Selecciona las condiciones del día.'}
-                            </div>
+                        {!condicionesDia && tipoDiagnostico && (
+                            <div className="bg-yellow-50 p-4 rounded-lg">Selecciona las condiciones del día.</div>
                         )}
                     </div>
 
                     <div className="flex justify-end gap-3 mt-8 pt-5 border-t">
                         <button type="button" onClick={onCancel} className="px-5 py-2.5 border rounded-lg hover:bg-gray-100">Cancelar</button>
                         <button type="submit"
-                            disabled={!tipoDiagnostico || !condicionesDia || (tipoDiagnostico !== 'arvenses' && (cargandoPlantas || plantas.length === 0)) || submitting}
+                            disabled={
+                                !tipoDiagnostico || !condicionesDia ||
+                                (normalizarTipo(tipoDiagnostico) !== 'arvenses' && normalizarTipo(tipoDiagnostico) !== 'generico' && (cargandoPlantas || plantas.length === 0)) ||
+                                submitting
+                            }
                             className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
                             {submitting ? 'Guardando...' : (esEdicion ? 'Actualizar' : 'Crear')}
                         </button>

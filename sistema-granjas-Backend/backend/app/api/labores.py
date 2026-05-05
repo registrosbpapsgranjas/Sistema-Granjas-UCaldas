@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 from app.db.database import get_db
 from app.core.dependencies import require_any_role, get_current_user
 from app.CRUD.labores import (
@@ -142,16 +143,22 @@ def registrar_avance(
     return registrar_avance_crud(db, labor, data, usuario)
 
 
+class CompletarLaborRequest(BaseModel):
+    comentario: Optional[str] = None
+    inventario_item_id: Optional[int] = None
+    cantidad_usada: Optional[float] = None
+
 @router.post("/{id}/completar", response_model=LaborResponse)
 def completar_labor(
     id: int,
+    data: Optional[CompletarLaborRequest] = None,
     db: Session = Depends(get_db),
     usuario = Depends(require_any_role(["admin", "talento_humano", "trabajador"]))
 ):
-    labor = obtener_labor_objeto(db, id, usuario)  # Usar obtener_labor_objeto
+    labor = obtener_labor_objeto(db, id, usuario)
     if not labor:
         raise HTTPException(404, "Labor no encontrada")
-    return completar_labor_crud(db, labor, usuario)
+    return completar_labor_crud(db, labor, usuario, data)
 
 
 @router.post("/{id}/devolver-herramienta/{movimiento_id}")

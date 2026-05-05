@@ -287,13 +287,22 @@ def registrar_avance_crud(db: Session, labor: Labor, data: RegistroAvanceRequest
     
     return _labor_a_dict_con_recursos(labor)
 
-def completar_labor_crud(db: Session, labor: Labor, usuario: Usuario):
+def completar_labor_crud(db: Session, labor: Labor, usuario: Usuario, data=None):
     _verificar_permisos_labor(labor, usuario, "completar")
     
     labor.estado = "completada"
     labor.avance_porcentaje = 100
     labor.fecha_finalizacion = (datetime.utcnow() - timedelta(hours=5))
-    
+
+    # Aplicar datos adicionales del trabajador (consumo reportado)
+    if data:
+        if getattr(data, 'comentario', None):
+            labor.comentario = data.comentario
+        if getattr(data, 'inventario_item_id', None):
+            labor.inventario_item_id = data.inventario_item_id
+        if getattr(data, 'cantidad_usada', None):
+            labor.cantidad_usada = data.cantidad_usada
+
     # Descontar del inventario si tiene item asignado
     item_id = labor.inventario_item_id
     cantidad = labor.cantidad_usada
