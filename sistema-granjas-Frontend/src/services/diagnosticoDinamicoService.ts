@@ -18,10 +18,12 @@ export interface DiagnosticoCampo {
   tipo_id: number;
   nombre_campo: string;
   etiqueta: string;
-  tipo_dato: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea';
+  tipo_dato: 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'boolean' | 'textarea';
   requerido: boolean;
   opciones?: string[];
   orden: number;
+  campo_padre_id?: number | null;
+  opciones_padre?: string[] | null;
 }
 
 export interface CampoRecomendacion {
@@ -29,10 +31,12 @@ export interface CampoRecomendacion {
   subtipo_id: number;
   nombre_campo: string;
   etiqueta: string;
-  tipo_dato: 'text' | 'number' | 'date' | 'select' | 'boolean' | 'textarea';
+  tipo_dato: 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'boolean' | 'textarea';
   requerido: boolean;
   opciones?: string[];
   orden: number;
+  campo_padre_id?: number | null;
+  opciones_padre?: string[] | null;
 }
 
 export const diagnosticoDinamicoService = {

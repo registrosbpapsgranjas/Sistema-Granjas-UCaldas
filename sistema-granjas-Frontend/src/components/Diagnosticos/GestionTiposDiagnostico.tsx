@@ -47,17 +47,38 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
   const [camposDiag, setCamposDiag] = useState<DiagnosticoCampo[]>([]);
   const [camposRec, setCamposRec] = useState<CampoRecomendacion[]>([]);
   const [loadingCampos, setLoadingCampos] = useState(false);
+  const [camposPadre, setCamposPadre] = useState<(DiagnosticoCampo | CampoRecomendacion)[]>([]);
 
   const [modalCampo, setModalCampo] = useState(false);
   const [editCampo, setEditCampo] = useState<DiagnosticoCampo | CampoRecomendacion | null>(null);
-  const [formCampo, setFormCampo] = useState({
-    nombre_campo: '', etiqueta: '', tipo_dato: 'text', requerido: false, opciones_texto: '', orden: 0,
+  const [formCampo, setFormCampo] = useState<{
+    nombre_campo: string;
+    etiqueta: string;
+    tipo_dato: string;
+    requerido: boolean;
+    opciones_texto: string;
+    orden: number;
+    campo_padre_id: number | null;
+    opciones_padre_texto: string;
+  }>({
+    nombre_campo: '', etiqueta: '', tipo_dato: 'text', requerido: false,
+    opciones_texto: '', orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
 
   // ── Load monitoreos ───────────────────────────────────────────────────────
   useEffect(() => {
     if (programaId) cargarMonitoreos();
   }, [programaId]);
+
+  // ── Actualizar lista de campos padre disponibles ──────────────────────────
+  useEffect(() => {
+    if (subtipoSel) {
+      const currentFields = campoTab === 'diagnostico' ? camposDiag : camposRec;
+      setCamposPadre(currentFields.filter(c => c.tipo_dato === 'select' || c.tipo_dato === 'multiselect'));
+    } else {
+      setCamposPadre([]);
+    }
+  }, [camposDiag, camposRec, campoTab, subtipoSel]);
 
   const cargarMonitoreos = async () => {
     setLoadingMonitoreos(true);
@@ -184,9 +205,14 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
         requerido: campo.requerido,
         opciones_texto: opciones.join(', '),
         orden: campo.orden,
+        campo_padre_id: campo.campo_padre_id ?? null,
+        opciones_padre_texto: campo.opciones_padre ? campo.opciones_padre.join(', ') : '',
       });
     } else {
-      setFormCampo({ nombre_campo: '', etiqueta: '', tipo_dato: 'text', requerido: false, opciones_texto: '', orden: 0 });
+      setFormCampo({
+        nombre_campo: '', etiqueta: '', tipo_dato: 'text', requerido: false,
+        opciones_texto: '', orden: 0, campo_padre_id: null, opciones_padre_texto: '',
+      });
     }
     setModalCampo(true);
   };
@@ -195,7 +221,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     if (!subtipoSel) return;
     if (!formCampo.etiqueta.trim()) { toast.warning('La etiqueta es requerida'); return; }
 
-    // Determinar si es de tipo lista (select o multiselect)
     const esTipoLista = formCampo.tipo_dato === 'select' || formCampo.tipo_dato === 'multiselect';
     let opciones: string[] | undefined = undefined;
 
@@ -206,27 +231,42 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
       }
     }
 
+    let opciones_padre: string[] | null = null;
+    if (formCampo.campo_padre_id && formCampo.opciones_padre_texto.trim()) {
+      const parsed = formCampo.opciones_padre_texto.split(',').map(s => s.trim()).filter(Boolean);
+      if (parsed.length === 0) {
+        toast.warning('Debe especificar al menos un valor del padre para mostrar este campo');
+        return;
+      }
+      opciones_padre = parsed;
+    }
+
     const nombre = formCampo.nombre_campo.trim() ||
       formCampo.etiqueta.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 
     try {
-      const payload = { 
-        ...formCampo, 
-        nombre_campo: nombre, 
-        opciones: esTipoLista ? opciones : undefined 
+      const payload = {
+        nombre_campo: nombre,
+        etiqueta: formCampo.etiqueta,
+        tipo_dato: formCampo.tipo_dato,
+        requerido: formCampo.requerido,
+        opciones: esTipoLista ? opciones : undefined,
+        orden: formCampo.orden,
+        campo_padre_id: formCampo.campo_padre_id || null,
+        opciones_padre: opciones_padre,
       };
 
       if (campoTab === 'diagnostico') {
         if (editCampo && 'tipo_id' in editCampo) {
           await diagnosticoDinamicoService.actualizarCampo(editCampo.id, payload);
         } else {
-          await diagnosticoDinamicoService.crearCampo({ ...payload, tipo_id: subtipoSel.id });
+          await diagnosticoDinamicoService.crearCampo({ ...payload, tipo_id: subtipoSel.id } as any);
         }
       } else {
         if (editCampo && 'subtipo_id' in editCampo) {
           await diagnosticoDinamicoService.actualizarCampoRecomendacion(editCampo.id, payload);
         } else {
-          await diagnosticoDinamicoService.crearCampoRecomendacion({ ...payload, subtipo_id: subtipoSel.id });
+          await diagnosticoDinamicoService.crearCampoRecomendacion({ ...payload, subtipo_id: subtipoSel.id } as any);
         }
       }
       toast.success('Campo guardado');
@@ -248,23 +288,50 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al eliminar campo'); }
   };
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const getNombrePadre = (campo: DiagnosticoCampo | CampoRecomendacion): string | null => {
+    if (!campo.campo_padre_id) return null;
+    const lista = campoTab === 'diagnostico' ? camposDiag : camposRec;
+    const padre = lista.find(c => c.id === campo.campo_padre_id);
+    return padre ? padre.etiqueta : `Campo #${campo.campo_padre_id}`;
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
-  const renderCampoCard = (campo: DiagnosticoCampo | CampoRecomendacion, tab: CampoTab) => (
-    <div key={campo.id} className="border border-gray-200 rounded-lg p-3 bg-white flex items-center justify-between">
-      <div>
-        <p className="font-medium text-sm text-gray-800">{campo.etiqueta}</p>
-        <div className="flex gap-2 mt-1">
-          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato}</span>
-          {campo.requerido && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Requerido</span>}
-          {(campo.tipo_dato === 'select' || campo.tipo_dato === 'multiselect') && campo.opciones && <span className="text-xs text-gray-500">{campo.opciones.length} opciones</span>}
+  const renderCampoCard = (campo: DiagnosticoCampo | CampoRecomendacion, tab: CampoTab) => {
+    const nombrePadre = getNombrePadre(campo);
+    return (
+      <div key={campo.id} className="border border-gray-200 rounded-lg p-3 bg-white flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm text-gray-800">{campo.etiqueta}</p>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato}</span>
+            {campo.requerido && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Requerido</span>}
+            {(campo.tipo_dato === 'select' || campo.tipo_dato === 'multiselect') && campo.opciones && (
+              <span className="text-xs text-gray-500">{campo.opciones.length} opciones</span>
+            )}
+            {nombrePadre && (
+              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded" title={`Si "${nombrePadre}" = ${campo.opciones_padre?.join(' o ')}`}>
+                <i className="fas fa-code-branch mr-1"></i>Condicional
+              </span>
+            )}
+          </div>
+          {nombrePadre && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Visible cuando <span className="font-medium">{nombrePadre}</span> = {campo.opciones_padre?.join(', ')}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2 ml-2 flex-shrink-0">
+          <button onClick={() => abrirModalCampo(campo)} className="text-blue-600 hover:text-blue-800 p-1.5 rounded"><i className="fas fa-edit text-sm"></i></button>
+          <button onClick={() => eliminarCampo(campo, tab)} className="text-red-500 hover:text-red-700 p-1.5 rounded"><i className="fas fa-trash text-sm"></i></button>
         </div>
       </div>
-      <div className="flex gap-2">
-        <button onClick={() => abrirModalCampo(campo)} className="text-blue-600 hover:text-blue-800 p-1.5 rounded"><i className="fas fa-edit text-sm"></i></button>
-        <button onClick={() => eliminarCampo(campo, tab)} className="text-red-500 hover:text-red-700 p-1.5 rounded"><i className="fas fa-trash text-sm"></i></button>
-      </div>
-    </div>
-  );
+    );
+  };
+
+  const esTipoListaActual = formCampo.tipo_dato === 'select' || formCampo.tipo_dato === 'multiselect';
+  const camposPadreFiltrados = camposPadre.filter(c => editCampo ? c.id !== editCampo.id : true);
+  const campoPadreSeleccionado = camposPadre.find(c => c.id === formCampo.campo_padre_id);
 
   return (
     <div>
@@ -504,19 +571,96 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Tipo de dato *</label>
-                <select value={formCampo.tipo_dato} onChange={e => setFormCampo(p => ({ ...p, tipo_dato: e.target.value as any }))}
+                <select value={formCampo.tipo_dato} onChange={e => setFormCampo(p => ({ ...p, tipo_dato: e.target.value, campo_padre_id: null, opciones_padre_texto: '' }))}
                   className="w-full border rounded-lg p-2.5">
                   {Object.entries(TIPOS_DATO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
-              {/* Mostrar opciones para select y multiselect */}
-              {(formCampo.tipo_dato === 'select' || formCampo.tipo_dato === 'multiselect') && (
+
+              {/* Opciones para select/multiselect */}
+              {esTipoListaActual && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Opciones (separadas por coma) *</label>
                   <input value={formCampo.opciones_texto} onChange={e => setFormCampo(p => ({ ...p, opciones_texto: e.target.value }))}
                     className="w-full border rounded-lg p-2.5" placeholder="Ej: Alto, Medio, Bajo" />
                 </div>
               )}
+
+              {/* Dependencia: solo si no es un campo de tipo lista Y hay campos padre disponibles */}
+              {!esTipoListaActual && (
+                <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 space-y-3">
+                  <p className="text-xs font-semibold text-yellow-700 flex items-center gap-1">
+                    <i className="fas fa-code-branch"></i> Visibilidad condicional (opcional)
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Depende del campo</label>
+                    {camposPadreFiltrados.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic">
+                        No hay campos de tipo Lista en este subtipo. Crea uno primero para poder definir dependencias.
+                      </p>
+                    ) : (
+                      <select
+                        value={formCampo.campo_padre_id?.toString() || ''}
+                        onChange={e => setFormCampo(p => ({
+                          ...p,
+                          campo_padre_id: e.target.value ? parseInt(e.target.value) : null,
+                          opciones_padre_texto: '',
+                        }))}
+                        className="w-full border rounded-lg p-2.5 text-sm"
+                      >
+                        <option value="">Ninguno (siempre visible)</option>
+                        {camposPadreFiltrados.map(c => (
+                          <option key={c.id} value={c.id.toString()}>
+                            {c.etiqueta} ({c.opciones?.length || 0} opciones)
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {formCampo.campo_padre_id && campoPadreSeleccionado && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Mostrar este campo cuando el valor sea *
+                      </label>
+                      <input
+                        value={formCampo.opciones_padre_texto}
+                        onChange={e => setFormCampo(p => ({ ...p, opciones_padre_texto: e.target.value }))}
+                        placeholder={`Ej: ${campoPadreSeleccionado.opciones?.slice(0, 2).join(', ') || 'Opción A, Opción B'}`}
+                        className="w-full border rounded-lg p-2.5 text-sm"
+                      />
+                      {campoPadreSeleccionado.opciones && campoPadreSeleccionado.opciones.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          <span className="text-xs text-gray-400 mr-1">Opciones disponibles:</span>
+                          {campoPadreSeleccionado.opciones.map(op => (
+                            <button
+                              key={op}
+                              type="button"
+                              onClick={() => {
+                                const current = formCampo.opciones_padre_texto
+                                  .split(',').map(s => s.trim()).filter(Boolean);
+                                if (!current.includes(op)) {
+                                  setFormCampo(p => ({
+                                    ...p,
+                                    opciones_padre_texto: [...current, op].join(', '),
+                                  }));
+                                }
+                              }}
+                              className="text-xs bg-white border border-gray-300 hover:border-yellow-500 hover:bg-yellow-50 px-2 py-0.5 rounded transition"
+                            >
+                              {op}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Este campo solo aparecerá cuando el campo padre tenga uno de estos valores.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-1">Orden</label>

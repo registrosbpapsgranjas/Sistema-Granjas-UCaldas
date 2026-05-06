@@ -278,6 +278,8 @@ class DiagnosticoCampo(Base):
     requerido = Column(Boolean, default=False)
     opciones = Column(JSON, nullable=True)
     orden = Column(Integer, default=0)
+    campo_padre_id = Column(Integer, ForeignKey("diagnostico_campos.id", ondelete="SET NULL"), nullable=True)
+    opciones_padre = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=colombia_now)
     tipo = relationship("DiagnosticoTipo", back_populates="campos")
 
@@ -291,6 +293,8 @@ class CampoRecomendacion(Base):
     requerido = Column(Boolean, default=False)
     opciones = Column(JSON, nullable=True)
     orden = Column(Integer, default=0)
+    campo_padre_id = Column(Integer, ForeignKey("campos_recomendacion.id", ondelete="SET NULL"), nullable=True)
+    opciones_padre = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=colombia_now)
     subtipo = relationship("DiagnosticoTipo", back_populates="campos_recomendacion")
 

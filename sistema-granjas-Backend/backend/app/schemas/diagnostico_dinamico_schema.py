@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Any
 from datetime import datetime
 
-TIPOS_DATO_PERMITIDOS = ["text", "number", "date", "select", "boolean", "textarea"]
+TIPOS_DATO_PERMITIDOS = ["text", "number", "date", "select", "multiselect", "boolean", "textarea"]
 
 
 class DiagnosticoCampoCreate(BaseModel):
@@ -13,6 +13,8 @@ class DiagnosticoCampoCreate(BaseModel):
     requerido: bool = False
     opciones: Optional[List[str]] = None
     orden: int = 0
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
 
     @validator("tipo_dato")
     def validar_tipo_dato(cls, v):
@@ -26,8 +28,9 @@ class DiagnosticoCampoCreate(BaseModel):
 
     @validator("opciones")
     def validar_opciones(cls, v, values):
-        if values.get("tipo_dato") == "select" and (not v or len(v) == 0):
-            raise ValueError("Para tipo 'select', las opciones son requeridas")
+        tipo = values.get("tipo_dato")
+        if tipo in ("select", "multiselect") and (not v or len(v) == 0):
+            raise ValueError(f"Para tipo '{tipo}', las opciones son requeridas")
         return v
 
 
@@ -38,6 +41,8 @@ class DiagnosticoCampoUpdate(BaseModel):
     requerido: Optional[bool] = None
     opciones: Optional[List[str]] = None
     orden: Optional[int] = None
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
 
     @validator("tipo_dato")
     def validar_tipo_dato(cls, v):
@@ -55,6 +60,8 @@ class DiagnosticoCampoResponse(BaseModel):
     requerido: bool
     opciones: Optional[List[str]] = None
     orden: int
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
 
     class Config:
         from_attributes = True
@@ -70,6 +77,8 @@ class CampoRecomendacionCreate(BaseModel):
     requerido: bool = False
     opciones: Optional[List[str]] = None
     orden: int = 0
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
 
     @validator("tipo_dato")
     def validar_tipo_dato(cls, v):
@@ -83,8 +92,9 @@ class CampoRecomendacionCreate(BaseModel):
 
     @validator("opciones")
     def validar_opciones(cls, v, values):
-        if values.get("tipo_dato") == "select" and (not v or len(v) == 0):
-            raise ValueError("Para tipo 'select', las opciones son requeridas")
+        tipo = values.get("tipo_dato")
+        if tipo in ("select", "multiselect") and (not v or len(v) == 0):
+            raise ValueError(f"Para tipo '{tipo}', las opciones son requeridas")
         return v
 
 
@@ -95,6 +105,8 @@ class CampoRecomendacionUpdate(BaseModel):
     requerido: Optional[bool] = None
     opciones: Optional[List[str]] = None
     orden: Optional[int] = None
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
 
     @validator("tipo_dato")
     def validar_tipo_dato(cls, v):
@@ -112,6 +124,8 @@ class CampoRecomendacionResponse(BaseModel):
     requerido: bool
     opciones: Optional[List[str]] = None
     orden: int
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
 
     class Config:
         from_attributes = True
