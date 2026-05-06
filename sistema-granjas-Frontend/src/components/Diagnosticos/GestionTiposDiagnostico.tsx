@@ -18,7 +18,8 @@ const TIPOS_DATO_LABELS: Record<string, string> = {
   textarea: 'Texto largo',
   number: 'Número',
   date: 'Fecha',
-  select: 'Lista',
+  select: 'Lista (Opción única)',
+  multiselect: 'Lista (Múltiple)',
   boolean: 'Sí / No',
 };
 
@@ -193,27 +194,39 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
   const guardarCampo = async () => {
     if (!subtipoSel) return;
     if (!formCampo.etiqueta.trim()) { toast.warning('La etiqueta es requerida'); return; }
-    const opciones = formCampo.tipo_dato === 'select'
-      ? formCampo.opciones_texto.split(',').map(s => s.trim()).filter(Boolean)
-      : undefined;
-    if (formCampo.tipo_dato === 'select' && (!opciones || opciones.length === 0)) {
-      toast.warning('Agrega al menos una opción'); return;
+
+    // Determinar si es de tipo lista (select o multiselect)
+    const esTipoLista = formCampo.tipo_dato === 'select' || formCampo.tipo_dato === 'multiselect';
+    let opciones: string[] | undefined = undefined;
+
+    if (esTipoLista) {
+      opciones = formCampo.opciones_texto.split(',').map(s => s.trim()).filter(Boolean);
+      if (!opciones || opciones.length === 0) {
+        toast.warning('Agrega al menos una opción'); return;
+      }
     }
+
     const nombre = formCampo.nombre_campo.trim() ||
       formCampo.etiqueta.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 
     try {
+      const payload = { 
+        ...formCampo, 
+        nombre_campo: nombre, 
+        opciones: esTipoLista ? opciones : undefined 
+      };
+
       if (campoTab === 'diagnostico') {
         if (editCampo && 'tipo_id' in editCampo) {
-          await diagnosticoDinamicoService.actualizarCampo(editCampo.id, { ...formCampo, nombre_campo: nombre, opciones });
+          await diagnosticoDinamicoService.actualizarCampo(editCampo.id, payload);
         } else {
-          await diagnosticoDinamicoService.crearCampo({ ...formCampo, nombre_campo: nombre, opciones, tipo_id: subtipoSel.id });
+          await diagnosticoDinamicoService.crearCampo({ ...payload, tipo_id: subtipoSel.id });
         }
       } else {
         if (editCampo && 'subtipo_id' in editCampo) {
-          await diagnosticoDinamicoService.actualizarCampoRecomendacion(editCampo.id, { ...formCampo, nombre_campo: nombre, opciones });
+          await diagnosticoDinamicoService.actualizarCampoRecomendacion(editCampo.id, payload);
         } else {
-          await diagnosticoDinamicoService.crearCampoRecomendacion({ ...formCampo, nombre_campo: nombre, opciones, subtipo_id: subtipoSel.id });
+          await diagnosticoDinamicoService.crearCampoRecomendacion({ ...payload, subtipo_id: subtipoSel.id });
         }
       }
       toast.success('Campo guardado');
@@ -243,7 +256,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
         <div className="flex gap-2 mt-1">
           <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato}</span>
           {campo.requerido && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Requerido</span>}
-          {campo.tipo_dato === 'select' && campo.opciones && <span className="text-xs text-gray-500">{campo.opciones.length} opciones</span>}
+          {(campo.tipo_dato === 'select' || campo.tipo_dato === 'multiselect') && campo.opciones && <span className="text-xs text-gray-500">{campo.opciones.length} opciones</span>}
         </div>
       </div>
       <div className="flex gap-2">
@@ -496,7 +509,8 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
                   {Object.entries(TIPOS_DATO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
-              {formCampo.tipo_dato === 'select' && (
+              {/* Mostrar opciones para select y multiselect */}
+              {(formCampo.tipo_dato === 'select' || formCampo.tipo_dato === 'multiselect') && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Opciones (separadas por coma) *</label>
                   <input value={formCampo.opciones_texto} onChange={e => setFormCampo(p => ({ ...p, opciones_texto: e.target.value }))}
