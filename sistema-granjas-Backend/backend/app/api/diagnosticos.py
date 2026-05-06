@@ -176,7 +176,6 @@ def listar_diagnosticos(
             "formulario": d.formulario,
             "estado_revision": d.estado_revision,
             "fecha_creacion": d.fecha_creacion,
-            "fecha_actualizacion": d.fecha_actualizacion,
             "programa_nombre": d.programa_nombre,
             "tipo_monitoreo_nombre": d.tipo_monitoreo_nombre,
             "lote_nombre": d.lote_nombre,
