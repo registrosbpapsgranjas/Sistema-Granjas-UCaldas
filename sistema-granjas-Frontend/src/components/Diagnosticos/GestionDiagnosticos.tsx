@@ -8,6 +8,7 @@ import monitoreoService from '../../services/monitoreoService';
 import type { DiagnosticoItem, DiagnosticoFiltros } from '../../types/diagnosticoTypes';
 import Modal from '../Common/Modal';
 import DiagnosticosTable from './DiagnosticosTable';
+import DiagnosticoForm from './DiagnosticosForm';
 import AgregarEvidenciaModal from './AgregarEvidenciaModal';
 import DetallesDiagnosticoModal from './DetallesDiagnosticoModal';
 import GestionTiposDiagnostico from './GestionTiposDiagnostico';
