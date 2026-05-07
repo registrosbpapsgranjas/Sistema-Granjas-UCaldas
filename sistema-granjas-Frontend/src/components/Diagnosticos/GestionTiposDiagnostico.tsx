@@ -21,6 +21,7 @@ const TIPOS_DATO_LABELS: Record<string, string> = {
   select: 'Lista (Opción única)',
   multiselect: 'Lista (Múltiple)',
   boolean: 'Sí / No',
+  matrix: 'Matriz (Tabla de evaluación)',
 };
 
 type CampoTab = 'diagnostico' | 'recomendacion';
@@ -57,12 +58,15 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     tipo_dato: string;
     requerido: boolean;
     opciones_texto: string;
+    filas_texto: string;
+    tipo_celda: string;
     orden: number;
     campo_padre_id: number | null;
     opciones_padre_texto: string;
   }>({
     nombre_campo: '', etiqueta: '', tipo_dato: 'text', requerido: false,
-    opciones_texto: '', orden: 0, campo_padre_id: null, opciones_padre_texto: '',
+    opciones_texto: '', filas_texto: '', tipo_celda: 'boolean',
+    orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
 
   // ── Load monitoreos ───────────────────────────────────────────────────────
@@ -198,20 +202,40 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     setEditCampo(campo || null);
     if (campo) {
       const opciones = campo.opciones || [];
-      setFormCampo({
-        nombre_campo: campo.nombre_campo,
-        etiqueta: campo.etiqueta,
-        tipo_dato: campo.tipo_dato,
-        requerido: campo.requerido,
-        opciones_texto: opciones.join(', '),
-        orden: campo.orden,
-        campo_padre_id: campo.campo_padre_id ?? null,
-        opciones_padre_texto: campo.opciones_padre ? campo.opciones_padre.join(', ') : '',
-      });
+      if (campo.tipo_dato === 'matrix' && typeof opciones === 'object' && !Array.isArray(opciones)) {
+        const matrixData = opciones as { filas: string[]; columnas: string[]; tipo_celda: string };
+        setFormCampo({
+          nombre_campo: campo.nombre_campo,
+          etiqueta: campo.etiqueta,
+          tipo_dato: campo.tipo_dato,
+          requerido: campo.requerido,
+          opciones_texto: matrixData.columnas?.join(', ') || '',
+          filas_texto: matrixData.filas?.join('\n') || '',
+          tipo_celda: matrixData.tipo_celda || 'boolean',
+          orden: campo.orden,
+          campo_padre_id: campo.campo_padre_id ?? null,
+          opciones_padre_texto: campo.opciones_padre ? campo.opciones_padre.join(', ') : '',
+        });
+      } else {
+        const opcionesArr = Array.isArray(opciones) ? opciones : [];
+        setFormCampo({
+          nombre_campo: campo.nombre_campo,
+          etiqueta: campo.etiqueta,
+          tipo_dato: campo.tipo_dato,
+          requerido: campo.requerido,
+          opciones_texto: opcionesArr.join(', '),
+          filas_texto: '',
+          tipo_celda: 'boolean',
+          orden: campo.orden,
+          campo_padre_id: campo.campo_padre_id ?? null,
+          opciones_padre_texto: campo.opciones_padre ? campo.opciones_padre.join(', ') : '',
+        });
+      }
     } else {
       setFormCampo({
         nombre_campo: '', etiqueta: '', tipo_dato: 'text', requerido: false,
-        opciones_texto: '', orden: 0, campo_padre_id: null, opciones_padre_texto: '',
+        opciones_texto: '', filas_texto: '', tipo_celda: 'boolean',
+        orden: 0, campo_padre_id: null, opciones_padre_texto: '',
       });
     }
     setModalCampo(true);
@@ -222,9 +246,16 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     if (!formCampo.etiqueta.trim()) { toast.warning('La etiqueta es requerida'); return; }
 
     const esTipoLista = formCampo.tipo_dato === 'select' || formCampo.tipo_dato === 'multiselect';
-    let opciones: string[] | undefined = undefined;
+    const esMatriz = formCampo.tipo_dato === 'matrix';
+    let opciones: any = undefined;
 
-    if (esTipoLista) {
+    if (esMatriz) {
+      const filas = formCampo.filas_texto.split('\n').map(s => s.trim()).filter(Boolean);
+      const columnas = formCampo.opciones_texto.split(',').map(s => s.trim()).filter(Boolean);
+      if (filas.length === 0) { toast.warning('Agrega al menos una fila'); return; }
+      if (columnas.length === 0) { toast.warning('Agrega al menos una columna'); return; }
+      opciones = { filas, columnas, tipo_celda: formCampo.tipo_celda || 'boolean' };
+    } else if (esTipoLista) {
       opciones = formCampo.opciones_texto.split(',').map(s => s.trim()).filter(Boolean);
       if (!opciones || opciones.length === 0) {
         toast.warning('Agrega al menos una opción'); return;
@@ -250,7 +281,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
         etiqueta: formCampo.etiqueta,
         tipo_dato: formCampo.tipo_dato,
         requerido: formCampo.requerido,
-        opciones: esTipoLista ? opciones : undefined,
+        opciones: (esTipoLista || esMatriz) ? opciones : undefined,
         orden: formCampo.orden,
         campo_padre_id: formCampo.campo_padre_id || null,
         opciones_padre: opciones_padre,
@@ -308,6 +339,11 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
             {campo.requerido && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Requerido</span>}
             {(campo.tipo_dato === 'select' || campo.tipo_dato === 'multiselect') && campo.opciones && (
               <span className="text-xs text-gray-500">{campo.opciones.length} opciones</span>
+            )}
+            {campo.tipo_dato === 'matrix' && campo.opciones && typeof campo.opciones === 'object' && !Array.isArray(campo.opciones) && (
+              <span className="text-xs text-gray-500">
+                {(campo.opciones as any).filas?.length || 0} filas × {(campo.opciones as any).columnas?.length || 0} columnas
+              </span>
             )}
             {nombrePadre && (
               <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded" title={`Si "${nombrePadre}" = ${campo.opciones_padre?.join(' o ')}`}>
@@ -583,6 +619,47 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
                   <label className="block text-sm font-medium mb-1">Opciones (separadas por coma) *</label>
                   <input value={formCampo.opciones_texto} onChange={e => setFormCampo(p => ({ ...p, opciones_texto: e.target.value }))}
                     className="w-full border rounded-lg p-2.5" placeholder="Ej: Alto, Medio, Bajo" />
+                </div>
+              )}
+
+              {/* Campos para tipo matrix */}
+              {formCampo.tipo_dato === 'matrix' && (
+                <div className="space-y-3 border border-purple-200 bg-purple-50 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">
+                    <i className="fas fa-table"></i> Configuración de Matriz
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Filas (una por línea) *</label>
+                    <textarea
+                      value={formCampo.filas_texto}
+                      onChange={e => setFormCampo(p => ({ ...p, filas_texto: e.target.value }))}
+                      className="w-full border rounded-lg p-2.5 text-sm"
+                      rows={6}
+                      placeholder={"Hyptis atrorubens\nSpermacoce alata\nDrymaria cordata\n..."}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Cada línea será una fila de la tabla.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Columnas (separadas por coma) *</label>
+                    <input
+                      value={formCampo.opciones_texto}
+                      onChange={e => setFormCampo(p => ({ ...p, opciones_texto: e.target.value }))}
+                      className="w-full border rounded-lg p-2.5 text-sm"
+                      placeholder="<5%, 5-20%, 20-50%, 50-80%, >80%, Sin presencia"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Tipo de celda *</label>
+                    <select
+                      value={formCampo.tipo_celda}
+                      onChange={e => setFormCampo(p => ({ ...p, tipo_celda: e.target.value }))}
+                      className="w-full border rounded-lg p-2.5 text-sm"
+                    >
+                      <option value="boolean">Presencia (Checkbox)</option>
+                      <option value="number">Número</option>
+                      <option value="text">Texto</option>
+                    </select>
+                  </div>
                 </div>
               )}
 

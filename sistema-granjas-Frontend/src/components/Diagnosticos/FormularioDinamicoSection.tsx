@@ -142,6 +142,45 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     return { padre, valorActivador };
   };
 
+  const renderCeldaMatriz = (
+    valorCelda: any,
+    tipoCelda: string,
+    onChangeCelda: (nuevoValor: any) => void
+  ) => {
+    const inputBase = "text-center border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500";
+    switch (tipoCelda) {
+      case 'boolean':
+        return (
+          <input
+            type="checkbox"
+            checked={valorCelda === true || valorCelda === 'true'}
+            onChange={e => onChangeCelda(e.target.checked)}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mx-auto block"
+          />
+        );
+      case 'number':
+        return (
+          <input
+            type="number"
+            value={valorCelda || ''}
+            onChange={e => onChangeCelda(e.target.value)}
+            className={`${inputBase} w-20`}
+            min="0"
+            step="any"
+          />
+        );
+      default:
+        return (
+          <input
+            type="text"
+            value={valorCelda || ''}
+            onChange={e => onChangeCelda(e.target.value)}
+            className={`${inputBase} w-20`}
+          />
+        );
+    }
+  };
+
   const renderCampo = (campo: DiagnosticoCampo) => {
     const valor = valores[campo.nombre_campo] ?? '';
     const baseClass = "w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -235,6 +274,70 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
             <option value="false">No</option>
           </select>
         );
+
+      case 'matrix': {
+        const matrixData = campo.opciones as { filas: string[]; columnas: string[]; tipo_celda: string } | null;
+        if (!matrixData || !matrixData.filas || !matrixData.columnas) {
+          return <p className="text-red-500 text-sm">Error: matriz mal configurada</p>;
+        }
+        const { filas, columnas, tipo_celda } = matrixData;
+        const valorMatriz: Record<string, Record<string, any>> =
+          (typeof valor === 'object' && valor !== null && !Array.isArray(valor))
+            ? valor as Record<string, Record<string, any>>
+            : {};
+
+        const handleCeldaChange = (fila: string, columna: string, nuevoValor: any) => {
+          const nuevaMatriz = { ...valorMatriz };
+          if (!nuevaMatriz[fila]) nuevaMatriz[fila] = {};
+          nuevaMatriz[fila] = { ...nuevaMatriz[fila] };
+          if (nuevoValor === '' || nuevoValor === false || nuevoValor === undefined) {
+            delete nuevaMatriz[fila][columna];
+          } else {
+            nuevaMatriz[fila][columna] = nuevoValor;
+          }
+          if (Object.keys(nuevaMatriz[fila]).length === 0) {
+            delete nuevaMatriz[fila];
+          }
+          onChange(campo.nombre_campo, Object.keys(nuevaMatriz).length > 0 ? nuevaMatriz : '');
+        };
+
+        return (
+          <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+                    {campo.etiqueta}
+                  </th>
+                  {columnas.map((col, idx) => (
+                    <th key={idx} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filas.map((fila, idx) => (
+                  <tr key={fila} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                    <td className="px-3 py-2 text-sm font-medium text-gray-700 sticky left-0 bg-inherit whitespace-nowrap">
+                      {fila}
+                    </td>
+                    {columnas.map((col, colIdx) => (
+                      <td key={colIdx} className="px-2 py-1 text-center">
+                        {renderCeldaMatriz(
+                          valorMatriz[fila]?.[col] ?? '',
+                          tipo_celda,
+                          (nuevoValor) => handleCeldaChange(fila, col, nuevoValor)
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
 
       default:
         return (
