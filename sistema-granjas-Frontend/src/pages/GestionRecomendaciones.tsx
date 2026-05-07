@@ -7,6 +7,7 @@ const GestionRecomendacionesPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             <DashboardHeader
+                title="Gestión de Recomendaciones"
                 selectedModule="recomendaciones"
                 onBack={() => window.history.back()}
             />
