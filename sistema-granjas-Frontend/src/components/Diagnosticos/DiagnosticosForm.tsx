@@ -1,34 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { DiagnosticoItem } from '../../types/diagnosticoTypes';
 import { monitoreoService, type Monitoreo } from '../../services/monitoreoService';
 import { loteService, type EstructuraLote } from '../../services/loteService';
 import { api } from '../../services/api';
 import { diagnosticoDinamicoService, type DiagnosticoTipo, type DiagnosticoCampo } from '../../services/diagnosticoDinamicoService';
-import { CensoSection } from './CensoSection';
-import { FenologicoSection, type FenologicoSectionRef } from './FenologicoSection';
-import { ArthropodSection, type ArthropodSectionRef } from './ArthropodSection';
-import { ArvensesSection, type ArvensesSectionRef } from './ArvensesSection';
-import { EnfermedadesSection, type EnfermedadesSectionRef } from './EnfermedadesSection';
-import { ControladoresSection } from './ControladoresSection';
-import { PolinizadoresSection } from './PolinizadoresSection';
-import GenericDynamicSection from './GenericDynamicSection';
 import FormularioDinamicoSection from './FormularioDinamicoSection';
 import { toast } from 'react-toastify';
-
-// ── Normaliza el nombre de un monitoreo al tipo de sección interno ────────────
-const normalizarTipo = (nombre: string): string => {
-    const n = (nombre || '').toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .trim();
-    if (n.includes('artropod')) return 'artropodos';
-    if (n.includes('fenolog')) return 'monitoreo_fenologico';
-    if (n.includes('enfermedad')) return 'enfermedades';
-    if (n.includes('censo') || n.includes('poblacional')) return 'censo_poblacional';
-    if (n.includes('arvense')) return 'arvenses';
-    if (n.includes('controlador')) return 'controladores_biologicos';
-    if (n.includes('polinizador')) return 'polinizadores';
-    return 'generico';
-};
 
 // ── Tipos locales ─────────────────────────────────────────────────────────────
 interface PlantaBase {
@@ -61,7 +38,7 @@ interface Lote {
 interface DiagnosticoFormProps {
     isOpen?: boolean;
     diagnostico?: DiagnosticoItem;
-    onSubmit: (data: FormData) => Promise<void>; // 👈 Cambiado a Promise para esperar
+    onSubmit: (data: FormData) => Promise<void>;
     onCancel: () => void;
     lotes: Lote[];
     programas: Programa[];
@@ -71,7 +48,6 @@ interface DiagnosticoFormProps {
     esEdicion?: boolean;
     porcentajeMuestreo?: number;
 }
-
 
 const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     isOpen,
@@ -105,7 +81,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [cargandoPlantas, setCargandoPlantas] = useState(false);
     const [errorPlantas, setErrorPlantas] = useState<string | null>(null);
     const loadingPlantsRef = useRef(false);
-    const [submitting, setSubmitting] = useState(false); // 👈 Prevenir envíos múltiples
+    const [submitting, setSubmitting] = useState(false);
 
     // Paso 2
     const [tipoDiagnostico, setTipoDiagnostico] = useState('');
@@ -113,13 +89,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [caracterizacion, setCaracterizacion] = useState<Record<string, string>>({});
     const [formulariosPorPlanta, setFormulariosPorPlanta] = useState<Record<number, Record<string, string>>>({});
 
-    // Referencias
-    const arthropodRef = useRef<ArthropodSectionRef>(null);
-    const arvensesRef = useRef<ArvensesSectionRef>(null);
-    const fenologicoRef = useRef<FenologicoSectionRef>(null);
-    const enfermedadesRef = useRef<EnfermedadesSectionRef>(null);
+    // Determinar si se muestra formulario por planta
+    const mostrarPorPlanta = useMemo(() => {
+        return camposDinamicos.length > 0 && plantas.length > 0;
+    }, [camposDinamicos, plantas]);
 
-    // ── Helper para cambios en caracterización ────────────────────────────────
+    // ── Helper para cambios en caracterización global ─────────────────────────
     const handleCaracterizacionChange = (campo: string, valor: string | string[]) => {
         if (Array.isArray(valor)) {
             setCaracterizacion(prev => ({ ...prev, [campo]: JSON.stringify(valor) }));
@@ -128,7 +103,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         }
     };
 
-    // ── Helper para cambios por planta (formulario dinámico) ─────────────────
+    // ── Helper para cambios por planta ───────────────────────────────────────
     const handleCambioPorPlanta = (plantaId: number, campo: string, valor: string) => {
         setFormulariosPorPlanta(prev => ({
             ...prev,
@@ -156,9 +131,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     };
 
     // ── Función para obtener plantas elegibles ────────────────────────────────
-    const cargarPlantasElegibles = async () => {
-        const tipoSeccion = normalizarTipo(tipoDiagnostico);
-        if (!loteId || !tipoDiagnostico || tipoSeccion === 'arvenses' || tipoSeccion === 'generico') {
+    const cargarPlantasElegibles = useCallback(async () => {
+        if (!loteId || !tipoDiagnostico) {
             setPlantas([]);
             setErrorPlantas(null);
             return;
@@ -208,11 +182,14 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             setCargandoPlantas(false);
             loadingPlantsRef.current = false;
         }
-    };
+    }, [loteId, tipoDiagnostico, estructuraLote, porcentajeMuestreo]);
 
     // ── Cargar monitoreos ────────────────────────────────────────────────────
     useEffect(() => {
-        if (!programaId) { setMonitoreos([]); return; }
+        if (!programaId) {
+            setMonitoreos([]);
+            return;
+        }
         monitoreoService.obtenerMonitoreosPorPrograma(programaId)
             .then(setMonitoreos)
             .catch(() => toast.error('Error al cargar tipos de monitoreo'));
@@ -220,7 +197,11 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Cargar subtipos cuando cambia el monitoreo ───────────────────────────
     useEffect(() => {
-        if (!tipoMonitoreoId) { setSubtipos([]); setSubtipoId(null); return; }
+        if (!tipoMonitoreoId) {
+            setSubtipos([]);
+            setSubtipoId(null);
+            return;
+        }
         setLoadingSubtipos(true);
         setSubtipoId(null);
         diagnosticoDinamicoService.listarSubtiposPorMonitoreo(tipoMonitoreoId)
@@ -231,7 +212,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Cargar campos dinámicos cuando cambia el subtipo ─────────────────────
     useEffect(() => {
-        if (!subtipoId) { setCamposDinamicos([]); return; }
+        if (!subtipoId) {
+            setCamposDinamicos([]);
+            return;
+        }
         diagnosticoDinamicoService.listarCampos(subtipoId)
             .then(data => setCamposDinamicos([...data].sort((a, b) => a.orden - b.orden)))
             .catch(() => setCamposDinamicos([]));
@@ -272,22 +256,13 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
 
     // ── Cargar plantas elegibles cuando cambia tipoDiagnostico ────────────────
     useEffect(() => {
-        const tipoSeccion = normalizarTipo(tipoDiagnostico);
-        if (paso === 2 && loteId && tipoDiagnostico && tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && estructuraLote?.total_plantas) {
+        if (paso === 2 && loteId && tipoDiagnostico && estructuraLote?.total_plantas) {
             cargarPlantasElegibles();
-        } else if (tipoSeccion === 'arvenses' || tipoSeccion === 'generico') {
-            setPlantas([]);
-            setErrorPlantas(null);
         }
-    }, [tipoDiagnostico, paso, loteId, estructuraLote]);
+    }, [tipoDiagnostico, paso, loteId, estructuraLote, cargarPlantasElegibles]);
 
     // ── Regenerar manual ─────────────────────────────────────────────────────
     const regenerarSeleccionPlantas = () => {
-        const tipoSeccion = normalizarTipo(tipoDiagnostico);
-        if (tipoSeccion === 'arvenses') {
-            toast.info('Arvenses usa puntos fijos, no se regeneran plantas aleatorias');
-            return;
-        }
         cargarPlantasElegibles();
     };
 
@@ -323,6 +298,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         if (d.formulario?.plantas) setPlantas(d.formulario.plantas);
         if (d.formulario?.caracterizacion) {
             setCaracterizacion(parseCaracterizacion(d.formulario.caracterizacion));
+        }
+        if (d.formulario?.formularios_por_planta) {
+            setFormulariosPorPlanta(d.formulario.formularios_por_planta);
         }
     }, [esEdicion, diagnostico]);
 
@@ -367,7 +345,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             toast.error('Lote sin plantas configuradas');
             return;
         }
-        // Use subtipo name as tipo_diagnostico (for backward-compat + normalizarTipo)
         const nombreSubtipo = subtipoSeleccionado?.nombre || monitoreoSeleccionado?.nombre || '';
         setTipoDiagnostico(nombreSubtipo);
         setCaracterizacion({});
@@ -382,25 +359,9 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         if (!tipoDiagnostico) { toast.error('No se pudo determinar el tipo de diagnóstico'); return; }
         if (!condicionesDia) { toast.error('Selecciona condiciones del día'); return; }
 
-        const tipoSeccion = normalizarTipo(tipoDiagnostico);
-
-        if (tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && plantas.length === 0) {
+        if (plantas.length === 0 && mostrarPorPlanta) {
             toast.error('No hay plantas elegibles para este diagnóstico');
             return;
-        }
-
-        // Validaciones específicas por sección conocida
-        if (tipoSeccion === 'artropodos' && arthropodRef.current) {
-            if (!arthropodRef.current.validate()) return;
-        }
-        if (tipoSeccion === 'arvenses' && arvensesRef.current) {
-            if (!arvensesRef.current.validate()) return;
-        }
-        if (tipoSeccion === 'monitoreo_fenologico' && fenologicoRef.current) {
-            if (!fenologicoRef.current.validate()) return;
-        }
-        if (tipoSeccion === 'enfermedades' && enfermedadesRef.current) {
-            if (!enfermedadesRef.current.validate()) return;
         }
 
         setSubmitting(true);
@@ -414,41 +375,20 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         formData.append('condiciones_dia', condicionesDia);
         if (subtipoId) formData.append('diagnostico_tipo_id', String(subtipoId));
 
-        if (tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && plantas.length > 0) {
+        if (plantas.length > 0) {
             const plantasIds = plantas.map(p => p.id);
             formData.append('plantas_ids', JSON.stringify(plantasIds));
         }
 
         const formulario = {
-            plantas: tipoSeccion !== 'arvenses' ? plantas : [],
+            plantas: plantas,
             caracterizacion,
             formularios_por_planta: camposDinamicos.length > 0 ? formulariosPorPlanta : undefined,
             porcentaje_muestreo: porcentajeMuestreo,
             total_plantas_lote: estructuraLote?.total_plantas || 0,
             plantas_totales_lote: plantasOriginales.length,
-            tipo_seccion: tipoSeccion,
         };
         formData.append('formulario', JSON.stringify(formulario));
-
-        // Archivos de secciones específicas
-        if (tipoSeccion === 'artropodos' && arthropodRef.current) {
-            const filesMap = arthropodRef.current.getFiles();
-            for (const [prefix, files] of filesMap.entries()) {
-                files.forEach((file, idx) => formData.append(`files[${prefix}][${idx}]`, file));
-            }
-        }
-        if (tipoSeccion === 'enfermedades' && enfermedadesRef.current) {
-            const filesMap = enfermedadesRef.current.getFiles();
-            for (const [prefix, files] of filesMap.entries()) {
-                files.forEach((file, idx) => formData.append(`files[${prefix}][${idx}]`, file));
-            }
-        }
-        if (tipoSeccion === 'arvenses' && arvensesRef.current) {
-            const filesMap = arvensesRef.current.getFiles();
-            for (const [prefix, files] of filesMap.entries()) {
-                files.forEach((file, idx) => formData.append(`files[${prefix}][${idx}]`, file));
-            }
-        }
 
         try {
             await onSubmit(formData);
@@ -462,11 +402,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             setSubmitting(false);
         }
     };
-
-    const metodoMuestreo = useMemo(() => {
-        const total = estructuraLote?.total_plantas || 0;
-        return total < 1000 ? 'X' : 'W';
-    }, [estructuraLote?.total_plantas]);
 
     return (
         <div className="p-6 max-h-[90vh] overflow-y-auto">
@@ -488,11 +423,18 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                 <div className="space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Programa *</label>
-                        <select value={programaId?.toString() || ''} onChange={handleProgramaChange} className="w-full border rounded-lg p-3" disabled={esEdicion}>
+                        <select
+                            value={programaId?.toString() || ''}
+                            onChange={handleProgramaChange}
+                            className="w-full border rounded-lg p-3"
+                            disabled={esEdicion}
+                        >
                             <option value="">Seleccionar programa</option>
                             {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                         </select>
-                        {programaSeleccionado && <p className="text-sm text-green-600 mt-1">✓ {programaSeleccionado.nombre}</p>}
+                        {programaSeleccionado && (
+                            <p className="text-sm text-green-600 mt-1">✓ {programaSeleccionado.nombre}</p>
+                        )}
                     </div>
 
                     {programaId && (
@@ -501,10 +443,13 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             {monitoreos.length > 0 ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     {monitoreos.map(m => (
-                                        <button key={m.id} type="button"
+                                        <button
+                                            key={m.id}
+                                            type="button"
                                             onClick={() => { setTipoMonitoreoId(m.id); setSubtipoId(null); }}
                                             className={`p-4 border-2 rounded-lg text-center transition ${tipoMonitoreoId === m.id ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300'}`}
-                                            disabled={esEdicion}>
+                                            disabled={esEdicion}
+                                        >
                                             <i className="fas fa-leaf mr-2"></i>
                                             <span className="font-medium">{m.nombre}</span>
                                         </button>
@@ -512,7 +457,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 </div>
                             ) : (
                                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
-                                    <p className="text-sm text-yellow-700">Este programa no tiene tipos de monitoreo configurados. Agrégalos en la pestaña "Tipos de Diagnóstico".</p>
+                                    <p className="text-sm text-yellow-700">Este programa no tiene tipos de monitoreo configurados.</p>
                                 </div>
                             )}
                         </div>
@@ -529,9 +474,13 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             ) : subtipos.length > 0 ? (
                                 <div className="grid grid-cols-2 gap-3">
                                     {subtipos.map(s => (
-                                        <button key={s.id} type="button" onClick={() => setSubtipoId(s.id)}
+                                        <button
+                                            key={s.id}
+                                            type="button"
+                                            onClick={() => setSubtipoId(s.id)}
                                             className={`p-3 border-2 rounded-lg text-left transition ${subtipoId === s.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:border-indigo-300'}`}
-                                            disabled={esEdicion}>
+                                            disabled={esEdicion}
+                                        >
                                             <p className="font-medium text-sm">{s.nombre}</p>
                                             {s.descripcion && <p className="text-xs text-gray-500 mt-0.5">{s.descripcion}</p>}
                                         </button>
@@ -541,7 +490,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
                                     <p className="text-sm text-yellow-700">
                                         <strong>{monitoreoSeleccionado?.nombre}</strong> no tiene subtipos configurados.
-                                        Créalos en la pestaña "Tipos de Diagnóstico".
                                     </p>
                                 </div>
                             )}
@@ -553,7 +501,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             <label className="block text-sm font-medium text-gray-700 mb-2">Lote *</label>
                             {lotesFiltrados.length > 0 ? (
                                 <>
-                                    <select value={loteId?.toString() || ''} onChange={handleLoteChange} className="w-full border rounded-lg p-3" disabled={cargandoEstructura || esEdicion}>
+                                    <select
+                                        value={loteId?.toString() || ''}
+                                        onChange={handleLoteChange}
+                                        className="w-full border rounded-lg p-3"
+                                        disabled={cargandoEstructura || esEdicion}
+                                    >
                                         <option value="">Seleccionar lote</option>
                                         {lotesFiltrados.map(l => (
                                             <option key={l.id} value={l.id}>
@@ -566,18 +519,26 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     {loteSeleccionado && (
                                         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                                             {cargandoEstructura ? (
-                                                <div className="flex items-center text-gray-600"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>Cargando estructura...</div>
+                                                <div className="flex items-center text-gray-600">
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                    Cargando estructura...
+                                                </div>
                                             ) : estructuraLote ? (
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between items-start">
                                                         <div>
-                                                            <p className="text-sm text-gray-700"><strong>Configuración:</strong> {estructuraLote.surcos} surcos × {estructuraLote.plantas_por_surco} plantas/surco</p>
-                                                            <p className="text-sm text-green-600"><strong>Total plantas:</strong> {estructuraLote.total_plantas.toLocaleString()}</p>
+                                                            <p className="text-sm text-gray-700">
+                                                                <strong>Configuración:</strong> {estructuraLote.surcos} surcos × {estructuraLote.plantas_por_surco} plantas/surco
+                                                            </p>
+                                                            <p className="text-sm text-green-600">
+                                                                <strong>Total plantas:</strong> {estructuraLote.total_plantas.toLocaleString()}
+                                                            </p>
                                                         </div>
                                                     </div>
-                                                    {!estructuraLote.muestra_completa && <p className="text-xs text-amber-600">Muestra representativa (total {estructuraLote.total_plantas.toLocaleString()} plantas)</p>}
                                                 </div>
-                                            ) : <p className="text-sm text-red-600">Lote sin surcos o plantas configurados</p>}
+                                            ) : (
+                                                <p className="text-sm text-red-600">Lote sin surcos o plantas configurados</p>
+                                            )}
                                         </div>
                                     )}
                                 </>
@@ -588,9 +549,12 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                     )}
 
                     <div className="flex justify-end">
-                        <button type="button" onClick={handleSiguiente}
+                        <button
+                            type="button"
+                            onClick={handleSiguiente}
                             disabled={!programaId || !tipoMonitoreoId || !subtipoId || !loteId || !estructuraLote?.total_plantas}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400">
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                        >
                             Siguiente <i className="fas fa-arrow-right ml-2"></i>
                         </button>
                     </div>
@@ -615,30 +579,31 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     {estructuraLote && (
                                         <div className="mt-2 text-xs text-gray-500">
                                             {estructuraLote.surcos} surcos × {estructuraLote.plantas_por_surco} plantas/surco = {estructuraLote.total_plantas.toLocaleString()} plantas
-                                            {tipoDiagnostico !== 'arvenses' && (
-                                                <span className="ml-2 text-blue-600">| Elegibles: {plantas.length} ({porcentajeMuestreo}%)</span>
-                                            )}
-                                            {tipoDiagnostico === 'arvenses' && (
-                                                <span className="ml-2 text-green-600">| Muestreo en {metodoMuestreo} (5 puntos fijos)</span>
-                                            )}
+                                            <span className="ml-2 text-blue-600">| Elegibles: {plantas.length} ({porcentajeMuestreo}%)</span>
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex gap-2">
-                                    {tipoDiagnostico !== 'arvenses' && (
-                                        <button type="button" onClick={regenerarSeleccionPlantas} disabled={cargandoPlantas}
-                                            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 px-2 py-1 bg-blue-50 rounded disabled:opacity-50">
-                                            <i className="fas fa-random"></i> Nueva muestra
-                                        </button>
-                                    )}
-                                    <button type="button" onClick={() => setPaso(1)} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={regenerarSeleccionPlantas}
+                                        disabled={cargandoPlantas}
+                                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1 px-2 py-1 bg-blue-50 rounded disabled:opacity-50"
+                                    >
+                                        <i className="fas fa-random"></i> Nueva muestra
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaso(1)}
+                                        className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                                    >
                                         <i className="fas fa-edit"></i> Cambiar
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Tipo de diagnóstico — auto-derivado del monitoreo seleccionado */}
+                        {/* Tipo de diagnóstico */}
                         {tipoDiagnostico && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-800 flex items-center gap-2">
                                 <i className="fas fa-tag"></i>
@@ -649,145 +614,80 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         {/* Condiciones del día */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Condiciones del día *</label>
-                            <select value={condicionesDia} onChange={e => setCondicionesDia(e.target.value)} className="w-full border rounded-lg p-3" required>
+                            <select
+                                value={condicionesDia}
+                                onChange={e => setCondicionesDia(e.target.value)}
+                                className="w-full border rounded-lg p-3"
+                                required
+                            >
                                 <option value="">Seleccionar condiciones</option>
                                 {condiciones_dia.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
 
-                        {/* Secciones — dinámicas si el subtipo tiene campos, estáticas como fallback */}
-                        {tipoDiagnostico && (() => {
-                            const tipoSeccion = normalizarTipo(tipoDiagnostico);
-                            const mostrarPorPlanta = camposDinamicos.length > 0
-                                && tipoSeccion !== 'arvenses'
-                                && tipoSeccion !== 'generico';
-
-                            // Si el subtipo tiene campos dinámicos configurados → usarlos
-                            if (camposDinamicos.length > 0) {
-                                return (
-                                    <div className="space-y-4">
-                                        {/* Loading / errores de plantas */}
-                                        {tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && (
-                                            <>
-                                                {cargandoPlantas && (
-                                                    <div className="bg-blue-50 p-4 rounded-lg text-blue-700 flex items-center">
-                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                                        Cargando plantas elegibles...
-                                                    </div>
-                                                )}
-                                                {!cargandoPlantas && errorPlantas && (
-                                                    <div className="bg-red-50 p-4 rounded-lg text-red-700">{errorPlantas}</div>
-                                                )}
-                                                {!cargandoPlantas && plantas.length === 0 && !errorPlantas && (
-                                                    <div className="bg-yellow-50 p-4 rounded-lg text-yellow-700">
-                                                        No hay plantas elegibles para este diagnóstico.
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-
-                                        {/* Una tarjeta por planta */}
-                                        {mostrarPorPlanta && plantas.length > 0 && (
-                                            <div className="space-y-4">
-                                                <p className="text-sm text-gray-600 font-medium">
-                                                    <i className="fas fa-seedling mr-1 text-green-600"></i>
-                                                    Evaluando <strong>{plantas.length} plantas</strong> — completa el formulario para cada una:
-                                                </p>
-                                                {plantas.map((planta, idx) => (
-                                                    <div key={planta.id} className="border border-green-200 rounded-xl overflow-hidden shadow-sm">
-                                                        <div className="bg-green-100 px-4 py-2 flex items-center gap-2">
-                                                            <span className="bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
-                                                                {idx + 1}
-                                                            </span>
-                                                            <span className="font-medium text-sm text-green-900">{planta.label}</span>
-                                                            <span className="text-xs text-green-600 ml-auto">Cód: {planta.codigo}</span>
-                                                        </div>
-                                                        <div className="p-4 bg-green-50">
-                                                            <FormularioDinamicoSection
-                                                                campos={camposDinamicos}
-                                                                valores={formulariosPorPlanta[planta.id] || {}}
-                                                                onChange={(campo, valor) => handleCambioPorPlanta(planta.id, campo, valor)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Sin plantas → formulario global (arvenses / generico) */}
-                                        {!mostrarPorPlanta && (
-                                            <div className="border border-blue-200 rounded-xl p-4 bg-blue-50">
-                                                <p className="text-xs text-blue-700 font-semibold mb-3">
-                                                    <i className="fas fa-wpforms mr-1"></i>
-                                                    Formulario dinámico: {subtipoSeleccionado?.nombre}
-                                                </p>
-                                                <FormularioDinamicoSection
-                                                    campos={camposDinamicos}
-                                                    valores={caracterizacion}
-                                                    onChange={handleCaracterizacionChange}
-                                                />
-                                            </div>
-                                        )}
+                        {/* Formulario dinámico */}
+                        {tipoDiagnostico && camposDinamicos.length > 0 && (
+                            <div className="space-y-4">
+                                {/* Loading / errores de plantas */}
+                                {cargandoPlantas && (
+                                    <div className="bg-blue-50 p-4 rounded-lg text-blue-700 flex items-center">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                        Cargando plantas elegibles...
                                     </div>
-                                );
-                            }
+                                )}
+                                {!cargandoPlantas && errorPlantas && (
+                                    <div className="bg-red-50 p-4 rounded-lg text-red-700">{errorPlantas}</div>
+                                )}
+                                {!cargandoPlantas && plantas.length === 0 && !errorPlantas && (
+                                    <div className="bg-yellow-50 p-4 rounded-lg text-yellow-700">
+                                        No hay plantas elegibles para este diagnóstico.
+                                    </div>
+                                )}
 
-                            // Fallback: secciones estáticas basadas en normalizarTipo
-                            return (
-                                <div>
-                                    {tipoSeccion !== 'arvenses' && tipoSeccion !== 'generico' && (
-                                        <>
-                                            {cargandoPlantas && (
-                                                <div className="bg-blue-50 p-4 rounded-lg text-blue-700 mb-4 flex items-center">
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                                    Cargando plantas elegibles...
+                                {/* Formulario por planta */}
+                                {mostrarPorPlanta && (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-gray-600 font-medium">
+                                            <i className="fas fa-seedling mr-1 text-green-600"></i>
+                                            Evaluando <strong>{plantas.length} plantas</strong> — completa el formulario para cada una:
+                                        </p>
+                                        {plantas.map((planta, idx) => (
+                                            <div key={planta.id} className="border border-green-200 rounded-xl overflow-hidden shadow-sm">
+                                                <div className="bg-green-100 px-4 py-2 flex items-center gap-2">
+                                                    <span className="bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <span className="font-medium text-sm text-green-900">{planta.label}</span>
+                                                    <span className="text-xs text-green-600 ml-auto">Cód: {planta.codigo}</span>
                                                 </div>
-                                            )}
-                                            {errorPlantas && !cargandoPlantas && (
-                                                <div className="bg-red-50 p-4 rounded-lg text-red-700 mb-4">{errorPlantas}</div>
-                                            )}
-                                            {!cargandoPlantas && plantas.length === 0 && !errorPlantas && (
-                                                <div className="bg-yellow-50 p-4 rounded-lg text-yellow-700 mb-4">
-                                                    No hay plantas elegibles para este diagnóstico.
+                                                <div className="p-4 bg-green-50">
+                                                    <FormularioDinamicoSection
+                                                        campos={camposDinamicos}
+                                                        valores={formulariosPorPlanta[planta.id] || {}}
+                                                        onChange={(campo, valor) => handleCambioPorPlanta(planta.id, campo, valor)}
+                                                    />
                                                 </div>
-                                            )}
-                                        </>
-                                    )}
-                                    {tipoSeccion !== 'generico' && (
-                                        <div className="mb-3 text-sm text-gray-600">
-                                            <i className="fas fa-info-circle mr-1"></i>
-                                            {tipoSeccion === 'arvenses'
-                                                ? `Evaluando 5 árboles de referencia del lote`
-                                                : `Evaluando ${plantas.length} plantas (productivas y sin diagnóstico reciente)`}
-                                        </div>
-                                    )}
-                                    {tipoSeccion === 'censo_poblacional' && <CensoSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                    {tipoSeccion === 'monitoreo_fenologico' && <FenologicoSection ref={fenologicoRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                    {tipoSeccion === 'artropodos' && <ArthropodSection ref={arthropodRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                    {tipoSeccion === 'enfermedades' && <EnfermedadesSection ref={enfermedadesRef} plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                    {tipoSeccion === 'arvenses' && (
-                                        <ArvensesSection
-                                            ref={arvensesRef}
-                                            todasLasPlantas={plantasOriginales}
-                                            metodoMuestreo={metodoMuestreo}
-                                            surcos={estructuraLote?.surcos || 1}
-                                            plantasPorSurco={estructuraLote?.plantas_por_surco || 1}
-                                            caracterizacion={caracterizacion}
-                                            onCampoChange={handleCaracterizacionChange}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Formulario global (sin plantas) */}
+                                {!mostrarPorPlanta && (
+                                    <div className="border border-blue-200 rounded-xl p-4 bg-blue-50">
+                                        <p className="text-xs text-blue-700 font-semibold mb-3">
+                                            <i className="fas fa-wpforms mr-1"></i>
+                                            Formulario dinámico: {subtipoSeleccionado?.nombre}
+                                        </p>
+                                        <FormularioDinamicoSection
+                                            campos={camposDinamicos}
+                                            valores={caracterizacion}
+                                            onChange={handleCaracterizacionChange}
                                         />
-                                    )}
-                                    {tipoSeccion === 'controladores_biologicos' && <ControladoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                    {tipoSeccion === 'polinizadores' && <PolinizadoresSection plantas={plantas} caracterizacion={caracterizacion} onCampoChange={handleCaracterizacionChange} />}
-                                    {tipoSeccion === 'generico' && (
-                                        <GenericDynamicSection
-                                            tipoNombre={tipoDiagnostico}
-                                            caracterizacion={caracterizacion}
-                                            onCampoChange={handleCaracterizacionChange}
-                                        />
-                                    )}
-                                </div>
-                            );
-                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {!condicionesDia && tipoDiagnostico && (
                             <div className="bg-yellow-50 p-4 rounded-lg">Selecciona las condiciones del día.</div>
@@ -795,14 +695,18 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                     </div>
 
                     <div className="flex justify-end gap-3 mt-8 pt-5 border-t">
-                        <button type="button" onClick={onCancel} className="px-5 py-2.5 border rounded-lg hover:bg-gray-100">Cancelar</button>
-                        <button type="submit"
-                            disabled={
-                                !tipoDiagnostico || !condicionesDia ||
-                                (normalizarTipo(tipoDiagnostico) !== 'arvenses' && normalizarTipo(tipoDiagnostico) !== 'generico' && (cargandoPlantas || plantas.length === 0)) ||
-                                submitting
-                            }
-                            className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400">
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="px-5 py-2.5 border rounded-lg hover:bg-gray-100"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!tipoDiagnostico || !condicionesDia || (cargandoPlantas && plantas.length === 0) || submitting}
+                            className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+                        >
                             {submitting ? 'Guardando...' : (esEdicion ? 'Actualizar' : 'Crear')}
                         </button>
                     </div>
