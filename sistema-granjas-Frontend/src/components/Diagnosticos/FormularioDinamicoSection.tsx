@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import type { DiagnosticoCampo } from '../../services/diagnosticoDinamicoService';
 
 interface Props {
@@ -25,7 +25,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     const valorPadre = valores[padre.nombre_campo];
     if (!valorPadre || !campo.opciones_padre) return false;
     
-    // Soporta multiselect (array) y select (string)
     if (Array.isArray(valorPadre)) {
       return campo.opciones_padre.some(op => valorPadre.includes(op));
     }
@@ -40,35 +39,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
       return valor.length > 0 ? valor.join(', ') : 'No seleccionado';
     }
     return String(valor);
-  };
-
-  // Helper: obtener el breadcrumb de dependencias para un campo
-  const getBreadcrumb = (campo: DiagnosticoCampo): Array<{etiqueta: string; valor: string}> | null => {
-    if (!campo.campo_padre_id) return null;
-    
-    const breadcrumb: Array<{etiqueta: string; valor: string}> = [];
-    let currentCampo = campo;
-    let visited = new Set<number>();
-    
-    while (currentCampo.campo_padre_id && !visited.has(currentCampo.id)) {
-      visited.add(currentCampo.id);
-      const padre = campos.find(c => c.id === currentCampo.campo_padre_id);
-      if (!padre) break;
-      
-      const valorPadre = valores[padre.nombre_campo];
-      const valorLegible = Array.isArray(valorPadre) 
-        ? valorPadre.join(', ') 
-        : (valorPadre || 'No seleccionado');
-      
-      breadcrumb.unshift({
-        etiqueta: padre.etiqueta,
-        valor: valorLegible
-      });
-      
-      currentCampo = padre;
-    }
-    
-    return breadcrumb.length > 0 ? breadcrumb : null;
   };
 
   // Helper: obtener todos los IDs de campos que dependen de un campo (directa o indirectamente)
@@ -86,12 +56,10 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
   useEffect(() => {
     campos.forEach(campo => {
       if (!esCampoVisible(campo)) {
-        // Si el campo no es visible y tiene un valor, lo limpiamos
         if (valores[campo.nombre_campo] !== undefined && valores[campo.nombre_campo] !== '') {
           onChange(campo.nombre_campo, '');
         }
         
-        // Limpiar también todos sus dependientes en cascada
         const dependientes = obtenerDependientes(campo.id);
         dependientes.forEach(depId => {
           const depCampo = campos.find(c => c.id === depId);
@@ -105,20 +73,16 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
 
   // Manejar cambio en campo padre (select/multiselect) limpiando hijos que ya no aplican
   const handleSelectChange = (campo: DiagnosticoCampo, nuevoValor: any) => {
-    // Primero actualizar el valor del campo actual
     onChange(campo.nombre_campo, nuevoValor);
     
-    // Obtener todos los dependientes directos
     const hijosDirectos = campos.filter(c => c.campo_padre_id === campo.id);
     
     hijosDirectos.forEach(hijo => {
       if (hijo.opciones_padre) {
-        // Verificar si el nuevo valor del padre aún incluye a este hijo
         const valorArray = Array.isArray(nuevoValor) ? nuevoValor : [nuevoValor];
         const hijoVisible = hijo.opciones_padre.some(op => valorArray.includes(op));
         
         if (!hijoVisible) {
-          // Si el hijo ya no es visible, limpiar su valor y todos sus dependientes
           onChange(hijo.nombre_campo, '');
           limpiarDependientes(hijo.id);
         }
@@ -137,8 +101,46 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     });
   };
 
-  // Filtrar campos visibles
-  const camposVisibles = campos.filter(esCampoVisible);
+  // Obtener el nivel de anidación de un campo
+  const getNivelAnidacion = (campo: DiagnosticoCampo): number => {
+    let nivel = 0;
+    let currentCampo = campo;
+    let visited = new Set<number>();
+    
+    while (currentCampo.campo_padre_id && !visited.has(currentCampo.id)) {
+      visited.add(currentCampo.id);
+      nivel++;
+      const padre = campos.find(c => c.id === currentCampo.campo_padre_id);
+      if (!padre) break;
+      currentCampo = padre;
+    }
+    
+    return nivel;
+  };
+
+  // Encontrar el padre directo de un campo y el valor que lo activa
+  const getPadreYValor = (campo: DiagnosticoCampo): { padre: DiagnosticoCampo | null; valorActivador: string } => {
+    if (!campo.campo_padre_id) return { padre: null, valorActivador: '' };
+    const padre = campos.find(c => c.id === campo.campo_padre_id);
+    if (!padre) return { padre: null, valorActivador: '' };
+    
+    const valorPadre = valores[padre.nombre_campo];
+    let valorActivador = '';
+    
+    if (campo.opciones_padre && campo.opciones_padre.length > 0) {
+      if (Array.isArray(valorPadre)) {
+        // Para multiselect, mostrar solo las opciones del hijo que coinciden
+        valorActivador = campo.opciones_padre
+          .filter(op => valorPadre.includes(op))
+          .join(', ');
+      } else {
+        // Para select, mostrar la opción específica que activa este campo
+        valorActivador = campo.opciones_padre[0] || '';
+      }
+    }
+    
+    return { padre, valorActivador };
+  };
 
   const renderCampo = (campo: DiagnosticoCampo) => {
     const valor = valores[campo.nombre_campo] ?? '';
@@ -248,72 +250,112 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     }
   };
 
-  // Obtener el nivel de anidación de un campo (para el padding izquierdo)
-  const getNivelAnidacion = (campo: DiagnosticoCampo): number => {
-    let nivel = 0;
-    let currentCampo = campo;
-    let visited = new Set<number>();
+  // ── FUNCIÓN PRINCIPAL: Agrupar campos por jerarquía ────────────────────────
+  const renderGrupo = (
+    camposRestantes: DiagnosticoCampo[], 
+    nivel: number = 0
+  ): React.ReactNode[] => {
+    const elements: React.ReactNode[] = [];
+    const camposProcesados = new Set<number>();
+    const colors = ['border-yellow-300', 'border-orange-300', 'border-pink-300', 'border-purple-300'];
+    const bgColors = ['bg-yellow-50/50', 'bg-orange-50/50', 'bg-pink-50/50', 'bg-purple-50/50'];
     
-    while (currentCampo.campo_padre_id && !visited.has(currentCampo.id)) {
-      visited.add(currentCampo.id);
-      nivel++;
-      const padre = campos.find(c => c.id === currentCampo.campo_padre_id);
-      if (!padre) break;
-      currentCampo = padre;
-    }
-    
-    return nivel;
-  };
-
-  return (
-    <div className="space-y-4">
-      {camposVisibles.map(campo => {
-        const breadcrumb = getBreadcrumb(campo);
-        const nivel = getNivelAnidacion(campo);
-        const colors = ['border-yellow-300', 'border-orange-300', 'border-pink-300', 'border-purple-300'];
-        const borderColor = nivel > 0 ? colors[Math.min(nivel - 1, colors.length - 1)] : '';
-        
-        return (
-          <div 
-            key={campo.id} 
-            className={nivel > 0 ? `pl-4 border-l-2 ${borderColor}` : ''}
-          >
-            {/* Breadcrumb de dependencias */}
-            {breadcrumb && breadcrumb.length > 0 && (
-              <div className="mb-2 flex flex-wrap items-center gap-1 text-xs">
-                {breadcrumb.map((item, idx) => (
-                  <React.Fragment key={idx}>
-                    {idx > 0 && (
-                      <i className="fas fa-chevron-right text-gray-300 text-[10px]"></i>
-                    )}
-                    <span className="inline-flex items-center gap-1 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">
-                      <span className="text-gray-500 font-medium">{item.etiqueta}:</span>
-                      <span className="text-gray-700 font-semibold">{item.valor}</span>
-                    </span>
-                  </React.Fragment>
-                ))}
+    for (const campo of camposRestantes) {
+      if (camposProcesados.has(campo.id)) continue;
+      if (!esCampoVisible(campo)) continue;
+      
+      camposProcesados.add(campo.id);
+      
+      // Buscar todos los hijos directos visibles de este campo
+      const hijos = campos.filter(c => 
+        c.campo_padre_id === campo.id && 
+        esCampoVisible(c) && 
+        !camposProcesados.has(c.id)
+      );
+      
+      if (hijos.length > 0) {
+        // ── Campo CON hijos: agrupar por valor del padre ──
+        elements.push(
+          <div key={campo.id} className={nivel > 0 ? `pl-4 border-l-2 ${colors[Math.min(nivel - 1, colors.length - 1)]}` : ''}>
+            {/* El campo padre */}
+            <div className="mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {campo.etiqueta}
+                {campo.requerido && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              {renderCampo(campo)}
+            </div>
+            
+            {/* Hijos agrupados por el valor que los activa */}
+            {hijos.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {(() => {
+                  // Agrupar hijos por opciones_padre
+                  const gruposHijos: Record<string, DiagnosticoCampo[]> = {};
+                  
+                  hijos.forEach(hijo => {
+                    const { valorActivador } = getPadreYValor(hijo);
+                    const key = valorActivador || 'Sin valor';
+                    if (!gruposHijos[key]) gruposHijos[key] = [];
+                    gruposHijos[key].push(hijo);
+                    camposProcesados.add(hijo.id);
+                  });
+                  
+                  return Object.entries(gruposHijos).map(([valor, camposHijos]) => {
+                    // Para multiselect o cuando no hay valor específico
+                    const tituloGrupo = valor !== 'Sin valor' 
+                      ? `${campo.etiqueta}: ${valor}`
+                      : campo.etiqueta;
+                    
+                    return (
+                      <div key={`${campo.id}-${valor}`} className={`pl-4 border-l-2 ${colors[Math.min(nivel, colors.length - 1)]} ${bgColors[Math.min(nivel, bgColors.length - 1)]} rounded p-3`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                            {tituloGrupo}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {renderGrupo(camposHijos, nivel + 1)}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             )}
             
-            {/* Etiqueta del campo */}
+            {/* Procesar campos siguientes que no son hijos */}
+            {renderGrupo(
+              camposRestantes.filter(c => !camposProcesados.has(c.id)),
+              nivel
+            )}
+          </div>
+        );
+      } else {
+        // ── Campo SIN hijos (hoja) ──
+        elements.push(
+          <div key={campo.id} className={nivel > 0 ? `pl-4 border-l-2 ${colors[Math.min(nivel - 1, colors.length - 1)]}` : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {campo.etiqueta}
               {campo.requerido && <span className="text-red-500 ml-1">*</span>}
             </label>
-            
-            {/* Render del campo */}
             {renderCampo(campo)}
-            
-            {/* Indicador de que este campo tiene hijos */}
-            {campos.some(c => c.campo_padre_id === campo.id && esCampoVisible(c)) && (
-              <div className="mt-1 text-[10px] text-gray-400 italic flex items-center gap-1">
-                <i className="fas fa-level-down-alt"></i>
-                Tiene campos dependientes
-              </div>
-            )}
           </div>
         );
-      })}
+      }
+    }
+    
+    return elements;
+  };
+
+  // Campos raíz (sin padre)
+  const camposRaiz = campos.filter(c => !c.campo_padre_id);
+  const camposVisibles = campos.filter(esCampoVisible);
+
+  return (
+    <div className="space-y-4">
+      {renderGrupo(camposRaiz)}
     </div>
   );
 };
