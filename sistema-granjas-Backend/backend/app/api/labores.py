@@ -25,7 +25,7 @@ def crear_labor(
     data: LaborCreate,
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user),
-    _ = Depends(require_any_role(["admin", "talento_humano"]))
+    _ = Depends(require_any_role(["admin", "talento_humano", "docente", "asesor"]))
 ):
     """
     Crear una nueva labor

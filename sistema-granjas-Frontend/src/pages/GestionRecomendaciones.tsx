@@ -4,10 +4,10 @@ import DashboardHeader from '../components/Common/DashboardHeader';
 import GestionRecomendaciones from '../components/Recomendaciones/GestionRecomendaciones';
 
 const GestionRecomendacionesPage: React.FC = () => {
+    React.useEffect(() => { document.title = 'Gestión de Recomendaciones'; }, []);
     return (
         <div className="min-h-screen bg-gray-50">
             <DashboardHeader
-                title="Gestión de Recomendaciones"
                 selectedModule="recomendaciones"
                 onBack={() => window.history.back()}
             />

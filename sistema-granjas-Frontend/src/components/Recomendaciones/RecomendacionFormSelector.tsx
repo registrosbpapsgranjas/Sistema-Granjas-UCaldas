@@ -11,6 +11,12 @@ import { diagnosticoService } from '../../services/diagnosticoService';
 import { inventarioDinamicoService } from '../../services/inventarioDinamicoService';
 import type { TipoInventario, ItemInventario } from '../../types/inventarioDinamicoTypes';
 import type { DiagnosticoTipo } from '../../services/diagnosticoDinamicoService';
+import tipoLaborService from '../../services/tipoLaboresService';
+
+interface LaborRow {
+    tipo_labor_id: number | null;
+    comentario: string;
+}
 
 interface Props {
     recomendacion?: Recomendacion;
@@ -59,6 +65,10 @@ const FormVinculadaDiagnostico: React.FC<{
     const [unidad, setUnidad] = useState('');
     const [loadingItems, setLoadingItems] = useState(false);
 
+    // Labores
+    const [tiposLabor, setTiposLabor] = useState<any[]>([]);
+    const [laboresToCrear, setLaboresToCrear] = useState<LaborRow[]>([]);
+
     // Load diagnosis context
     useEffect(() => {
         const load = async () => {
@@ -66,19 +76,14 @@ const FormVinculadaDiagnostico: React.FC<{
             try {
                 const diag = await diagnosticoService.obtenerDiagnosticoPorId(diagnosticoId);
                 setDiagnostico(diag);
-                // Auto-fill título
                 const monNombre = (diag as any).tipo_monitoreo_nombre || (diag as any).tipo_diagnostico || '';
                 const loteNombre = (diag as any).lote_nombre || '';
                 setTitulo(`Recomendación - ${monNombre}${loteNombre ? ` (${loteNombre})` : ''}`);
-
-                // Load CampoRecomendacion if subtipo is known
                 const subtipoId = (diag as any).diagnostico_tipo_id;
                 if (subtipoId) {
                     const camposData = await diagnosticoDinamicoService.listarCamposRecomendacion(subtipoId);
                     setCampos([...camposData].sort((a, b) => a.orden - b.orden));
                 }
-
-                // Load inventory types for the program
                 const programaId = (diag as any).programa_id;
                 if (programaId) {
                     const tipos = await inventarioDinamicoService.listarTipos(programaId);
@@ -92,6 +97,12 @@ const FormVinculadaDiagnostico: React.FC<{
         };
         load();
     }, [diagnosticoId]);
+
+    useEffect(() => {
+        tipoLaborService.obtenerTiposLabor()
+            .then(data => setTiposLabor(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
 
     // Load items when tipo changes
     useEffect(() => {
@@ -145,6 +156,7 @@ const FormVinculadaDiagnostico: React.FC<{
                 cantidad_sugerida: aplicarProducto === 'si' && dosis ? parseFloat(dosis) : null,
                 unidad_dosis: aplicarProducto === 'si' ? unidad.trim() : null,
                 items_sugeridos: [],
+                labores_a_crear: laboresToCrear.filter(l => l.tipo_labor_id !== null),
             });
         } catch (e: any) {
             toast.error(e?.message || 'Error al crear la recomendación');
@@ -332,6 +344,49 @@ const FormVinculadaDiagnostico: React.FC<{
                 <p className="text-xs text-gray-400 mt-1">{descripcion.length} / mín. 10 caracteres</p>
             </div>
 
+            {/* Labores a crear */}
+            <div className="border border-green-200 rounded-xl p-4 bg-green-50">
+                <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-green-800 text-sm">
+                        <i className="fas fa-tasks mr-1"></i>
+                        Labores a crear (opcional)
+                    </h4>
+                    <button type="button" onClick={() => setLaboresToCrear(prev => [...prev, { tipo_labor_id: null, comentario: '' }])}
+                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+                        <i className="fas fa-plus"></i> Agregar labor
+                    </button>
+                </div>
+                {laboresToCrear.length === 0 ? (
+                    <p className="text-xs text-green-600">No hay labores programadas. Puedes agregar labores que se crearán automáticamente al guardar la recomendación.</p>
+                ) : (
+                    <div className="space-y-3">
+                        {laboresToCrear.map((labor, idx) => (
+                            <div key={idx} className="flex gap-2 items-start bg-white border border-green-200 rounded-lg p-3">
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de labor *</label>
+                                        <select value={labor.tipo_labor_id || ''} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, tipo_labor_id: e.target.value ? parseInt(e.target.value) : null } : l))}
+                                            className="w-full border border-gray-300 rounded p-2 text-sm">
+                                            <option value="">Seleccionar...</option>
+                                            {tiposLabor.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-600 mb-1">Comentario</label>
+                                        <input type="text" value={labor.comentario} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, comentario: e.target.value } : l))}
+                                            className="w-full border border-gray-300 rounded p-2 text-sm" placeholder="Instrucciones adicionales..." />
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setLaboresToCrear(prev => prev.filter((_, i) => i !== idx))}
+                                    className="text-red-500 hover:text-red-700 mt-5 p-1">
+                                    <i className="fas fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
@@ -373,6 +428,8 @@ const FormGeneral: React.FC<{
     const [descripcion, setDescripcion] = useState(recomendacion?.descripcion || '');
     const [estado, setEstado] = useState(recomendacion?.estado || 'pendiente');
     const [formulario, setFormulario] = useState<Record<string, any>>({});
+    const [tiposLabor, setTiposLabor] = useState<any[]>([]);
+    const [laboresToCrear, setLaboresToCrear] = useState<LaborRow[]>([]);
 
     const lotesFiltrados = lotes.filter(l => l.programa_id === programaId);
 
@@ -397,10 +454,52 @@ const FormGeneral: React.FC<{
             .catch(() => {});
     }, [subtipoId]);
 
+    useEffect(() => {
+        tipoLaborService.obtenerTiposLabor()
+            .then(data => setTiposLabor(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
+
+    const renderCampo = (campo: CampoRecomendacion) => {
+        const val = formulario[campo.nombre_campo] ?? '';
+        const base = "w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm";
+        switch (campo.tipo_dato) {
+            case 'textarea':
+                return <textarea value={val} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))} className={base} rows={3} required={campo.requerido} />;
+            case 'number':
+                return <input type="number" value={val} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))} className={base} required={campo.requerido} />;
+            case 'date':
+                return <input type="date" value={val} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))} className={base} required={campo.requerido} />;
+            case 'select':
+                return (
+                    <select value={val} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))} className={base} required={campo.requerido}>
+                        <option value="">Seleccionar...</option>
+                        {(campo.opciones || []).map(op => <option key={op} value={op}>{op}</option>)}
+                    </select>
+                );
+            case 'boolean':
+                return (
+                    <select value={val} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))} className={base} required={campo.requerido}>
+                        <option value="">Seleccionar...</option>
+                        <option value="si">Sí</option>
+                        <option value="no">No</option>
+                    </select>
+                );
+            default:
+                return <input type="text" value={val} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))} className={base} required={campo.requerido} />;
+        }
+    };
+
     const handleSubmit = async () => {
         if (!loteId) { toast.warning('Selecciona un lote'); return; }
         if (!titulo.trim()) { toast.warning('El título es requerido'); return; }
         if (!descripcion.trim() || descripcion.trim().length < 10) { toast.warning('La descripción debe tener al menos 10 caracteres'); return; }
+        for (const campo of campos) {
+            if (campo.requerido && !formulario[campo.nombre_campo]) {
+                toast.warning(`El campo "${campo.etiqueta}" es requerido`);
+                return;
+            }
+        }
         const docenteId = currentUser?.id || docentes[0]?.id;
         if (!docenteId) { toast.error('No se pudo determinar el autor'); return; }
         setSubmitting(true);
@@ -410,6 +509,7 @@ const FormGeneral: React.FC<{
                 lote_id: loteId, subtipo_id: subtipoId || null,
                 formulario_recomendacion: Object.keys(formulario).length > 0 ? formulario : null,
                 docente_id: docenteId, diagnostico_id: null, items_sugeridos: [],
+                labores_a_crear: esEdicion ? [] : laboresToCrear.filter(l => l.tipo_labor_id !== null),
             });
         } catch (e: any) {
             toast.error(e?.message || 'Error');
@@ -467,9 +567,12 @@ const FormGeneral: React.FC<{
                     <h4 className="text-sm font-semibold text-orange-800"><i className="fas fa-wpforms mr-1"></i>Formulario dinámico</h4>
                     {campos.map(campo => (
                         <div key={campo.id}>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{campo.etiqueta}{campo.requerido && <span className="text-red-500 ml-1">*</span>}</label>
-                            <input type="text" value={formulario[campo.nombre_campo] ?? ''} onChange={e => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: e.target.value }))}
-                                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" required={campo.requerido} />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                {campo.etiqueta}
+                                {campo.requerido && <span className="text-red-500 ml-1">*</span>}
+                                <span className="ml-2 text-xs text-gray-400">({TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato})</span>
+                            </label>
+                            {renderCampo(campo)}
                         </div>
                     ))}
                 </div>
@@ -481,6 +584,7 @@ const FormGeneral: React.FC<{
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descripción *</label>
                 <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" rows={4} required />
+                <p className="text-xs text-gray-400 mt-1">{descripcion.length} / mín. 10 caracteres</p>
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
@@ -492,6 +596,49 @@ const FormGeneral: React.FC<{
                     <option value="cancelada">Cancelada</option>
                 </select>
             </div>
+            {!esEdicion && (
+                <div className="border border-green-200 rounded-xl p-4 bg-green-50">
+                    <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-green-800 text-sm">
+                            <i className="fas fa-tasks mr-1"></i>
+                            Labores a crear (opcional)
+                        </h4>
+                        <button type="button" onClick={() => setLaboresToCrear(prev => [...prev, { tipo_labor_id: null, comentario: '' }])}
+                            className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+                            <i className="fas fa-plus"></i> Agregar labor
+                        </button>
+                    </div>
+                    {laboresToCrear.length === 0 ? (
+                        <p className="text-xs text-green-600">No hay labores programadas. Puedes agregar labores que se crearán automáticamente al guardar la recomendación.</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {laboresToCrear.map((labor, idx) => (
+                                <div key={idx} className="flex gap-2 items-start bg-white border border-green-200 rounded-lg p-3">
+                                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de labor *</label>
+                                            <select value={labor.tipo_labor_id || ''} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, tipo_labor_id: e.target.value ? parseInt(e.target.value) : null } : l))}
+                                                className="w-full border border-gray-300 rounded p-2 text-sm">
+                                                <option value="">Seleccionar...</option>
+                                                {tiposLabor.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">Comentario</label>
+                                            <input type="text" value={labor.comentario} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, comentario: e.target.value } : l))}
+                                                className="w-full border border-gray-300 rounded p-2 text-sm" placeholder="Instrucciones adicionales..." />
+                                        </div>
+                                    </div>
+                                    <button type="button" onClick={() => setLaboresToCrear(prev => prev.filter((_, i) => i !== idx))}
+                                        className="text-red-500 hover:text-red-700 mt-5 p-1">
+                                        <i className="fas fa-trash text-xs"></i>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
             <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">Cancelar</button>
                 <button type="button" onClick={handleSubmit} disabled={submitting || !loteId || !titulo || !descripcion}

@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Any
 from datetime import datetime
 
-TIPOS_DATO_PERMITIDOS = ["text", "number", "date", "select", "multiselect", "boolean", "textarea"]
+TIPOS_DATO_PERMITIDOS = ["text", "number", "date", "select", "multiselect", "boolean", "textarea", "matrix"]
 
 
 class DiagnosticoCampoCreate(BaseModel):
@@ -15,7 +15,6 @@ class DiagnosticoCampoCreate(BaseModel):
     orden: int = 0
     campo_padre_id: Optional[int] = None
     opciones_padre: Optional[List[str]] = None
-    patron_arvenses: bool = False
 
     @validator("tipo_dato")
     def validar_tipo_dato(cls, v):
