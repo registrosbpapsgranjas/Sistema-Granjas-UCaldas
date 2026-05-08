@@ -40,6 +40,19 @@ export interface CampoRecomendacion {
   opciones_padre?: string[] | null;
 }
 
+export interface CampoLabor {
+  id: number;
+  subtipo_id: number;
+  nombre_campo: string;
+  etiqueta: string;
+  tipo_dato: 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'boolean' | 'textarea' | 'matrix';
+  requerido: boolean;
+  opciones?: string[] | any;
+  orden: number;
+  campo_padre_id?: number | null;
+  opciones_padre?: string[] | null;
+}
+
 export const diagnosticoDinamicoService = {
   // ── Tipos (subtipos de monitoreo) ──────────────────────────────────────────
 
@@ -112,5 +125,26 @@ export const diagnosticoDinamicoService = {
 
   eliminarCampoRecomendacion: async (campoId: number): Promise<void> => {
     await api.delete(`/diagnosticos-dinamico/campos-recomendacion/${campoId}`);
+  },
+
+  // ── Campos de labor ────────────────────────────────────────────────────────
+
+  listarCamposLabor: async (subtipoId: number): Promise<CampoLabor[]> => {
+    const res = await api.get(`/diagnosticos-dinamico/tipos/${subtipoId}/campos-labor`);
+    return res.data;
+  },
+
+  crearCampoLabor: async (data: Omit<CampoLabor, 'id'>): Promise<CampoLabor> => {
+    const res = await api.post('/diagnosticos-dinamico/campos-labor', data);
+    return res.data;
+  },
+
+  actualizarCampoLabor: async (campoId: number, data: Partial<CampoLabor>): Promise<CampoLabor> => {
+    const res = await api.put(`/diagnosticos-dinamico/campos-labor/${campoId}`, data);
+    return res.data;
+  },
+
+  eliminarCampoLabor: async (campoId: number): Promise<void> => {
+    await api.delete(`/diagnosticos-dinamico/campos-labor/${campoId}`);
   },
 };

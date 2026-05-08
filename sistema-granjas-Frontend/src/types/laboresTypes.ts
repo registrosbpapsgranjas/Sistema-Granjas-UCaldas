@@ -7,6 +7,7 @@ export interface Labor {
     tipo_labor_id: number;
     avance_porcentaje: number;
     comentario: string | null;
+    formulario_labor?: Record<string, any> | null;
     fecha_asignacion: string;
     fecha_finalizacion: string | null;
     fecha_creacion: string;

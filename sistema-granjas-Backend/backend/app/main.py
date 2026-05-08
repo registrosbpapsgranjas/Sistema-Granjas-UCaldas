@@ -93,6 +93,25 @@ def _aplicar_migraciones_seguras():
         ALTER TABLE diagnostico_tipos
         ADD COLUMN IF NOT EXISTS patron_arvenses BOOLEAN NOT NULL DEFAULT FALSE;
         """,
+        """
+        CREATE TABLE IF NOT EXISTS campos_labor (
+            id SERIAL PRIMARY KEY,
+            subtipo_id INTEGER NOT NULL REFERENCES diagnostico_tipos(id) ON DELETE CASCADE,
+            nombre_campo VARCHAR(100) NOT NULL,
+            etiqueta VARCHAR(150) NOT NULL,
+            tipo_dato VARCHAR(20) NOT NULL,
+            requerido BOOLEAN DEFAULT FALSE,
+            opciones JSON,
+            orden INTEGER DEFAULT 0,
+            campo_padre_id INTEGER REFERENCES campos_labor(id) ON DELETE SET NULL,
+            opciones_padre JSON,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
+        """,
+        """
+        ALTER TABLE labores
+        ADD COLUMN IF NOT EXISTS formulario_labor JSON;
+        """,
     ]
     from app.db.database import SessionLocal
     db = SessionLocal()

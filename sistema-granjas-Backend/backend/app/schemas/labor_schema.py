@@ -20,6 +20,7 @@ class LaborBase(BaseModel):
     comentario: Optional[str] = Field(None, max_length=2000, description="Comentarios o evidencia")
     lote_id: Optional[int] = Field(None, gt=0, description="ID del lote asociado")
     tipo_labor_id: int = Field(..., gt=0, description="ID del tipo de labor")
+    formulario_labor: Optional[dict] = Field(None, description="Valores del formulario dinámico de labor")
 
     @validator("avance_porcentaje")
     def validar_avance(cls, v):
@@ -51,6 +52,7 @@ class LaborUpdate(BaseModel):
     comentario: Optional[str] = Field(None, max_length=2000)
     fecha_finalizacion: Optional[datetime] = None
     tipo_labor_id: Optional[int] = Field(None, gt=0)
+    formulario_labor: Optional[dict] = Field(None, description="Valores del formulario dinámico de labor")
 
     @validator("avance_porcentaje")
     def validar_avance(cls, v):

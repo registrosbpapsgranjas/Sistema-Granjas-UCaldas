@@ -173,3 +173,67 @@ class DiagnosticoTipoConCamposResponse(DiagnosticoTipoResponse):
 
     class Config:
         from_attributes = True
+
+
+# ---------- CampoLabor ----------
+
+class CampoLaborCreate(BaseModel):
+    subtipo_id: int = Field(..., gt=0)
+    nombre_campo: str = Field(..., min_length=1, max_length=100)
+    etiqueta: str = Field(..., min_length=1, max_length=150)
+    tipo_dato: str = Field(..., description=f"Uno de: {', '.join(TIPOS_DATO_PERMITIDOS)}")
+    requerido: bool = False
+    opciones: Optional[List[str]] = None
+    orden: int = 0
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
+
+    @validator("tipo_dato")
+    def validar_tipo_dato(cls, v):
+        if v not in TIPOS_DATO_PERMITIDOS:
+            raise ValueError(f"tipo_dato debe ser uno de: {', '.join(TIPOS_DATO_PERMITIDOS)}")
+        return v
+
+    @validator("nombre_campo")
+    def normalizar_nombre(cls, v):
+        return v.strip().lower().replace(" ", "_")
+
+    @validator("opciones")
+    def validar_opciones(cls, v, values):
+        tipo = values.get("tipo_dato")
+        if tipo in ("select", "multiselect") and (not v or len(v) == 0):
+            raise ValueError(f"Para tipo '{tipo}', las opciones son requeridas")
+        return v
+
+
+class CampoLaborUpdate(BaseModel):
+    nombre_campo: Optional[str] = Field(None, min_length=1, max_length=100)
+    etiqueta: Optional[str] = Field(None, min_length=1, max_length=150)
+    tipo_dato: Optional[str] = None
+    requerido: Optional[bool] = None
+    opciones: Optional[List[str]] = None
+    orden: Optional[int] = None
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
+
+    @validator("tipo_dato")
+    def validar_tipo_dato(cls, v):
+        if v is not None and v not in TIPOS_DATO_PERMITIDOS:
+            raise ValueError(f"tipo_dato debe ser uno de: {', '.join(TIPOS_DATO_PERMITIDOS)}")
+        return v
+
+
+class CampoLaborResponse(BaseModel):
+    id: int
+    subtipo_id: int
+    nombre_campo: str
+    etiqueta: str
+    tipo_dato: str
+    requerido: bool
+    opciones: Optional[List[str]] = None
+    orden: int
+    campo_padre_id: Optional[int] = None
+    opciones_padre: Optional[List[str]] = None
+
+    class Config:
+        from_attributes = True

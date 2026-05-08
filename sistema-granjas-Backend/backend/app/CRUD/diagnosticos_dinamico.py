@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
-from app.db.models import DiagnosticoTipo, DiagnosticoCampo, CampoRecomendacion
+from app.db.models import DiagnosticoTipo, DiagnosticoCampo, CampoRecomendacion, CampoLabor
 from app.schemas.diagnostico_dinamico_schema import (
     DiagnosticoTipoCreate, DiagnosticoTipoUpdate,
     DiagnosticoCampoCreate, DiagnosticoCampoUpdate,
     CampoRecomendacionCreate, CampoRecomendacionUpdate,
+    CampoLaborCreate, CampoLaborUpdate,
 )
 
 
@@ -111,5 +112,38 @@ def update_campo_recomendacion(db: Session, campo: CampoRecomendacion, data: Cam
 
 
 def delete_campo_recomendacion(db: Session, campo: CampoRecomendacion):
+    db.delete(campo)
+    db.commit()
+
+
+# ---------- CampoLabor ----------
+
+def get_campos_labor_por_subtipo(db: Session, subtipo_id: int):
+    return db.query(CampoLabor).filter(
+        CampoLabor.subtipo_id == subtipo_id
+    ).order_by(CampoLabor.orden, CampoLabor.nombre_campo).all()
+
+
+def get_campo_labor(db: Session, campo_id: int):
+    return db.query(CampoLabor).filter(CampoLabor.id == campo_id).first()
+
+
+def create_campo_labor(db: Session, data: CampoLaborCreate):
+    campo = CampoLabor(**data.dict())
+    db.add(campo)
+    db.commit()
+    db.refresh(campo)
+    return campo
+
+
+def update_campo_labor(db: Session, campo: CampoLabor, data: CampoLaborUpdate):
+    for k, v in data.dict(exclude_unset=True).items():
+        setattr(campo, k, v)
+    db.commit()
+    db.refresh(campo)
+    return campo
+
+
+def delete_campo_labor(db: Session, campo: CampoLabor):
     db.delete(campo)
     db.commit()

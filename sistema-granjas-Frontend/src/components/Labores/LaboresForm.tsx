@@ -2,6 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import type { Labor, TipoLabor } from '../../types/laboresTypes';
+import {
+    diagnosticoDinamicoService,
+    type CampoLabor,
+} from '../../services/diagnosticoDinamicoService';
 
 interface LaborFormProps {
     labor?: Labor;
@@ -9,11 +13,16 @@ interface LaborFormProps {
     onCancel: () => void;
     tiposLabor: TipoLabor[];
     trabajadores: any[];
-    lotes: any[]; // Ahora los lotes YA incluyen granja_nombre
+    lotes: any[];
     recomendaciones: any[];
     currentUser: any;
     esEdicion?: boolean;
 }
+
+const TIPOS_DATO_LABELS: Record<string, string> = {
+    text: 'Texto', textarea: 'Texto largo', number: 'Número',
+    date: 'Fecha', select: 'Selección', boolean: 'Sí / No',
+};
 
 const LaborForm: React.FC<LaborFormProps> = ({
     labor,
@@ -21,12 +30,11 @@ const LaborForm: React.FC<LaborFormProps> = ({
     onCancel,
     tiposLabor,
     trabajadores,
-    lotes, // Ahora lotes ya tienen granja_nombre
+    lotes,
     recomendaciones,
     currentUser,
     esEdicion = false
 }) => {
-    // Hooks al inicio siempre
     const [formData, setFormData] = useState({
         tipo_labor_id: labor?.tipo_labor_id || '',
         trabajador_id: labor?.trabajador_id || '',
@@ -37,7 +45,14 @@ const LaborForm: React.FC<LaborFormProps> = ({
         comentario: labor?.comentario || '',
     });
 
-    // Estados para evidencias
+    // Dynamic campos_labor
+    const [campos, setCampos] = useState<CampoLabor[]>([]);
+    const [formulario, setFormulario] = useState<Record<string, any>>(
+        labor?.formulario_labor || {}
+    );
+    const [loadingCampos, setLoadingCampos] = useState(false);
+
+    // Evidencias
     const [archivos, setArchivos] = useState<File[]>([]);
     const [descripcionesEvidencias, setDescripcionesEvidencias] = useState<string[]>([]);
     const [tiposEvidencia, setTiposEvidencia] = useState<string[]>([]);
@@ -67,8 +82,8 @@ const LaborForm: React.FC<LaborFormProps> = ({
                 avance_porcentaje: labor.avance_porcentaje || 0,
                 comentario: labor.comentario || '',
             });
+            setFormulario(labor.formulario_labor || {});
         } else if (!esEdicion) {
-            // Reset para creación
             setFormData({
                 tipo_labor_id: '',
                 trabajador_id: esTrabajador ? currentUser.id : '',
@@ -78,8 +93,38 @@ const LaborForm: React.FC<LaborFormProps> = ({
                 avance_porcentaje: 0,
                 comentario: '',
             });
+            setFormulario({});
         }
     }, [labor, esEdicion, esTrabajador, currentUser]);
+
+    // Cargar campos_labor cuando cambia recomendacion_id
+    useEffect(() => {
+        const recId = formData.recomendacion_id;
+        if (!recId) {
+            setCampos([]);
+            setFormulario({});
+            return;
+        }
+        // Buscar la recomendacion en la lista para obtener subtipo_id
+        const rec = recomendaciones.find((r: any) => r.id === parseInt(recId as string));
+        const subtipoId = rec?.subtipo_id;
+        if (!subtipoId) {
+            setCampos([]);
+            return;
+        }
+        setLoadingCampos(true);
+        diagnosticoDinamicoService.listarCamposLabor(subtipoId)
+            .then(data => {
+                const ordenados = [...data].sort((a, b) => a.orden - b.orden);
+                setCampos(ordenados);
+                // En edición, preservar valores existentes; en creación, limpiar
+                if (!esEdicion) setFormulario({});
+            })
+            .catch(() => {
+                setCampos([]);
+            })
+            .finally(() => setLoadingCampos(false));
+    }, [formData.recomendacion_id, recomendaciones, esEdicion]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -94,7 +139,7 @@ const LaborForm: React.FC<LaborFormProps> = ({
         setFormData(prev => ({ ...prev, [name]: numValue }));
     };
 
-    // Funciones para manejar evidencias
+    // Evidencias
     const agregarEvidencia = () => {
         setArchivos(prev => [...prev, null as any]);
         setDescripcionesEvidencias(prev => [...prev, '']);
@@ -125,16 +170,55 @@ const LaborForm: React.FC<LaborFormProps> = ({
         setTiposEvidencia(copia);
     };
 
+    const renderCampo = (campo: CampoLabor) => {
+        const val = formulario[campo.nombre_campo] ?? '';
+        const base = "w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm";
+        const update = (v: any) => setFormulario(prev => ({ ...prev, [campo.nombre_campo]: v }));
+        switch (campo.tipo_dato) {
+            case 'textarea':
+                return <textarea value={val} onChange={e => update(e.target.value)} className={base} rows={3} required={campo.requerido} />;
+            case 'number':
+                return <input type="number" value={val} onChange={e => update(e.target.value)} className={base} required={campo.requerido} />;
+            case 'date':
+                return <input type="date" value={val} onChange={e => update(e.target.value)} className={base} required={campo.requerido} />;
+            case 'select':
+                return (
+                    <select value={val} onChange={e => update(e.target.value)} className={base} required={campo.requerido}>
+                        <option value="">Seleccionar...</option>
+                        {(Array.isArray(campo.opciones) ? campo.opciones : []).map((op: string) => (
+                            <option key={op} value={op}>{op}</option>
+                        ))}
+                    </select>
+                );
+            case 'boolean':
+                return (
+                    <select value={val} onChange={e => update(e.target.value)} className={base} required={campo.requerido}>
+                        <option value="">Seleccionar...</option>
+                        <option value="si">Sí</option>
+                        <option value="no">No</option>
+                    </select>
+                );
+            default:
+                return <input type="text" value={val} onChange={e => update(e.target.value)} className={base} required={campo.requerido} />;
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validaciones básicas
         if (!formData.tipo_labor_id || !formData.lote_id || !formData.trabajador_id) {
             toast.error('Por favor completa los campos requeridos');
             return;
         }
 
-        // Preparar evidencias para enviar
+        // Validar campos dinámicos requeridos
+        for (const campo of campos) {
+            if (campo.requerido && !formulario[campo.nombre_campo]) {
+                toast.error(`El campo "${campo.etiqueta}" es requerido`);
+                return;
+            }
+        }
+
         const evidencias = archivos
             .map((file, index) => ({
                 file,
@@ -143,30 +227,30 @@ const LaborForm: React.FC<LaborFormProps> = ({
             }))
             .filter(ev => ev.file);
 
-        // Preparar datos para enviar
         const datosSubmit: any = {
             tipo_labor_id: parseInt(formData.tipo_labor_id as string),
             trabajador_id: parseInt(formData.trabajador_id as string),
             lote_id: parseInt(formData.lote_id as string),
         };
 
-        // Incluir recomendación si se seleccionó
         if (formData.recomendacion_id) {
             datosSubmit.recomendacion_id = parseInt(formData.recomendacion_id as string);
         }
 
-        // Incluir comentario si existe
         if (formData.comentario) {
             datosSubmit.comentario = formData.comentario;
         }
 
-        // Incluir estado y avance solo en edición
         if (esEdicion) {
             datosSubmit.estado = formData.estado;
             datosSubmit.avance_porcentaje = formData.avance_porcentaje;
         }
 
-        // Incluir evidencias si hay
+        // Incluir formulario dinámico si tiene valores
+        if (campos.length > 0 && Object.keys(formulario).length > 0) {
+            datosSubmit.formulario_labor = formulario;
+        }
+
         if (evidencias.length > 0) {
             datosSubmit.evidencias = evidencias;
         }
@@ -247,7 +331,7 @@ const LaborForm: React.FC<LaborFormProps> = ({
                         </div>
                     )}
 
-                    {/* Lote - AHORA los lotes ya tienen granja_nombre */}
+                    {/* Lote */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Lote *
@@ -295,6 +379,37 @@ const LaborForm: React.FC<LaborFormProps> = ({
                         </p>
                     </div>
 
+                    {/* Campos dinámicos de labor */}
+                    {loadingCampos && (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                            <div className="animate-spin h-4 w-4 border-2 border-green-500 border-t-transparent rounded-full"></div>
+                            Cargando campos del formulario...
+                        </div>
+                    )}
+
+                    {!loadingCampos && campos.length > 0 && (
+                        <div className="border border-green-200 rounded-xl p-4 bg-green-50">
+                            <h4 className="font-semibold text-green-800 mb-4 text-sm">
+                                <i className="fas fa-wpforms mr-1"></i>
+                                Formulario de labor
+                            </h4>
+                            <div className="space-y-4">
+                                {campos.map(campo => (
+                                    <div key={campo.id}>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            {campo.etiqueta}
+                                            {campo.requerido && <span className="text-red-500 ml-1">*</span>}
+                                            <span className="ml-2 text-xs text-gray-400">
+                                                ({TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato})
+                                            </span>
+                                        </label>
+                                        {renderCampo(campo)}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Estado (solo en edición) */}
                     {esEdicion && (esAdmin || esTalentoHumano || esTrabajador) && (
                         <>
@@ -316,31 +431,32 @@ const LaborForm: React.FC<LaborFormProps> = ({
                                 </select>
                             </div>
 
-                            {/* Avance */}
-                            {(esTalentoHumano || esAdmin || esTrabajador) && (<div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Avance (%)
-                                </label>
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="range"
-                                        name="avance_porcentaje"
-                                        min="0"
-                                        max="100"
-                                        value={formData.avance_porcentaje}
-                                        onChange={handleNumberChange}
-                                        className="flex-1"
-                                    />
-                                    <span className="w-16 text-center font-medium bg-gray-100 px-2 py-1 rounded">
-                                        {formData.avance_porcentaje}%
-                                    </span>
+                            {(esTalentoHumano || esAdmin || esTrabajador) && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Avance (%)
+                                    </label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="range"
+                                            name="avance_porcentaje"
+                                            min="0"
+                                            max="100"
+                                            value={formData.avance_porcentaje}
+                                            onChange={handleNumberChange}
+                                            className="flex-1"
+                                        />
+                                        <span className="w-16 text-center font-medium bg-gray-100 px-2 py-1 rounded">
+                                            {formData.avance_porcentaje}%
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between mt-1">
+                                        <span className="text-xs text-gray-500">0%</span>
+                                        <span className="text-xs text-gray-500">50%</span>
+                                        <span className="text-xs text-gray-500">100%</span>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between mt-1">
-                                    <span className="text-xs text-gray-500">0%</span>
-                                    <span className="text-xs text-gray-500">50%</span>
-                                    <span className="text-xs text-gray-500">100%</span>
-                                </div>
-                            </div>)}
+                            )}
                         </>
                     )}
 
@@ -359,7 +475,7 @@ const LaborForm: React.FC<LaborFormProps> = ({
                         />
                     </div>
 
-                    {/* SECCIÓN DE EVIDENCIAS */}
+                    {/* Evidencias */}
                     <div className="mt-4">
                         <div className="flex justify-between mb-2">
                             <label className="font-medium text-gray-700">Evidencias Iniciales</label>

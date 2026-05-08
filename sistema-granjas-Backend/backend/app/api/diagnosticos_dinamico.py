@@ -10,6 +10,7 @@ from app.schemas.diagnostico_dinamico_schema import (
     DiagnosticoCampoCreate, DiagnosticoCampoUpdate, DiagnosticoCampoResponse,
     DiagnosticoTipoConCamposResponse,
     CampoRecomendacionCreate, CampoRecomendacionUpdate, CampoRecomendacionResponse,
+    CampoLaborCreate, CampoLaborUpdate, CampoLaborResponse,
 )
 from app.db.models import Programa, Monitoreo
 
@@ -138,4 +139,36 @@ def eliminar_campo_recomendacion(campo_id: int, db: Session = Depends(get_db), _
     if not campo:
         raise HTTPException(404, "Campo no encontrado")
     crud.delete_campo_recomendacion(db, campo)
+    return {"message": "Campo eliminado"}
+
+
+# ---------- Campos de labor (por subtipo) ----------
+
+@router.get("/tipos/{tipo_id}/campos-labor", response_model=List[CampoLaborResponse])
+def listar_campos_labor(tipo_id: int, db: Session = Depends(get_db), _=role_read):
+    return crud.get_campos_labor_por_subtipo(db, tipo_id)
+
+
+@router.post("/campos-labor", response_model=CampoLaborResponse, status_code=201)
+def crear_campo_labor(data: CampoLaborCreate, db: Session = Depends(get_db), _=role_admin):
+    subtipo = crud.get_tipo(db, data.subtipo_id)
+    if not subtipo:
+        raise HTTPException(404, "Subtipo no encontrado")
+    return crud.create_campo_labor(db, data)
+
+
+@router.put("/campos-labor/{campo_id}", response_model=CampoLaborResponse)
+def actualizar_campo_labor(campo_id: int, data: CampoLaborUpdate, db: Session = Depends(get_db), _=role_admin):
+    campo = crud.get_campo_labor(db, campo_id)
+    if not campo:
+        raise HTTPException(404, "Campo no encontrado")
+    return crud.update_campo_labor(db, campo, data)
+
+
+@router.delete("/campos-labor/{campo_id}")
+def eliminar_campo_labor(campo_id: int, db: Session = Depends(get_db), _=role_admin):
+    campo = crud.get_campo_labor(db, campo_id)
+    if not campo:
+        raise HTTPException(404, "Campo no encontrado")
+    crud.delete_campo_labor(db, campo)
     return {"message": "Campo eliminado"}

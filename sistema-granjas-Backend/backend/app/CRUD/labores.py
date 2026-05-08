@@ -51,7 +51,8 @@ def crear_labor_crud(db: Session, data: LaborCreate, usuario: Usuario):
         recomendacion_id=data.recomendacion_id,
         trabajador_id=data.trabajador_id,
         lote_id=data.lote_id,
-        tipo_labor_id=data.tipo_labor_id
+        tipo_labor_id=data.tipo_labor_id,
+        formulario_labor=data.formulario_labor
     )
     
     db.add(labor)
@@ -528,6 +529,7 @@ def _labor_a_dict_con_recursos(labor: Labor):
         "granja_nombre": getattr(labor, 'granja_nombre', None),
         "tipo_labor_nombre": getattr(labor, 'tipo_labor_nombre', None),
         "tipo_labor_descripcion": getattr(labor, 'tipo_labor_descripcion', None),
+        "formulario_labor": labor.formulario_labor,
         "inventario_item_nombre": inventario_item_nombre,
         "inventario_item_unidad": inventario_item_unidad,
         "herramientas_asignadas": getattr(labor, 'herramientas_resumen', []),

@@ -193,6 +193,7 @@ class Labor(Base):
     cantidad_usada = Column(Float, nullable=True)
     dosis_aplicada = Column(Float, nullable=True)
     unidad_dosis = Column(String(50), nullable=True)
+    formulario_labor = Column(JSON, nullable=True)
     recomendacion = relationship("Recomendacion", back_populates="labores")
     trabajador = relationship("Usuario", back_populates="labores_asignadas")
     lote = relationship("Lote", back_populates="labores")
@@ -273,6 +274,7 @@ class DiagnosticoTipo(Base):
     monitoreo = relationship("Monitoreo", back_populates="subtipos")
     campos = relationship("DiagnosticoCampo", back_populates="tipo", cascade="all, delete-orphan")
     campos_recomendacion = relationship("CampoRecomendacion", back_populates="subtipo", cascade="all, delete-orphan")
+    campos_labor = relationship("CampoLabor", back_populates="subtipo", cascade="all, delete-orphan")
     diagnosticos = relationship("Diagnostico", back_populates="diagnostico_tipo")
 
 class DiagnosticoCampo(Base):
@@ -304,6 +306,21 @@ class CampoRecomendacion(Base):
     opciones_padre = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=colombia_now)
     subtipo = relationship("DiagnosticoTipo", back_populates="campos_recomendacion")
+
+class CampoLabor(Base):
+    __tablename__ = "campos_labor"
+    id = Column(Integer, primary_key=True, index=True)
+    subtipo_id = Column(Integer, ForeignKey("diagnostico_tipos.id", ondelete="CASCADE"), nullable=False)
+    nombre_campo = Column(String(100), nullable=False)
+    etiqueta = Column(String(150), nullable=False)
+    tipo_dato = Column(String(20), nullable=False)
+    requerido = Column(Boolean, default=False)
+    opciones = Column(JSON, nullable=True)
+    orden = Column(Integer, default=0)
+    campo_padre_id = Column(Integer, ForeignKey("campos_labor.id", ondelete="SET NULL"), nullable=True)
+    opciones_padre = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=colombia_now)
+    subtipo = relationship("DiagnosticoTipo", back_populates="campos_labor")
 
 # ---------- Inventario dinámico ----------
 class ProgramaInventarioTipo(Base):
