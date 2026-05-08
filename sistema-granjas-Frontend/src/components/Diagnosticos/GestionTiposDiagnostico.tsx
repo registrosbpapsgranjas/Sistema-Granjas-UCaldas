@@ -658,6 +658,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
                       <option value="boolean">Presencia (Checkbox)</option>
                       <option value="number">Número</option>
                       <option value="text">Texto</option>
+                      <option value="radio">Selección única por fila (Radio)</option> {/* ← NUEVO */}
                     </select>
                   </div>
                 </div>

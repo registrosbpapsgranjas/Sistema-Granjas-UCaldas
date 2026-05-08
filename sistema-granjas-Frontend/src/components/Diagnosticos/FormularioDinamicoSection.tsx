@@ -129,12 +129,10 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     
     if (campo.opciones_padre && campo.opciones_padre.length > 0) {
       if (Array.isArray(valorPadre)) {
-        // Para multiselect, mostrar solo las opciones del hijo que coinciden
         valorActivador = campo.opciones_padre
           .filter(op => valorPadre.includes(op))
           .join(', ');
       } else {
-        // Para select, mostrar la opción específica que activa este campo
         valorActivador = campo.opciones_padre[0] || '';
       }
     }
@@ -142,33 +140,55 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     return { padre, valorActivador };
   };
 
+  // ── Render de celda de matriz ───────────────────────────────────────────────
   const renderCeldaMatriz = (
     valorCelda: any,
     tipoCelda: string,
-    onChangeCelda: (nuevoValor: any) => void
+    onChangeCelda: (nuevoValor: any) => void,
+    // Parámetros adicionales para radio
+    fila: string,
+    columna: string,
+    nombreCampo: string,
+    valorMatriz: Record<string, Record<string, any>>
   ) => {
     const inputBase = "text-center border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500";
+    
     switch (tipoCelda) {
       case 'boolean':
         return (
           <input
             type="checkbox"
             checked={valorCelda === true || valorCelda === 'true'}
-            onChange={e => onChangeCelda(e.target.checked)}
+            onChange={e => onChangeCelda(e.target.checked ? true : false)}
             className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mx-auto block"
           />
         );
+
       case 'number':
         return (
           <input
             type="number"
-            value={valorCelda || ''}
-            onChange={e => onChangeCelda(e.target.value)}
+            value={valorCelda !== undefined && valorCelda !== '' ? valorCelda : ''}
+            onChange={e => onChangeCelda(e.target.value === '' ? '' : e.target.value)}
             className={`${inputBase} w-20`}
             min="0"
             step="any"
           />
         );
+
+      case 'radio':
+        // Radio button: el valor guardado por fila es la columna seleccionada
+        const seleccionado = valorMatriz[fila]?.['_selected'] || '';
+        return (
+          <input
+            type="radio"
+            name={`${nombreCampo}_${fila}`}  // Mismo name por fila = solo uno seleccionable
+            checked={seleccionado === columna}
+            onChange={() => onChangeCelda(columna)}  // Guarda el nombre de la columna como valor
+            className="w-4 h-4 text-blue-600 focus:ring-blue-500 mx-auto block"
+          />
+        );
+
       default:
         return (
           <input
@@ -231,7 +251,7 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
             required={campo.requerido}
           >
             <option value="">Seleccionar...</option>
-            {(campo.opciones || []).map(op => (
+            {(Array.isArray(campo.opciones) ? campo.opciones : []).map((op: string) => (
               <option key={op} value={op}>{op}</option>
             ))}
           </select>
@@ -239,9 +259,10 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
 
       case 'multiselect': {
         const seleccionados: string[] = Array.isArray(valor) ? valor : [];
+        const opciones = Array.isArray(campo.opciones) ? campo.opciones : [];
         return (
           <div className="space-y-1.5">
-            {(campo.opciones || []).map(op => (
+            {opciones.map((op: string) => (
               <label key={op} className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -288,16 +309,33 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
 
         const handleCeldaChange = (fila: string, columna: string, nuevoValor: any) => {
           const nuevaMatriz = { ...valorMatriz };
-          if (!nuevaMatriz[fila]) nuevaMatriz[fila] = {};
-          nuevaMatriz[fila] = { ...nuevaMatriz[fila] };
-          if (nuevoValor === '' || nuevoValor === false || nuevoValor === undefined) {
-            delete nuevaMatriz[fila][columna];
+          
+          if (!nuevaMatriz[fila]) {
+            nuevaMatriz[fila] = {};
           } else {
-            nuevaMatriz[fila][columna] = nuevoValor;
+            nuevaMatriz[fila] = { ...nuevaMatriz[fila] };
           }
+
+          if (tipo_celda === 'radio') {
+            // Para radio, guardamos la columna seleccionada en un campo especial '_selected'
+            if (nuevoValor === columna) {
+              nuevaMatriz[fila]['_selected'] = columna;
+            }
+            // No guardamos nada en la columna específica, solo el _selected
+          } else {
+            // Para otros tipos, guardamos en la columna correspondiente
+            if (nuevoValor === '' || nuevoValor === false || nuevoValor === undefined) {
+              delete nuevaMatriz[fila][columna];
+            } else {
+              nuevaMatriz[fila][columna] = nuevoValor;
+            }
+          }
+          
+          // Limpiar fila vacía
           if (Object.keys(nuevaMatriz[fila]).length === 0) {
             delete nuevaMatriz[fila];
           }
+          
           onChange(campo.nombre_campo, Object.keys(nuevaMatriz).length > 0 ? nuevaMatriz : '');
         };
 
@@ -325,9 +363,15 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
                     {columnas.map((col, colIdx) => (
                       <td key={colIdx} className="px-2 py-1 text-center">
                         {renderCeldaMatriz(
-                          valorMatriz[fila]?.[col] ?? '',
+                          tipo_celda === 'radio' 
+                            ? valorMatriz[fila]?.['_selected'] 
+                            : valorMatriz[fila]?.[col] ?? '',
                           tipo_celda,
-                          (nuevoValor) => handleCeldaChange(fila, col, nuevoValor)
+                          (nuevoValor) => handleCeldaChange(fila, col, nuevoValor),
+                          fila,
+                          col,
+                          campo.nombre_campo,
+                          valorMatriz
                         )}
                       </td>
                     ))}
@@ -369,7 +413,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
       
       camposProcesados.add(campo.id);
       
-      // Buscar todos los hijos directos visibles de este campo
       const hijos = campos.filter(c => 
         c.campo_padre_id === campo.id && 
         esCampoVisible(c) && 
@@ -377,10 +420,8 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
       );
       
       if (hijos.length > 0) {
-        // ── Campo CON hijos: agrupar por valor del padre ──
         elements.push(
           <div key={campo.id} className={nivel > 0 ? `pl-4 border-l-2 ${colors[Math.min(nivel - 1, colors.length - 1)]}` : ''}>
-            {/* El campo padre */}
             <div className="mb-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {campo.etiqueta}
@@ -389,11 +430,9 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
               {renderCampo(campo)}
             </div>
             
-            {/* Hijos agrupados por el valor que los activa */}
             {hijos.length > 0 && (
               <div className="mt-3 space-y-3">
                 {(() => {
-                  // Agrupar hijos por opciones_padre
                   const gruposHijos: Record<string, DiagnosticoCampo[]> = {};
                   
                   hijos.forEach(hijo => {
@@ -405,7 +444,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
                   });
                   
                   return Object.entries(gruposHijos).map(([valor, camposHijos]) => {
-                    // Para multiselect o cuando no hay valor específico
                     const tituloGrupo = valor !== 'Sin valor' 
                       ? `${campo.etiqueta}: ${valor}`
                       : campo.etiqueta;
@@ -428,7 +466,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
               </div>
             )}
             
-            {/* Procesar campos siguientes que no son hijos */}
             {renderGrupo(
               camposRestantes.filter(c => !camposProcesados.has(c.id)),
               nivel
@@ -436,7 +473,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
           </div>
         );
       } else {
-        // ── Campo SIN hijos (hoja) ──
         elements.push(
           <div key={campo.id} className={nivel > 0 ? `pl-4 border-l-2 ${colors[Math.min(nivel - 1, colors.length - 1)]}` : ''}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -452,9 +488,7 @@ const FormularioDinamicoSection: React.FC<Props> = ({ campos, valores, onChange 
     return elements;
   };
 
-  // Campos raíz (sin padre)
   const camposRaiz = campos.filter(c => !c.campo_padre_id);
-  const camposVisibles = campos.filter(esCampoVisible);
 
   return (
     <div className="space-y-4">
