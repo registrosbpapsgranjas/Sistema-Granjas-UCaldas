@@ -129,7 +129,7 @@ class GenerarPlantasRequest(BaseModel):
     lote_id: int
     tipo_diagnostico: str
     cantidad: int = Field(10, ge=1, le=100)
-    patron_arvenses: bool
+    patron_arvenses: bool = False
 
 
 class PlantaGenerada(BaseModel):

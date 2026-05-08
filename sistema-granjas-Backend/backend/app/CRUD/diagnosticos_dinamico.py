@@ -60,7 +60,6 @@ def get_campo(db: Session, campo_id: int):
 
 def create_campo(db: Session, data: DiagnosticoCampoCreate):
     campo = DiagnosticoCampo(**data.dict())
-    campo.nombre_campo += str(campo.id)
     db.add(campo)
     db.commit()
     db.refresh(campo)
