@@ -17,8 +17,12 @@ import AsignarRecursosModal from '../../components/Labores/AsignarRecursos';
 import CompletarLaborModal from '../../components/Labores/CompletarLabores';
 import { useAuth } from '../../hooks/useAuth';
 import exportService from '../../services/exportService';
+import GestionTiposLabores from './GestionTiposLabores';
+
+type LaboresTab = 'labores' | 'tipos';
 
 const GestionLaboresPage: React.FC = () => {
+    const [tabActivo, setTabActivo] = useState<LaboresTab>('labores');
     const { user } = useAuth();
     const [labores, setLabores] = useState<Labor[]>([]);
     const [loading, setLoading] = useState(true);
@@ -318,8 +322,22 @@ const GestionLaboresPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Filtros - Actualizado para mostrar nombres de granja */}
-                <div className="bg-white p-4 rounded-lg shadow mb-6">
+                {/* TABS */}
+                <div className="flex border-b border-gray-200 mb-4">
+                    <button onClick={() => setTabActivo('labores')}
+                        className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${tabActivo === 'labores' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                        <i className="fas fa-tasks mr-2"></i>Labores
+                    </button>
+                    {user && [1, 2, 5, 6].includes(user.rol_id) && (
+                        <button onClick={() => setTabActivo('tipos')}
+                            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${tabActivo === 'tipos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                            <i className="fas fa-tag mr-2"></i>Tipos de Labor
+                        </button>
+                    )}
+                </div>
+
+            {/* Filtros - Actualizado para mostrar nombres de granja */}
+            {tabActivo === 'labores' && <div className="bg-white p-4 rounded-lg shadow mb-6">
                     <h3 className="font-semibold mb-3">Filtros</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <select
@@ -368,35 +386,41 @@ const GestionLaboresPage: React.FC = () => {
                             Limpiar Filtros
                         </button>
                     </div>
-                </div>
+                </div>}
             </div>
 
-            {/* TABLA */}
-            {loading ? (
-                <div className="text-center py-8">
-                    <i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i>
-                    <p className="mt-2 text-gray-600">Cargando labores...</p>
-                </div>
-            ) : error ? (
-                <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
-                    <p>Error: {error}</p>
-                    <button
-                        onClick={cargarDatos}
-                        className="mt-2 text-blue-600 hover:text-blue-800"
-                    >
-                        Reintentar
-                    </button>
-                </div>
-            ) : (
-                <LaboresTable
-                    labores={laboresFiltradas}
-                    onEditar={openEditarModal}
-                    onEliminar={handleEliminarLabor}
-                    onVerDetalles={openDetallesModal}
-                    onAsignarRecursos={openAsignarRecursosModal}
-                    onCompletar={openCompletarModal}
-                    currentUser={user}
-                />
+            {/* TAB: Tipos de Labor */}
+            {tabActivo === 'tipos' && (
+                <GestionTiposLabores />
+            )}
+
+            {/* TAB: Labores tabla */}
+            {tabActivo === 'labores' && (
+                <>
+                    {loading ? (
+                        <div className="text-center py-8">
+                            <i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i>
+                            <p className="mt-2 text-gray-600">Cargando labores...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+                            <p>Error: {error}</p>
+                            <button onClick={cargarDatos} className="mt-2 text-blue-600 hover:text-blue-800">
+                                Reintentar
+                            </button>
+                        </div>
+                    ) : (
+                        <LaboresTable
+                            labores={laboresFiltradas}
+                            onEditar={openEditarModal}
+                            onEliminar={handleEliminarLabor}
+                            onVerDetalles={openDetallesModal}
+                            onAsignarRecursos={openAsignarRecursosModal}
+                            onCompletar={openCompletarModal}
+                            currentUser={user}
+                        />
+                    )}
+                </>
             )}
 
             {/* MODALES */}

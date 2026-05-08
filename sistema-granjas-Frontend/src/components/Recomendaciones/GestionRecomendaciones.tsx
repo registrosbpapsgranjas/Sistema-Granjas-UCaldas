@@ -19,8 +19,9 @@ import AprobarRecomendacionModal from './AprobarRecomendacion';
 import { useAuth } from '../../hooks/useAuth';
 import granjaService from '../../services/granjaService';
 import exportService from '../../services/exportService';
+import GestionTiposRecomendaciones from './GestionTiposRecomendaciones';
 
-type MainTab = 'recomendaciones' | 'pendientes';
+type MainTab = 'recomendaciones' | 'pendientes' | 'tipos';
 
 const GestionRecomendaciones: React.FC = () => {
     const { user } = useAuth();
@@ -327,6 +328,12 @@ const GestionRecomendaciones: React.FC = () => {
                             )}
                         </button>
                     )}
+                    {esPermitido && (
+                        <button onClick={() => setTabActivo('tipos')}
+                            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition ${tabActivo === 'tipos' ? 'border-orange-600 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                            <i className="fas fa-bookmark mr-2"></i>Tipos de Recomendación
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -462,6 +469,11 @@ const GestionRecomendaciones: React.FC = () => {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* TAB: Tipos de Recomendación */}
+            {tabActivo === 'tipos' && (
+                <GestionTiposRecomendaciones />
             )}
 
             {/* MODAL CREAR */}

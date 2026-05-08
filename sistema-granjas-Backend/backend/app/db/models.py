@@ -123,6 +123,12 @@ class Lote(Base):
     recomendaciones = relationship("Recomendacion", back_populates="lote")
     plantas = relationship("Planta", back_populates="lote", cascade="all, delete-orphan")
 
+class TipoRecomendacion(Base):
+    __tablename__ = "tipos_recomendacion"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    descripcion = Column(String(255), nullable=True)
+
 class TipoLabor(Base):
     __tablename__ = "tipos_labor"
     id = Column(Integer, primary_key=True, index=True)
