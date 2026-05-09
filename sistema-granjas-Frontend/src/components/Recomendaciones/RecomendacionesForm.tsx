@@ -89,51 +89,46 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
             try {
                 const rec = recomendacion as any;
 
-                // Establecer datos básicos
+                // 1. Establecer datos básicos
                 setTitulo(rec.titulo || '');
                 setDescripcion(rec.descripcion || '');
                 setEstado(rec.estado || 'pendiente');
                 setLoteId(rec.lote_id || null);
 
-                // Cargar formulario guardado
+                // 2. Cargar formulario guardado
                 if (rec.formulario_recomendacion) {
                     setFormulario(rec.formulario_recomendacion);
                 }
 
-                // Determinar programa_id desde el lote
+                // 3. Determinar programa_id desde el lote
                 if (rec.lote_id) {
                     const lote = lotes.find(l => l.id === rec.lote_id);
                     if (lote?.programa_id) {
                         setProgramaId(lote.programa_id);
-                    }
-                }
 
-                // Establecer subtipo y monitoreo
-                if (rec.subtipo_id) {
-                    setSubtipoId(rec.subtipo_id);
-                }
-
-                // IMPORTANTE: usar setMonitoreoId (no setTipoMonitoreoId)
-                // Buscar el monitoreo al que pertenece el subtipo
-                if (rec.lote_id && rec.subtipo_id) {
-                    const lote = lotes.find(l => l.id === rec.lote_id);
-                    if (lote?.programa_id) {
+                        // 4. Cargar monitoreos para este programa
                         const mons = await monitoreoService.obtenerMonitoreosPorPrograma(lote.programa_id);
                         const monitoreosArr = Array.isArray(mons) ? mons : [];
                         setMonitoreos(monitoreosArr);
 
-                        for (const mon of monitoreosArr) {
-                            const subtiposData = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(mon.id);
-                            const encontrado = subtiposData.find(s => s.id === rec.subtipo_id);
-                            if (encontrado) {
-                                setMonitoreoId(mon.id);
-                                break;
+                        // 5. Buscar a qué monitoreo pertenece el subtipo
+                        if (rec.subtipo_id) {
+                            for (const mon of monitoreosArr) {
+                                const subtiposData = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(mon.id);
+                                const encontrado = subtiposData.find(s => s.id === rec.subtipo_id);
+                                if (encontrado) {
+                                    // IMPORTANTE: establecer monitoreoId PRIMERO
+                                    setMonitoreoId(mon.id);
+                                    // Luego establecer subtipoId (el useEffect de subtipos ya tendrá monitoreoId correcto)
+                                    setSubtipoId(rec.subtipo_id);
+                                    break;
+                                }
                             }
                         }
                     }
                 }
 
-                // Cargar inventario si aplica
+                // 6. Cargar inventario si aplica
                 if (rec.inventario_item_id) {
                     setItemId(rec.inventario_item_id);
                     setAplicarProducto('si');
@@ -164,11 +159,8 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
 
                 if (d.lote_id) setLoteId(d.lote_id);
                 if (d.programa_id) setProgramaId(d.programa_id);
-                // CORRECCIÓN: usar setMonitoreoId (no setTipoMonitoreoId)
                 if (d.tipo_monitoreo_id) setMonitoreoId(d.tipo_monitoreo_id);
-                if (d.diagnostico_tipo_id) {
-                    setSubtipoId(d.diagnostico_tipo_id);
-                }
+                if (d.diagnostico_tipo_id) setSubtipoId(d.diagnostico_tipo_id);
 
                 const monNombre = d.tipo_monitoreo_nombre || d.tipo_diagnostico || '';
                 const loteNombre = d.lote_nombre || '';
@@ -200,32 +192,33 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
     }, [programaId]);
 
     // ── Cargar subtipos ──────────────────────────────────────────────────────
-    // PATRÓN CORRECTO: siempre recargar cuando cambia monitoreoId, sin optimizaciones
+    // CORRECCIÓN: Sin validación inmediata que cause race condition
     useEffect(() => {
         if (!monitoreoId) {
             setSubtipos([]);
+            // SOLO resetear subtipoId si NO es edición ni vinculado
             if (!esEdicion && !modoVinculado) {
                 setSubtipoId(null);
             }
             return;
         }
 
+        // SOLO resetear subtipoId si NO es edición ni vinculado
+        if (!esEdicion && !modoVinculado) {
+            setSubtipoId(null);
+        }
+
         diagnosticoDinamicoService
             .listarSubtiposPorMonitoreo(monitoreoId)
             .then(data => {
-                const activos = data.filter(s => s.activo);
-                setSubtipos(activos);
-
-                // Validar que el subtipo actual exista en los nuevos datos
-                if (subtipoId && !activos.some(s => s.id === subtipoId)) {
-                    setSubtipoId(null);
-                }
+                setSubtipos(data.filter(s => s.activo));
+                // NO validar subtipoId aquí - se mantiene el valor establecido en init()
             })
             .catch(() => {
                 setSubtipos([]);
             });
 
-    }, [monitoreoId, esEdicion, modoVinculado, subtipoId]);
+    }, [monitoreoId, esEdicion, modoVinculado]);
 
     // ── Cargar campos dinámicos ──────────────────────────────────────────────
     useEffect(() => {
