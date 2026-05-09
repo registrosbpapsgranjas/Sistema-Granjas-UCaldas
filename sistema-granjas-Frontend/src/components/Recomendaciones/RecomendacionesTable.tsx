@@ -112,11 +112,6 @@ const RecomendacionesTable: React.FC<RecomendacionesTableProps> = ({
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                            {recomendacion.tipo}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm">
                                             <div className="font-medium text-gray-900">
                                                 {recomendacion.lote_nombre || `Lote ${recomendacion.lote_id}`}

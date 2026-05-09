@@ -354,13 +354,6 @@ const GestionRecomendaciones: React.FC = () => {
                                 <option value="completada">Completada</option>
                                 <option value="cancelada">Cancelada</option>
                             </select>
-                            <select className="border rounded p-2 text-sm" value={filtros.tipo || ''}
-                                onChange={e => setFiltros({ ...filtros, tipo: e.target.value || undefined })}>
-                                <option value="">Todos los tipos</option>
-                                {tiposRecomendacion.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
                             <select className="border rounded p-2 text-sm" value={filtros.lote_id || ''}
                                 onChange={e => setFiltros({ ...filtros, lote_id: e.target.value ? parseInt(e.target.value) : undefined })}>
                                 <option value="">Todos los lotes</option>
