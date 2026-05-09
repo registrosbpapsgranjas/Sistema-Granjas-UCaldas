@@ -1,5 +1,5 @@
 // src/components/Recomendaciones/RecomendacionForm.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import diagnosticoService from '../../services/diagnosticoService';
 import { inventarioDinamicoService } from '../../services/inventarioDinamicoService';
 import { diagnosticoDinamicoService, type CampoRecomendacion } from '../../services/diagnosticoDinamicoService';
@@ -89,41 +89,34 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
             try {
                 const rec = recomendacion as any;
 
+                // 1. Establecer datos básicos
                 setTitulo(rec.titulo || '');
                 setDescripcion(rec.descripcion || '');
                 setEstado(rec.estado || 'pendiente');
                 setLoteId(rec.lote_id || null);
 
-                // Cargar formulario guardado
+                // 2. Cargar formulario guardado
                 if (rec.formulario_recomendacion) {
                     setFormulario(rec.formulario_recomendacion);
                 }
 
-                // Determinar programa_id desde el lote
+                // 3. Determinar programa_id desde el lote
                 if (rec.lote_id) {
                     const lote = lotes.find(l => l.id === rec.lote_id);
-                    if (lote) {
+                    if (lote?.programa_id) {
                         setProgramaId(lote.programa_id);
-                    }
-                }
 
-                // Cargar subtipo_id y sus campos
-                const subtipoIdFromRec = rec.subtipo_id;
-                if (subtipoIdFromRec) {
-                    setSubtipoId(subtipoIdFromRec);
+                        // 4. Cargar monitoreos para este programa
+                        const monitoreosData = await monitoreoService.obtenerMonitoreosPorPrograma(lote.programa_id);
+                        const mons = Array.isArray(monitoreosData) ? monitoreosData : [];
+                        setMonitoreos(mons);
 
-                    // Cargar los campos de recomendación para este subtipo
-                    const camposData = await diagnosticoDinamicoService.listarCamposRecomendacion(subtipoIdFromRec);
-                    setCampos([...camposData].sort((a, b) => a.orden - b.orden));
+                        // 5. Buscar a qué monitoreo pertenece el subtipo Y cargar subtipos
+                        const subtipoIdFromRec = rec.subtipo_id;
+                        if (subtipoIdFromRec) {
+                            setSubtipoId(subtipoIdFromRec);
 
-                    // Buscar a qué programa y monitoreo pertenece este subtipo
-                    if (rec.lote_id && programas.length > 0) {
-                        const lote = lotes.find(l => l.id === rec.lote_id);
-                        if (lote?.programa_id) {
-                            const monitoreosData = await monitoreoService.obtenerMonitoreosPorPrograma(lote.programa_id);
-                            setMonitoreos(Array.isArray(monitoreosData) ? monitoreosData : []);
-
-                            for (const mon of (Array.isArray(monitoreosData) ? monitoreosData : [])) {
+                            for (const mon of mons) {
                                 const subtiposData = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(mon.id);
                                 const encontrado = subtiposData.find(s => s.id === subtipoIdFromRec);
                                 if (encontrado) {
@@ -132,24 +125,20 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
                                     break;
                                 }
                             }
+
+                            // 6. Cargar los campos de recomendación para este subtipo
+                            const camposData = await diagnosticoDinamicoService.listarCamposRecomendacion(subtipoIdFromRec);
+                            setCampos([...camposData].sort((a, b) => a.orden - b.orden));
                         }
                     }
                 }
 
-                // Cargar inventario si aplica
+                // 7. Cargar inventario si aplica
                 if ((rec as any).inventario_item_id) {
                     setItemId((rec as any).inventario_item_id);
                     setAplicarProducto('si');
                     if ((rec as any).cantidad_sugerida) {
                         setDosis(String((rec as any).cantidad_sugerida));
-                    }
-                }
-
-                // Cargar programa si aplica
-                if (rec.lote_id) {
-                    const lote = lotes.find(l => l.id === rec.lote_id);
-                    if (lote?.programa_id) {
-                        setProgramaId(lote.programa_id);
                     }
                 }
             } catch (e) {
@@ -161,7 +150,7 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
         };
 
         init();
-    }, [esEdicion, recomendacion, lotes, programas]);
+    }, [esEdicion, recomendacion, lotes]);
 
     // ── Inicializar desde diagnóstico vinculado ───────────────────────────────
     useEffect(() => {
@@ -206,22 +195,33 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
             setMonitoreos([]);
             return;
         }
+        // No recargar en modo edición si ya tenemos monitoreos
+        if (esEdicion && monitoreos.length > 0) return;
+        
         monitoreoService.obtenerMonitoreosPorPrograma(programaId)
             .then(data => setMonitoreos(Array.isArray(data) ? data : []))
             .catch(() => { });
-    }, [programaId]);
+    }, [programaId, esEdicion, monitoreos.length]);
 
     // ── Cargar subtipos ──────────────────────────────────────────────────────
     useEffect(() => {
         if (!monitoreoId) {
-            setSubtipos([]);
-            if (!esEdicion && !modoVinculado) setSubtipoId(null);
+            // No resetear subtipoId ni subtipos en modo edición o vinculado
+            if (!esEdicion && !modoVinculado) {
+                setSubtipos([]);
+                setSubtipoId(null);
+            }
             return;
         }
+        // En modo edición, no recargar si ya tenemos los subtipos cargados
+        if (esEdicion && subtipos.length > 0) return;
+
         diagnosticoDinamicoService.listarSubtiposPorMonitoreo(monitoreoId)
-            .then(data => setSubtipos(data.filter(s => s.activo)))
+            .then(data => {
+                setSubtipos(data.filter(s => s.activo));
+            })
             .catch(() => { });
-    }, [monitoreoId, esEdicion, modoVinculado]);
+    }, [monitoreoId, esEdicion, modoVinculado, subtipos.length]);
 
     // ── Cargar campos dinámicos ──────────────────────────────────────────────
     useEffect(() => {
@@ -229,10 +229,13 @@ const RecomendacionForm: React.FC<RecomendacionFormProps> = ({
             if (!esEdicion && !modoVinculado) setCampos([]);
             return;
         }
+        // No recargar en modo edición si ya tenemos campos
+        if (esEdicion && campos.length > 0) return;
+
         diagnosticoDinamicoService.listarCamposRecomendacion(subtipoId)
             .then(data => { setCampos([...data].sort((a, b) => a.orden - b.orden)); })
             .catch(() => setCampos([]));
-    }, [subtipoId, esEdicion, modoVinculado]);
+    }, [subtipoId, esEdicion, modoVinculado, campos.length]);
 
     // ── Cargar tipos de labor ────────────────────────────────────────────────
     useEffect(() => {
