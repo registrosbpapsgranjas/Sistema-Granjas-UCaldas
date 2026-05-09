@@ -1,6 +1,6 @@
 // src/components/Lotes/GestionLote.tsx
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom"; // 👈 Importar useSearchParams
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { loteService } from "../../services/loteService";
 import granjaService from "../../services/granjaService";
@@ -12,17 +12,13 @@ import TiposLoteModal from "./TiposLote";
 import exportService from "../../services/exportService";
 
 interface GestionLotesProps {
-    programaId?: string; // Para filtrar por programa específico
+    programaId?: string;
 }
 
 export default function GestionLotes({ programaId }: GestionLotesProps) {
-    const [searchParams] = useSearchParams(); // 👈 Para query params
+    const [searchParams] = useSearchParams();
     const cultivoId = searchParams.get('cultivoId');
     const cultivoNombre = searchParams.get('cultivoNombre');
-    
-    console.log('📍 GestionLotes - programaId:', programaId);
-    console.log('📍 GestionLotes - cultivoId:', cultivoId);
-    console.log('📍 GestionLotes - cultivoNombre:', cultivoNombre);
     
     const navigate = useNavigate();
     const [lotes, setLotes] = useState<any[]>([]);
@@ -91,35 +87,28 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
         }
     };
 
-    // Formulario
+    // Formulario - AGREGADOS surcos, plantas_por_surco y cultivos_ids
     const [datosFormulario, setDatosFormulario] = useState({
         nombre: "",
         tipo_lote_id: 0,
         granja_id: 0,
         programa_id: programaId ? Number(programaId) : 0,
-        nombre_cultivo: "",
-        tipo_gestion: "Convencional",
         fecha_inicio: new Date().toISOString().split('T')[0],
-        duracion_dias: 30,
         estado: "activo",
-        cultivo_id: null as number | null,
+        surcos: null as number | null,
+        plantas_por_surco: null as number | null,
+        cultivos_ids: [] as number[],
     });
 
     useEffect(() => {
         cargarDatos();
-    }, [programaId, cultivoId]); // 👈 Recargar cuando cambie cultivoId
+    }, [programaId, cultivoId]);
 
     const cargarDatos = async () => {
         try {
             setCargando(true);
             setError(null);
 
-            let filtro = '';
-            if (programaId) filtro = `para programa ${programaId}`;
-            else if (cultivoId) filtro = `para cultivo ${cultivoId}`;
-            else filtro = 'todos';
-            
-            console.log(`🔄 Cargando datos de lotes... ${filtro}`);
             const loadingToast = toast.loading('Cargando datos de lotes...');
 
             // Obtener lotes según filtros
@@ -132,6 +121,9 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 datosLotes = await loteService.obtenerLotes();
             }
 
+            // Asegurar que datosLotes sea un array
+            const lotesArray = Array.isArray(datosLotes) ? datosLotes : (datosLotes?.items || []);
+
             const [datosTiposLote, datosGranjas, datosProgramas] = await Promise.all([
                 loteService.obtenerTiposLote(),
                 granjaService.obtenerGranjas(),
@@ -139,12 +131,11 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
             ]);
 
             toast.dismiss(loadingToast);
-            console.log(`✅ ${datosLotes.length} lotes cargados`);
 
-            setLotes(datosLotes);
-            setTiposLote(datosTiposLote);
-            setGranjas(datosGranjas);
-            setProgramas(datosProgramas);
+            setLotes(lotesArray);
+            setTiposLote(Array.isArray(datosTiposLote) ? datosTiposLote : []);
+            setGranjas(Array.isArray(datosGranjas) ? datosGranjas : []);
+            setProgramas(Array.isArray(datosProgramas) ? datosProgramas : []);
 
         } catch (error: any) {
             console.error('❌ Error cargando datos:', error);
@@ -168,14 +159,16 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 datosEnvio.programa_id = Number(programaId);
             }
             
+            // Convertir surcos y plantas_por_surco a números o null
+            if (datosEnvio.surcos === '' || datosEnvio.surcos === undefined) datosEnvio.surcos = null;
+            if (datosEnvio.plantas_por_surco === '' || datosEnvio.plantas_por_surco === undefined) datosEnvio.plantas_por_surco = null;
+
             console.log('📤 Guardando lote...', datosEnvio);
 
             if (editando && loteSeleccionado) {
                 await loteService.actualizarLote(loteSeleccionado.id, datosEnvio);
-                console.log('✅ Lote actualizado');
             } else {
                 await loteService.crearLote(datosEnvio);
-                console.log('✅ Lote creado');
             }
 
             await cargarDatos();
@@ -191,17 +184,21 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
     };
 
     const abrirEditar = (lote: any) => {
+        // Obtener los IDs de cultivos desde la relación lote_cultivo o cultivos_asignados
+        const cultivosIds = lote.cultivos_ids || 
+                           lote.cultivos_asignados?.map((lc: any) => lc.cultivo_id) || 
+                           (lote.cultivos ? lote.cultivos.map((c: any) => c.id) : []);
+        
         setDatosFormulario({
             nombre: lote.nombre || "",
             tipo_lote_id: lote.tipo_lote_id || 0,
             granja_id: lote.granja_id || 0,
             programa_id: lote.programa_id || (programaId ? Number(programaId) : 0),
-            nombre_cultivo: lote.nombre_cultivo || "",
-            tipo_gestion: lote.tipo_gestion || "Convencional",
             fecha_inicio: lote.fecha_inicio ? new Date(lote.fecha_inicio).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            duracion_dias: lote.duracion_dias || 30,
             estado: lote.estado || "activo",
-            cultivo_id: lote.cultivo_id || null,
+            surcos: lote.surcos ?? null,
+            plantas_por_surco: lote.plantas_por_surco ?? null,
+            cultivos_ids: cultivosIds,
         });
         setLoteSeleccionado(lote);
         setEditando(true);
@@ -214,22 +211,15 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
 
         try {
             setError(null);
-            const loadingToast = toast.loading('Eliminando lote...');
-
             await loteService.eliminarLote(id);
-
-            toast.dismiss(loadingToast);
             toast.success('Lote eliminado exitosamente', {
                 duration: 3000,
                 position: 'top-right'
             });
-
-            console.log('✅ Lote eliminado');
             await cargarDatos();
         } catch (error: any) {
             console.error('❌ Error al eliminar lote:', error);
             setError(error.message || 'Error al eliminar el lote');
-
             toast.error(`Error al eliminar lote: ${error.message || 'Error desconocido'}`, {
                 duration: 4000,
                 position: 'top-right'
@@ -243,12 +233,11 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
             tipo_lote_id: 0,
             granja_id: 0,
             programa_id: programaId ? Number(programaId) : 0,
-            nombre_cultivo: "",
-            tipo_gestion: "Convencional",
             fecha_inicio: new Date().toISOString().split('T')[0],
-            duracion_dias: 30,
             estado: "activo",
-            cultivo_id: null,
+            surcos: null,
+            plantas_por_surco: null,
+            cultivos_ids: [],
         });
     };
 
