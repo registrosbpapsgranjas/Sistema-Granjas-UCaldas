@@ -12,6 +12,7 @@ import { inventarioDinamicoService } from '../../services/inventarioDinamicoServ
 import type { TipoInventario, ItemInventario } from '../../types/inventarioDinamicoTypes';
 import type { DiagnosticoTipo } from '../../services/diagnosticoDinamicoService';
 import tipoLaborService from '../../services/tipoLaboresService';
+import usuarioService from '../../services/usuarioService';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────────
 interface ProductoSugerido {
@@ -70,7 +71,7 @@ const InventarioItemSelect: React.FC<{
 }> = ({ items, loading, value, onChange, label = "Producto" }) => {
     const getItemNombre = (item: any) => {
         const v = item.valores || {};
-        return (v.Nombre || v['Nombre Comercial'] || v.producto || v.nombre || `Producto #${item.id}`) +
+        return (v['Nombre Comercial'] || v.Nombre || v.producto || v.nombre || `Producto #${item.id}`) +
             (item.unidad_medida ? ` (${item.unidad_medida})` : '');
     };
 
@@ -134,6 +135,24 @@ const FormVinculadaDiagnostico: React.FC<{
     // Labores
     const [tiposLabor, setTiposLabor] = useState<any[]>([]);
     const [laboresToCrear, setLaboresToCrear] = useState<LaborRow[]>([]);
+    
+    // TRABAJADORES (cargados desde usuarioService)
+    const [trabajadores, setTrabajadores] = useState<any[]>([]);
+
+    // Cargar trabajadores
+    useEffect(() => {
+        const cargarTrabajadores = async () => {
+            try {
+                const usuarios = await usuarioService.obtenerUsuarios();
+                const arr = Array.isArray(usuarios) ? usuarios : (usuarios?.items || []);
+                // Filtrar por rol de trabajador (rol_id = 3 o 4, ajusta según tu sistema)
+                setTrabajadores(arr.filter((u: any) => u.rol_id === 3 || u.rol_id === 4));
+            } catch {
+                setTrabajadores([]);
+            }
+        };
+        cargarTrabajadores();
+    }, []);
 
     // Load diagnosis context
     useEffect(() => {
@@ -329,7 +348,6 @@ const FormVinculadaDiagnostico: React.FC<{
                     </button>
                 </div>
 
-                {/* Tipo de inventario (global para todos los productos) */}
                 {productosRecomendacion.length > 0 && (
                     <div className="mb-3">
                         <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de inventario</label>
@@ -338,8 +356,7 @@ const FormVinculadaDiagnostico: React.FC<{
                         ) : (
                             <div className="flex flex-wrap gap-2">
                                 {tiposInventario.map(t => (
-                                    <button key={t.id} type="button"
-                                        onClick={() => setTipoInventarioId(t.id)}
+                                    <button key={t.id} type="button" onClick={() => setTipoInventarioId(t.id)}
                                         className={`px-3 py-1.5 border-2 rounded-lg text-xs transition ${tipoInventarioId === t.id ? 'border-purple-500 bg-purple-100 text-purple-800 font-medium' : 'border-gray-200 bg-white hover:border-purple-300'}`}>
                                         {t.nombre}
                                     </button>
@@ -350,7 +367,7 @@ const FormVinculadaDiagnostico: React.FC<{
                 )}
 
                 {productosRecomendacion.length === 0 ? (
-                    <p className="text-xs text-purple-600">No hay productos sugeridos. Agrega uno si deseas recomendar insumos.</p>
+                    <p className="text-xs text-purple-600">No hay productos sugeridos.</p>
                 ) : (
                     <div className="space-y-3">
                         {productosRecomendacion.map((prod, idx) => (
@@ -358,12 +375,8 @@ const FormVinculadaDiagnostico: React.FC<{
                                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-600 mb-1">Producto</label>
-                                        <InventarioItemSelect
-                                            items={items}
-                                            loading={loadingItems}
-                                            value={prod.inventario_item_id}
-                                            onChange={(id) => setProductosRecomendacion(prev => prev.map((p, i) => i === idx ? { ...p, inventario_item_id: id } : p))}
-                                        />
+                                        <InventarioItemSelect items={items} loading={loadingItems} value={prod.inventario_item_id}
+                                            onChange={(id) => setProductosRecomendacion(prev => prev.map((p, i) => i === idx ? { ...p, inventario_item_id: id } : p))} />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-gray-600 mb-1">Dosis</label>
@@ -377,9 +390,7 @@ const FormVinculadaDiagnostico: React.FC<{
                                     </div>
                                 </div>
                                 <button type="button" onClick={() => setProductosRecomendacion(prev => prev.filter((_, i) => i !== idx))}
-                                    className="text-red-500 hover:text-red-700 mt-5 p-1">
-                                    <i className="fas fa-trash text-xs"></i>
-                                </button>
+                                    className="text-red-500 hover:text-red-700 mt-5 p-1"><i className="fas fa-trash text-xs"></i></button>
                             </div>
                         ))}
                     </div>
@@ -436,8 +447,8 @@ const FormVinculadaDiagnostico: React.FC<{
                                             <select value={labor.trabajador_id || ''} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, trabajador_id: e.target.value ? parseInt(e.target.value) : null } : l))}
                                                 className="w-full border border-gray-300 rounded p-2 text-sm">
                                                 <option value="">Seleccionar...</option>
-                                                {docentes.map((doc: any) => (
-                                                    <option key={doc.id} value={doc.id}>{doc.nombre} ({doc.email})</option>
+                                                {trabajadores.map((trab: any) => (
+                                                    <option key={trab.id} value={trab.id}>{trab.nombre} ({trab.email})</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -448,9 +459,7 @@ const FormVinculadaDiagnostico: React.FC<{
                                         </div>
                                     </div>
                                     <button type="button" onClick={() => setLaboresToCrear(prev => prev.filter((_, i) => i !== idx))}
-                                        className="text-red-500 hover:text-red-700 mt-5 p-1">
-                                        <i className="fas fa-trash text-xs"></i>
-                                    </button>
+                                        className="text-red-500 hover:text-red-700 mt-5 p-1"><i className="fas fa-trash text-xs"></i></button>
                                 </div>
 
                                 {/* Productos de la labor */}
@@ -458,9 +467,7 @@ const FormVinculadaDiagnostico: React.FC<{
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs font-medium text-green-700">Productos para esta labor</span>
                                         <button type="button" onClick={() => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, productos: [...l.productos, newProductoRow()] } : l))}
-                                            className="text-xs text-green-600 hover:text-green-800 underline">
-                                            + Agregar producto
-                                        </button>
+                                            className="text-xs text-green-600 hover:text-green-800 underline">+ Agregar producto</button>
                                     </div>
                                     {labor.productos.length === 0 ? (
                                         <p className="text-xs text-gray-400">Sin productos (opcional)</p>
@@ -471,36 +478,22 @@ const FormVinculadaDiagnostico: React.FC<{
                                                     <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                                         <div>
                                                             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Producto</label>
-                                                            <InventarioItemSelect
-                                                                items={items}
-                                                                loading={loadingItems}
-                                                                value={prod.inventario_item_id}
-                                                                onChange={(id) => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? {
-                                                                    ...l, productos: l.productos.map((p, pi) => pi === pIdx ? { ...p, inventario_item_id: id } : p)
-                                                                } : l))}
-                                                            />
+                                                            <InventarioItemSelect items={items} loading={loadingItems} value={prod.inventario_item_id}
+                                                                onChange={(id) => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, productos: l.productos.map((p, pi) => pi === pIdx ? { ...p, inventario_item_id: id } : p) } : l))} />
                                                         </div>
                                                         <div>
                                                             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Dosis</label>
-                                                            <input type="number" value={prod.dosis} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? {
-                                                                ...l, productos: l.productos.map((p, pi) => pi === pIdx ? { ...p, dosis: e.target.value } : p)
-                                                            } : l))}
+                                                            <input type="number" value={prod.dosis} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, productos: l.productos.map((p, pi) => pi === pIdx ? { ...p, dosis: e.target.value } : p) } : l))}
                                                                 className="w-full border border-gray-300 rounded p-1.5 text-sm" placeholder="Ej: 2.5" min="0" step="any" />
                                                         </div>
                                                         <div>
                                                             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Unidad</label>
-                                                            <input type="text" value={prod.unidad} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? {
-                                                                ...l, productos: l.productos.map((p, pi) => pi === pIdx ? { ...p, unidad: e.target.value } : p)
-                                                            } : l))}
+                                                            <input type="text" value={prod.unidad} onChange={e => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, productos: l.productos.map((p, pi) => pi === pIdx ? { ...p, unidad: e.target.value } : p) } : l))}
                                                                 className="w-full border border-gray-300 rounded p-1.5 text-sm" placeholder="L/ha, kg..." />
                                                         </div>
                                                     </div>
-                                                    <button type="button" onClick={() => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? {
-                                                        ...l, productos: l.productos.filter((_, pi) => pi !== pIdx)
-                                                    } : l))}
-                                                        className="text-red-400 hover:text-red-600 mt-4 p-0.5">
-                                                        <i className="fas fa-times text-xs"></i>
-                                                    </button>
+                                                    <button type="button" onClick={() => setLaboresToCrear(prev => prev.map((l, i) => i === idx ? { ...l, productos: l.productos.filter((_, pi) => pi !== pIdx) } : l))}
+                                                        className="text-red-400 hover:text-red-600 mt-4 p-0.5"><i className="fas fa-times text-xs"></i></button>
                                                 </div>
                                             ))}
                                         </div>
@@ -514,9 +507,7 @@ const FormVinculadaDiagnostico: React.FC<{
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    Cancelar
-                </button>
+                <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">Cancelar</button>
                 <button type="button" onClick={handleSubmit}
                     disabled={submitting || !titulo || !descripcion}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-lg font-medium text-sm disabled:bg-gray-400 transition-colors">
@@ -571,7 +562,24 @@ const FormGeneral: React.FC<{
     const [items, setItems] = useState<any[]>([]);
     const [loadingItems, setLoadingItems] = useState(false);
 
+    // TRABAJADORES
+    const [trabajadores, setTrabajadores] = useState<any[]>([]);
+
     const lotesFiltrados = lotes.filter(l => l.programa_id === programaId);
+
+    // Cargar trabajadores
+    useEffect(() => {
+        const cargarTrabajadores = async () => {
+            try {
+                const usuarios = await usuarioService.obtenerUsuarios();
+                const arr = Array.isArray(usuarios) ? usuarios : (usuarios?.items || []);
+                setTrabajadores(arr.filter((u: any) => u.rol_id === 3 || u.rol_id === 4));
+            } catch {
+                setTrabajadores([]);
+            }
+        };
+        cargarTrabajadores();
+    }, []);
 
     // ── Cargar diagnósticos pendientes ────────────────────────────────────────
     useEffect(() => {
@@ -591,7 +599,7 @@ const FormGeneral: React.FC<{
                 const diagnosticosData = Array.isArray(data) ? data : (data?.items || []);
                 setDiagnosticosPendientes(diagnosticosData);
                 if (diagnosticosData.length === 0) setDiagnosticoSeleccionadoId(null);
-            } catch (error) {
+            } catch {
                 setDiagnosticosPendientes([]);
             } finally {
                 setLoadingDiagnosticos(false);
@@ -639,7 +647,6 @@ const FormGeneral: React.FC<{
                     setFormulario(rec.formulario_recomendacion);
                 }
 
-                // Cargar items sugeridos existentes
                 if (rec.items_sugeridos?.length > 0) {
                     setProductosRecomendacion(rec.items_sugeridos.map((item: any) => ({
                         inventario_item_id: item.inventario_item_id,
@@ -648,7 +655,6 @@ const FormGeneral: React.FC<{
                     })));
                 }
 
-                // Cargar labores existentes
                 if (rec.labores?.length > 0) {
                     setLabores(rec.labores.map((lab: any) => ({
                         id: lab.id,
@@ -1036,7 +1042,9 @@ const FormGeneral: React.FC<{
                                             <select value={labor.trabajador_id || ''} onChange={e => setLabores(prev => prev.map((l, i) => i === idx ? { ...l, trabajador_id: e.target.value ? parseInt(e.target.value) : null } : l))}
                                                 className="w-full border border-gray-300 rounded p-2 text-sm">
                                                 <option value="">Seleccionar...</option>
-                                                {docentes.map((doc: any) => (<option key={doc.id} value={doc.id}>{doc.nombre} ({doc.email})</option>))}
+                                                {trabajadores.map((trab: any) => (
+                                                    <option key={trab.id} value={trab.id}>{trab.nombre} ({trab.email})</option>
+                                                ))}
                                             </select>
                                         </div>
                                         <div>
