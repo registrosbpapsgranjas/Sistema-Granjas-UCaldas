@@ -77,8 +77,6 @@ def _cargar_relaciones_recomendacion(recomendacion: Recomendacion):
         recomendacion.inventario_item_disponible = item.cantidad_disponible
     _cargar_items_sugeridos(recomendacion)
     _cargar_productos_recomendacion(recomendacion)
-    recomendacion.items_sugeridos = getattr(recomendacion, 'items_sugeridos_data', [])
-    recomendacion.productos = getattr(recomendacion, 'productos_data', [])
 
 
 def crear_recomendacion(db: Session, data: RecomendacionCreate, usuario_id: int):
