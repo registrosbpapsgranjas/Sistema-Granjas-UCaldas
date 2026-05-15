@@ -9,13 +9,14 @@ from app.CRUD.labores import (
     obtener_labor_dict, actualizar_labor_crud, eliminar_labor_crud,
     asignar_herramienta_crud, asignar_insumo_crud, registrar_avance_crud,
     completar_labor_crud, devolver_herramienta_crud, listar_labores_por_trabajador,
-    listar_labores_por_recomendacion, obtener_estadisticas_labores_crud
+    listar_labores_por_recomendacion, obtener_estadisticas_labores_crud,
+    agregar_producto_labor, eliminar_producto_labor, listar_productos_labor
 )
 from app.schemas.labor_schema import (
     LaborCreate, LaborUpdate, LaborResponse, LaborListResponse,
     LaborWithRecursosResponse, AsignacionHerramientaRequest,
     AsignacionInsumoRequest, RegistroAvanceRequest,
-    EstadisticasLaboresResponse
+    EstadisticasLaboresResponse, ProductoLaborCreate, ProductoLaborResponse
 )
 
 router = APIRouter(prefix="/labores", tags=["Labores"])
@@ -223,3 +224,54 @@ def obtener_estadisticas_labores(
     _ = Depends(require_any_role(["admin", "talento_humano", "trabajador"]))
 ):
     return obtener_estadisticas_labores_crud(db, usuario)
+
+
+# === PRODUCTOS DE UNA LABOR (productos_labores) ===
+
+@router.get("/{id}/productos", response_model=List[ProductoLaborResponse])
+def listar_productos_de_labor(
+    id: int,
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user)
+):
+    """Listar todos los productos asociados a una labor"""
+    return listar_productos_labor(db, id, usuario)
+
+
+@router.post("/{id}/productos", response_model=ProductoLaborResponse)
+def agregar_producto_a_labor(
+    id: int,
+    data: ProductoLaborCreate,
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user),
+    _ = Depends(require_any_role(["admin", "talento_humano", "docente", "asesor", "trabajador"]))
+):
+    """Agregar un producto a una labor"""
+    producto = agregar_producto_labor(
+        db, id,
+        inventario_item_id=data.inventario_item_id,
+        cantidad_usada=data.cantidad_usada,
+        dosis_aplicada=data.dosis_aplicada,
+        unidad_dosis=data.unidad_dosis,
+        descripcion=data.descripcion,
+        usuario=usuario
+    )
+    if producto.inventario_item:
+        v = producto.inventario_item.valores or {}
+        producto.inventario_item_nombre = v.get("nombre") or v.get("producto") or f"Ítem #{producto.inventario_item_id}"
+        producto.inventario_item_unidad = producto.inventario_item.unidad_medida
+        producto.inventario_item_disponible = producto.inventario_item.cantidad_disponible
+    return producto
+
+
+@router.delete("/{id}/productos/{producto_id}")
+def eliminar_producto_de_labor(
+    id: int,
+    producto_id: int,
+    db: Session = Depends(get_db),
+    usuario = Depends(get_current_user),
+    _ = Depends(require_any_role(["admin", "talento_humano", "docente", "asesor"]))
+):
+    """Eliminar un producto de una labor"""
+    eliminar_producto_labor(db, id, producto_id, usuario)
+    return {"message": "Producto eliminado correctamente"}

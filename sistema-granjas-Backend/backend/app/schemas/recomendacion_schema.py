@@ -25,6 +25,25 @@ class RecomendacionItemResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ProductoRecomendacionCreate(BaseModel):
+    inventario_item_id: Optional[int] = Field(None, gt=0)
+    cantidad_sugerida: Optional[float] = Field(None, gt=0)
+    descripcion: Optional[str] = Field(None, max_length=200)
+
+class ProductoRecomendacionResponse(BaseModel):
+    id: int
+    recomendacion_id: int
+    inventario_item_id: Optional[int] = None
+    cantidad_sugerida: Optional[float] = None
+    descripcion: Optional[str] = None
+    inventario_item_nombre: Optional[str] = None
+    inventario_item_unidad: Optional[str] = None
+    inventario_item_disponible: Optional[float] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class RecomendacionBase(BaseModel):
     titulo: str = Field(..., min_length=5, max_length=200)
     descripcion: str = Field(..., min_length=10, max_length=2000)
@@ -104,6 +123,7 @@ class RecomendacionResponse(RecomendacionBase):
     inventario_item_unidad: Optional[str] = None
     inventario_item_disponible: Optional[float] = None
     items_sugeridos: List[RecomendacionItemResponse] = []
+    productos: List[ProductoRecomendacionResponse] = []
 
     class Config:
         from_attributes = True

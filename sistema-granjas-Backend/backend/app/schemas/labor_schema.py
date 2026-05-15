@@ -4,6 +4,31 @@ from datetime import datetime
 from enum import Enum
 
 
+class ProductoLaborCreate(BaseModel):
+    inventario_item_id: Optional[int] = Field(None, gt=0)
+    cantidad_usada: Optional[float] = Field(None, gt=0)
+    dosis_aplicada: Optional[float] = Field(None, gt=0)
+    unidad_dosis: Optional[str] = Field(None, max_length=50)
+    descripcion: Optional[str] = Field(None, max_length=200)
+
+
+class ProductoLaborResponse(BaseModel):
+    id: int
+    labor_id: int
+    inventario_item_id: Optional[int] = None
+    cantidad_usada: Optional[float] = None
+    dosis_aplicada: Optional[float] = None
+    unidad_dosis: Optional[str] = None
+    descripcion: Optional[str] = None
+    inventario_item_nombre: Optional[str] = None
+    inventario_item_unidad: Optional[str] = None
+    inventario_item_disponible: Optional[float] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class EstadoLabor(str, Enum):
     PENDIENTE = "pendiente"
     EN_PROGRESO = "en_progreso"
@@ -134,6 +159,7 @@ class LaborWithRecursosResponse(LaborResponse):
     movimientos_herramientas: List[dict] = []
     movimientos_insumos: List[dict] = []
     evidencias: List[EvidenciaBasicResponse] = []
+    productos: List[ProductoLaborResponse] = []
 
     class Config:
         from_attributes = True

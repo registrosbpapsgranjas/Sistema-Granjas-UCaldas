@@ -9,13 +9,15 @@ from app.CRUD.recomendaciones import (
     obtener_recomendacion_con_labores, listar_recomendaciones_por_diagnostico,
     listar_recomendaciones_por_lote, obtener_estadisticas_recomendaciones,
     listar_recomendaciones_por_usuario, obtener_recomendacion_vista_completa,
-    agregar_item_recomendacion, eliminar_item_recomendacion
+    agregar_item_recomendacion, eliminar_item_recomendacion,
+    agregar_producto_recomendacion, eliminar_producto_recomendacion, listar_productos_recomendacion
 )
 from app.schemas.recomendacion_schema import (
     RecomendacionCreate, RecomendacionUpdate, RecomendacionResponse,
     RecomendacionListResponse, AprobacionRecomendacionRequest,
     EstadisticasRecomendacionesResponse, RecomendacionWithLaboresDetalladasResponse,
-    RecomendacionItemCreate, RecomendacionItemResponse
+    RecomendacionItemCreate, RecomendacionItemResponse,
+    ProductoRecomendacionCreate, ProductoRecomendacionResponse
 )
 
 router = APIRouter(prefix="/recomendaciones", tags=["Recomendaciones"])
@@ -198,3 +200,49 @@ def eliminar_item(
 ):
     eliminar_item_recomendacion(db, id, item_id, usuario)
     return {"message": "Ítem eliminado correctamente"}
+
+
+# ── Productos de una recomendación (productos_recomendaciones) ────────────────
+
+@router.get("/{id}/productos", response_model=List[ProductoRecomendacionResponse])
+def listar_productos(
+    id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_current_user)
+):
+    return listar_productos_recomendacion(db, id, usuario)
+
+
+@router.post("/{id}/productos", response_model=ProductoRecomendacionResponse)
+def agregar_producto(
+    id: int,
+    data: ProductoRecomendacionCreate,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_current_user),
+    _=Depends(require_any_role(roles_recomendacion))
+):
+    producto = agregar_producto_recomendacion(
+        db, id,
+        inventario_item_id=data.inventario_item_id,
+        cantidad_sugerida=data.cantidad_sugerida,
+        descripcion=data.descripcion,
+        usuario=usuario
+    )
+    if producto.inventario_item:
+        v = producto.inventario_item.valores or {}
+        producto.inventario_item_nombre = v.get("nombre") or v.get("producto") or f"Ítem #{producto.inventario_item_id}"
+        producto.inventario_item_unidad = producto.inventario_item.unidad_medida
+        producto.inventario_item_disponible = producto.inventario_item.cantidad_disponible
+    return producto
+
+
+@router.delete("/{id}/productos/{producto_id}")
+def eliminar_producto(
+    id: int,
+    producto_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_current_user),
+    _=Depends(require_any_role(roles_recomendacion))
+):
+    eliminar_producto_recomendacion(db, id, producto_id, usuario)
+    return {"message": "Producto eliminado correctamente"}

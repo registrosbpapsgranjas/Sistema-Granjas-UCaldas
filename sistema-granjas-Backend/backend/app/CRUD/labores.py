@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from app.db.models import (
     Labor, Usuario, Recomendacion, Lote,
-    Evidencia, TipoLabor, Granja, Programa, usuario_programa, ItemInventarioPrograma
+    Evidencia, TipoLabor, Granja, Programa, usuario_programa, ItemInventarioPrograma, ProductoLabor
 )
 from app.schemas.labor_schema import (
     LaborCreate, LaborUpdate, AsignacionHerramientaRequest,
@@ -380,6 +380,80 @@ def listar_labores_por_recomendacion(db: Session, recomendacion_id: int, skip: i
         "paginas": (total + limit - 1) // limit
     }
 
+def _nombre_item_labor(item: ItemInventarioPrograma) -> str:
+    v = item.valores or {}
+    return v.get("nombre") or v.get("producto") or v.get("Nombre") or f"Ítem #{item.id}"
+
+
+def agregar_producto_labor(
+    db: Session,
+    labor_id: int,
+    inventario_item_id: int = None,
+    cantidad_usada: float = None,
+    dosis_aplicada: float = None,
+    unidad_dosis: str = None,
+    descripcion: str = None,
+    usuario: Usuario = None
+):
+    labor = db.query(Labor).filter(Labor.id == labor_id).first()
+    if not labor:
+        raise HTTPException(404, "Labor no encontrada")
+    producto = ProductoLabor(
+        labor_id=labor_id,
+        inventario_item_id=inventario_item_id,
+        cantidad_usada=cantidad_usada,
+        dosis_aplicada=dosis_aplicada,
+        unidad_dosis=unidad_dosis,
+        descripcion=descripcion,
+    )
+    db.add(producto)
+    db.commit()
+    db.refresh(producto)
+    return producto
+
+
+def eliminar_producto_labor(db: Session, labor_id: int, producto_id: int, usuario: Usuario = None):
+    labor = db.query(Labor).filter(Labor.id == labor_id).first()
+    if not labor:
+        raise HTTPException(404, "Labor no encontrada")
+    producto = db.query(ProductoLabor).filter(
+        ProductoLabor.id == producto_id,
+        ProductoLabor.labor_id == labor_id
+    ).first()
+    if not producto:
+        raise HTTPException(404, "Producto no encontrado")
+    db.delete(producto)
+    db.commit()
+
+
+def listar_productos_labor(db: Session, labor_id: int, usuario: Usuario = None):
+    labor = db.query(Labor).filter(Labor.id == labor_id).first()
+    if not labor:
+        raise HTTPException(404, "Labor no encontrada")
+    productos = db.query(ProductoLabor).filter(ProductoLabor.labor_id == labor_id).all()
+    result = []
+    for pl in productos:
+        d = {
+            "id": pl.id,
+            "labor_id": pl.labor_id,
+            "inventario_item_id": pl.inventario_item_id,
+            "cantidad_usada": pl.cantidad_usada,
+            "dosis_aplicada": pl.dosis_aplicada,
+            "unidad_dosis": pl.unidad_dosis,
+            "descripcion": pl.descripcion,
+            "created_at": pl.created_at,
+            "inventario_item_nombre": None,
+            "inventario_item_unidad": None,
+            "inventario_item_disponible": None,
+        }
+        if pl.inventario_item:
+            d["inventario_item_nombre"] = _nombre_item_labor(pl.inventario_item)
+            d["inventario_item_unidad"] = pl.inventario_item.unidad_medida
+            d["inventario_item_disponible"] = pl.inventario_item.cantidad_disponible
+        result.append(d)
+    return result
+
+
 def obtener_estadisticas_labores_crud(db: Session, usuario: Usuario):
     query = db.query(Labor)
     
@@ -470,7 +544,7 @@ def _cargar_relaciones_labor(labor: Labor):
 
 def _cargar_recursos_labor(db: Session, labor: Labor):
     """
-    ✅ Carga evidencias de la labor (los recursos de inventario se migrarán al sistema dinámico)
+    ✅ Carga evidencias y productos de la labor
     """
     # Evidencias
     evidencias = db.query(Evidencia).filter(Evidencia.labor_id == labor.id).all()
@@ -488,6 +562,30 @@ def _cargar_recursos_labor(db: Session, labor: Labor):
         }
         evidencias_info.append(evidencia_info)
     labor.evidencias_info = evidencias_info
+
+    # Productos de la labor (productos_labores)
+    productos = db.query(ProductoLabor).filter(ProductoLabor.labor_id == labor.id).all()
+    productos_info = []
+    for pl in productos:
+        d = {
+            "id": pl.id,
+            "labor_id": pl.labor_id,
+            "inventario_item_id": pl.inventario_item_id,
+            "cantidad_usada": pl.cantidad_usada,
+            "dosis_aplicada": pl.dosis_aplicada,
+            "unidad_dosis": pl.unidad_dosis,
+            "descripcion": pl.descripcion,
+            "created_at": pl.created_at,
+            "inventario_item_nombre": None,
+            "inventario_item_unidad": None,
+            "inventario_item_disponible": None,
+        }
+        if pl.inventario_item:
+            d["inventario_item_nombre"] = _nombre_item_labor(pl.inventario_item)
+            d["inventario_item_unidad"] = pl.inventario_item.unidad_medida
+            d["inventario_item_disponible"] = pl.inventario_item.cantidad_disponible
+        productos_info.append(d)
+    labor.productos_info = productos_info
 
     # Los recursos de inventario (herramientas, insumos) serán migrados
     labor.herramientas_resumen = []
@@ -536,5 +634,6 @@ def _labor_a_dict_con_recursos(labor: Labor):
         "insumos_asignados": getattr(labor, 'insumos_resumen', []),
         "evidencias": getattr(labor, 'evidencias_info', []),
         "movimientos_herramientas": getattr(labor, 'herramientas_asignadas_info', []),
-        "movimientos_insumos": getattr(labor, 'insumos_asignados_info', [])
+        "movimientos_insumos": getattr(labor, 'insumos_asignados_info', []),
+        "productos": getattr(labor, 'productos_info', [])
     }

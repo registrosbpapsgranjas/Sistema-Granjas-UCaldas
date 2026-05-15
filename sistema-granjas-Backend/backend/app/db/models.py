@@ -160,6 +160,7 @@ class Recomendacion(Base):
     subtipo = relationship("DiagnosticoTipo", foreign_keys=[subtipo_id])
     inventario_item = relationship("ItemInventarioPrograma", foreign_keys=[inventario_item_id])
     items_sugeridos = relationship("RecomendacionItem", back_populates="recomendacion", cascade="all, delete-orphan")
+    productos = relationship("ProductoRecomendacion", back_populates="recomendacion", cascade="all, delete-orphan")
 
 class Evidencia(Base):
     __tablename__ = "evidencias"
@@ -200,6 +201,7 @@ class Labor(Base):
     evidencias = relationship("Evidencia", back_populates="labor")
     tipo_labor = relationship("TipoLabor", back_populates="labores")
     inventario_item = relationship("ItemInventarioPrograma", foreign_keys=[inventario_item_id])
+    productos = relationship("ProductoLabor", back_populates="labor", cascade="all, delete-orphan")
 
 class Diagnostico(Base):
     __tablename__ = "diagnosticos"
@@ -372,4 +374,30 @@ class RecomendacionItem(Base):
     descripcion = Column(String(200), nullable=True)
     created_at = Column(DateTime, default=colombia_now)
     recomendacion = relationship("Recomendacion", back_populates="items_sugeridos")
+    inventario_item = relationship("ItemInventarioPrograma")
+
+
+class ProductoRecomendacion(Base):
+    __tablename__ = "productos_recomendaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    recomendacion_id = Column(Integer, ForeignKey("recomendaciones.id", ondelete="CASCADE"), nullable=False)
+    inventario_item_id = Column(Integer, ForeignKey("items_inventario_programa.id", ondelete="SET NULL"), nullable=True)
+    cantidad_sugerida = Column(Float, nullable=True)
+    descripcion = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=colombia_now)
+    recomendacion = relationship("Recomendacion", back_populates="productos")
+    inventario_item = relationship("ItemInventarioPrograma")
+
+
+class ProductoLabor(Base):
+    __tablename__ = "productos_labores"
+    id = Column(Integer, primary_key=True, index=True)
+    labor_id = Column(Integer, ForeignKey("labores.id", ondelete="CASCADE"), nullable=False)
+    inventario_item_id = Column(Integer, ForeignKey("items_inventario_programa.id", ondelete="SET NULL"), nullable=True)
+    cantidad_usada = Column(Float, nullable=True)
+    dosis_aplicada = Column(Float, nullable=True)
+    unidad_dosis = Column(String(50), nullable=True)
+    descripcion = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=colombia_now)
+    labor = relationship("Labor", back_populates="productos")
     inventario_item = relationship("ItemInventarioPrograma")

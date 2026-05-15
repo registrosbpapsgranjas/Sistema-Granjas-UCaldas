@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import datetime, timedelta
-from app.db.models import Recomendacion, RecomendacionItem, Labor, Usuario, Lote, Diagnostico, ItemInventarioPrograma, DiagnosticoTipo  # noqa: F401
+from app.db.models import Recomendacion, RecomendacionItem, ProductoRecomendacion, Labor, Usuario, Lote, Diagnostico, ItemInventarioPrograma, DiagnosticoTipo  # noqa: F401
 from app.schemas.recomendacion_schema import RecomendacionCreate, RecomendacionUpdate, AprobacionRecomendacionRequest
 from fastapi import HTTPException
 
@@ -32,6 +32,28 @@ def _cargar_items_sugeridos(recomendacion: Recomendacion):
     recomendacion.items_sugeridos_data = items_data
 
 
+def _cargar_productos_recomendacion(recomendacion: Recomendacion):
+    productos_data = []
+    for pr in (recomendacion.productos or []):
+        d = {
+            "id": pr.id,
+            "recomendacion_id": pr.recomendacion_id,
+            "inventario_item_id": pr.inventario_item_id,
+            "cantidad_sugerida": pr.cantidad_sugerida,
+            "descripcion": pr.descripcion,
+            "created_at": pr.created_at,
+            "inventario_item_nombre": None,
+            "inventario_item_unidad": None,
+            "inventario_item_disponible": None,
+        }
+        if pr.inventario_item:
+            d["inventario_item_nombre"] = _nombre_item(pr.inventario_item)
+            d["inventario_item_unidad"] = pr.inventario_item.unidad_medida
+            d["inventario_item_disponible"] = pr.inventario_item.cantidad_disponible
+        productos_data.append(d)
+    recomendacion.productos_data = productos_data
+
+
 def _cargar_relaciones_recomendacion(recomendacion: Recomendacion):
     if recomendacion.docente:
         recomendacion.docente_nombre = recomendacion.docente.nombre
@@ -54,8 +76,9 @@ def _cargar_relaciones_recomendacion(recomendacion: Recomendacion):
         recomendacion.inventario_item_unidad = item.unidad_medida
         recomendacion.inventario_item_disponible = item.cantidad_disponible
     _cargar_items_sugeridos(recomendacion)
-    # expose items_sugeridos as list for the schema
+    _cargar_productos_recomendacion(recomendacion)
     recomendacion.items_sugeridos = getattr(recomendacion, 'items_sugeridos_data', [])
+    recomendacion.productos = getattr(recomendacion, 'productos_data', [])
 
 
 def crear_recomendacion(db: Session, data: RecomendacionCreate, usuario_id: int):
@@ -298,6 +321,77 @@ def eliminar_item_recomendacion(db: Session, recomendacion_id: int, item_id: int
         raise HTTPException(404, "Ítem no encontrado")
     db.delete(ri)
     db.commit()
+
+
+def agregar_producto_recomendacion(
+    db: Session,
+    recomendacion_id: int,
+    inventario_item_id: int = None,
+    cantidad_sugerida: float = None,
+    descripcion: str = None,
+    usuario: Usuario = None
+):
+    rec = db.query(Recomendacion).filter(Recomendacion.id == recomendacion_id).first()
+    if not rec:
+        raise HTTPException(404, "Recomendación no encontrada")
+    if usuario and usuario.rol.nombre == "docente" and rec.docente_id != usuario.id:
+        raise HTTPException(403, "No tiene permisos")
+    producto = ProductoRecomendacion(
+        recomendacion_id=recomendacion_id,
+        inventario_item_id=inventario_item_id,
+        cantidad_sugerida=cantidad_sugerida,
+        descripcion=descripcion,
+    )
+    db.add(producto)
+    db.commit()
+    db.refresh(producto)
+    return producto
+
+
+def eliminar_producto_recomendacion(db: Session, recomendacion_id: int, producto_id: int, usuario: Usuario = None):
+    rec = db.query(Recomendacion).filter(Recomendacion.id == recomendacion_id).first()
+    if not rec:
+        raise HTTPException(404, "Recomendación no encontrada")
+    if usuario and usuario.rol.nombre == "docente" and rec.docente_id != usuario.id:
+        raise HTTPException(403, "No tiene permisos")
+    producto = db.query(ProductoRecomendacion).filter(
+        ProductoRecomendacion.id == producto_id,
+        ProductoRecomendacion.recomendacion_id == recomendacion_id
+    ).first()
+    if not producto:
+        raise HTTPException(404, "Producto no encontrado")
+    db.delete(producto)
+    db.commit()
+
+
+def listar_productos_recomendacion(db: Session, recomendacion_id: int, usuario: Usuario = None):
+    rec = db.query(Recomendacion).filter(Recomendacion.id == recomendacion_id).first()
+    if not rec:
+        raise HTTPException(404, "Recomendación no encontrada")
+    if usuario and usuario.rol.nombre == "docente" and rec.docente_id != usuario.id:
+        raise HTTPException(403, "No tiene permisos")
+    productos = db.query(ProductoRecomendacion).filter(
+        ProductoRecomendacion.recomendacion_id == recomendacion_id
+    ).all()
+    result = []
+    for pr in productos:
+        d = {
+            "id": pr.id,
+            "recomendacion_id": pr.recomendacion_id,
+            "inventario_item_id": pr.inventario_item_id,
+            "cantidad_sugerida": pr.cantidad_sugerida,
+            "descripcion": pr.descripcion,
+            "created_at": pr.created_at,
+            "inventario_item_nombre": None,
+            "inventario_item_unidad": None,
+            "inventario_item_disponible": None,
+        }
+        if pr.inventario_item:
+            d["inventario_item_nombre"] = _nombre_item(pr.inventario_item)
+            d["inventario_item_unidad"] = pr.inventario_item.unidad_medida
+            d["inventario_item_disponible"] = pr.inventario_item.cantidad_disponible
+        result.append(d)
+    return result
 
 
 def obtener_recomendacion_vista_completa(db: Session, id: int, usuario: Usuario):
