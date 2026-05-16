@@ -5,6 +5,13 @@ const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 const AUTH_URL = `${API_URL}/auth`;
 
 // Interfaces
+export interface ProgramaAsignado {
+  id: number;
+  nombre: string;
+  tipo: string;
+  activo: boolean;
+}
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -12,11 +19,21 @@ export interface LoginResponse {
   rol: string;
   rol_id: number;
   email: string;
+  programas?: ProgramaAsignado[];  // 👈 NUEVO: programas del usuario
   message?: string;
 }
 
 export interface RolesResponse {
   roles: { id: number; nombre: string; descripcion: string }[];
+}
+
+export interface UserData {
+  id: number;
+  nombre: string;
+  rol: string;
+  email: string;
+  rol_id: number;
+  programas: ProgramaAsignado[];  // 👈 NUEVO: programas del usuario
 }
 
 // --- Helper genérico ---
@@ -49,32 +66,53 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
-// ================== AUTHS ==================
+// ================== AUTH ==================
 
-export function login(email: string, password: string) {
-  return request<LoginResponse>(`${AUTH_URL}/login`, {
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const response = await request<LoginResponse>(`${AUTH_URL}/login`, {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+  
+  // Guardar programas en localStorage después del login
+  if (response.programas) {
+    localStorage.setItem('user_programas', JSON.stringify(response.programas));
+  }
+  
+  return response;
 }
 
-export function register(
+export async function register(
   nombre: string,
   email: string,
   password: string,
   rol_id: number
-) {
-  return request<LoginResponse>(`${AUTH_URL}/register`, {
+): Promise<LoginResponse> {
+  const response = await request<LoginResponse>(`${AUTH_URL}/register`, {
     method: "POST",
     body: JSON.stringify({ nombre, email, password, rol_id }),
   });
+  
+  // Guardar programas en localStorage después del registro (si aplica)
+  if (response.programas) {
+    localStorage.setItem('user_programas', JSON.stringify(response.programas));
+  }
+  
+  return response;
 }
 
-export function loginWithGoogle(token: string) {
-  return request<LoginResponse>(`${AUTH_URL}/google/login`, {
+export async function loginWithGoogle(token: string): Promise<LoginResponse> {
+  const response = await request<LoginResponse>(`${AUTH_URL}/google/login`, {
     method: "POST",
     body: JSON.stringify({ token }),
   });
+  
+  // Guardar programas en localStorage después del login con Google
+  if (response.programas) {
+    localStorage.setItem('user_programas', JSON.stringify(response.programas));
+  }
+  
+  return response;
 }
 
 export async function logout() {
@@ -103,6 +141,7 @@ export function setToken(token: string) {
 
 export function clearAuthData() {
   localStorage.removeItem("token");
+  localStorage.removeItem("user_programas");  // 👈 Limpiar programas también
 }
 
 // ================== USER ==================
@@ -119,7 +158,7 @@ export function isAuthenticated(): boolean {
   }
 }
 
-export function getUserData() {
+export function getUserData(): UserData | null {
   const token = getToken();
   if (!token) return null;
 
@@ -130,16 +169,32 @@ export function getUserData() {
       return null;
     }
 
+    // Obtener programas almacenados
+    const programasStr = localStorage.getItem('user_programas');
+    const programas = programasStr ? JSON.parse(programasStr) : [];
+
     return {
       id: payload.id,
       nombre: payload.nombre,
       rol: payload.rol,
       email: payload.sub,
       rol_id: payload.rol_id,
+      programas: programas,  // 👈 NUEVO: incluir programas
     };
   } catch {
     return null;
   }
+}
+
+// Función para actualizar programas manualmente (si es necesario)
+export function setUserProgramas(programas: ProgramaAsignado[]) {
+  localStorage.setItem('user_programas', JSON.stringify(programas));
+}
+
+// Función para obtener solo los programas del usuario
+export function getUserProgramas(): ProgramaAsignado[] {
+  const programasStr = localStorage.getItem('user_programas');
+  return programasStr ? JSON.parse(programasStr) : [];
 }
 
 // === Verificación de conexión ===

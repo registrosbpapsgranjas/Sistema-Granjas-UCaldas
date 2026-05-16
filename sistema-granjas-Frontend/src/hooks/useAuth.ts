@@ -8,12 +8,20 @@ import {
   setToken as setStoredToken
 } from "../api/auth";
 
+export interface ProgramaAsignado {
+  id: number;
+  nombre: string;
+  tipo: string;
+  activo: boolean;
+}
+
 export interface User {
   id: number;
   nombre: string;
   rol: string;
   email: string;
   rol_id: number;
+  programas: ProgramaAsignado[];  // 👈 NUEVO: lista de programas del usuario
 }
 
 interface AuthContextType {
