@@ -49,7 +49,19 @@ const GestionDiagnosticos: React.FC = () => {
   const [tabActivo, setTabActivo] = useState<'diagnosticos' | 'tipos'>('diagnosticos');
   const [programaSeleccionadoTipos, setProgramaSeleccionadoTipos] = useState<number | null>(null);
 
-  const esAdminODocente = user && (user.rol_id === 1 || user.rol_id === 2 || user.rol_id === 5);
+  // Permisos según rol
+  const esAdmin = user?.rol_id === 1;
+  const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+  const esAsesor = user?.rol_id === 3;
+  const esEstudiante = user?.rol_id === 4;
+  const esAdminODocente = esAdmin || esDocente;
+  
+  // Solo estudiantes pueden crear diagnósticos
+  const puedeCrearDiagnostico = esEstudiante;
+  // Solo docentes y admin pueden crear recomendaciones desde diagnóstico
+  const puedeCrearRecomendacion = esAdmin || esDocente;
+  // Solo admin y docente pueden gestionar tipos de diagnóstico
+  const puedeGestionarTipos = esAdmin || esDocente;
 
   const handleExportDiagnosticos = async () => {
     if (exporting) return;
@@ -144,6 +156,10 @@ const GestionDiagnosticos: React.FC = () => {
   };
 
   const handleCrearDiagnostico = async (formData: FormData) => {
+    if (!puedeCrearDiagnostico) {
+      toast.error('No tiene permisos para crear diagnósticos');
+      return;
+    }
     try {
       if (!user?.id) throw new Error('Usuario no autenticado');
       formData.append('usuario_id', String(user.id));
@@ -200,6 +216,10 @@ const GestionDiagnosticos: React.FC = () => {
   const openDetallesModal = (diag: DiagnosticoItem) => { setSelectedDiagnostico(diag); setShowDetallesModal(true); };
 
   const crearRecomendacionDesdeDiagnostico = (diag: DiagnosticoItem) => {
+    if (!puedeCrearRecomendacion) {
+      toast.error('No tiene permisos para crear recomendaciones');
+      return;
+    }
     const params = new URLSearchParams({
       diagnostico_id: String(diag.id),
       lote_id: String((diag as any).lote_id || ''),
@@ -207,13 +227,13 @@ const GestionDiagnosticos: React.FC = () => {
     navigate(`/gestion/recomendaciones?${params.toString()}`);
   };
 
-  const esDocenteOAdmin = user && (user.rol_id === 1 || user.rol_id === 2 || user.rol_id === 5);
-
+  // Filtrado de diagnósticos según rol
   const diagnosticosFiltrados = diagnosticos.filter(d => {
     if (!user) return false;
-    if (user.rol_id === 1) return true;
-    if (user.rol_id === 2 || user.rol_id === 5) return true;
-    if (user.rol_id === 4) return (d as any).usuario_id === user.id;
+    if (esAdmin) return true;  // Admin ve todo
+    if (esDocente) return true; // Docente ve todos (para revisar)
+    if (esAsesor) return true;  // Asesor ve todos
+    if (esEstudiante) return (d as any).usuario_id === user.id; // Estudiante solo sus diagnósticos
     return false;
   });
 
@@ -224,7 +244,7 @@ const GestionDiagnosticos: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-800">Diagnósticos</h1>
           <div className="flex gap-2">
-            {tabActivo === 'diagnosticos' && (
+            {tabActivo === 'diagnosticos' && puedeCrearDiagnostico && (
               <button onClick={() => setShowCrearModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
                 <i className="fas fa-plus"></i> Nuevo Diagnóstico
               </button>
@@ -245,7 +265,7 @@ const GestionDiagnosticos: React.FC = () => {
           >
             <i className="fas fa-microscope mr-2"></i>Diagnósticos
           </button>
-          {esAdminODocente && (
+          {puedeGestionarTipos && (
             <button
               onClick={() => setTabActivo('tipos')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition ${tabActivo === 'tipos' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -331,14 +351,14 @@ const GestionDiagnosticos: React.FC = () => {
               onAgregarEvidencia={openEvidenciaModal}
               onVerDetalles={openDetallesModal}
               currentUser={user}
-              onCrearRecomendacion={esDocenteOAdmin ? crearRecomendacionDesdeDiagnostico : undefined}
+              onCrearRecomendacion={puedeCrearRecomendacion ? crearRecomendacionDesdeDiagnostico : undefined}
             />
           )}
         </>
       )}
 
       {/* TAB: Tipos de Diagnóstico */}
-      {tabActivo === 'tipos' && esAdminODocente && (
+      {tabActivo === 'tipos' && puedeGestionarTipos && (
         <div className="bg-white rounded-lg shadow p-6">
           {programas.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No hay programas disponibles.</div>
@@ -365,9 +385,12 @@ const GestionDiagnosticos: React.FC = () => {
         </div>
       )}
 
-      <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-2xl">
-        <DiagnosticoForm onSubmit={handleCrearDiagnostico} onCancel={() => setShowCrearModal(false)} lotes={lotes} programas={programas} monitoreos={monitoreos} condiciones_dia={['Soleado', 'Nublado', 'Lluvia']} currentUser={user} />
-      </Modal>
+      {/* Modales */}
+      {puedeCrearDiagnostico && (
+        <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-2xl">
+          <DiagnosticoForm onSubmit={handleCrearDiagnostico} onCancel={() => setShowCrearModal(false)} lotes={lotes} programas={programas} monitoreos={monitoreos} condiciones_dia={['Soleado', 'Nublado', 'Lluvia']} currentUser={user} />
+        </Modal>
+      )}
 
       <Modal isOpen={showEditarModal} onClose={() => setShowEditarModal(false)} width="max-w-2xl">
         {selectedDiagnostico && <DiagnosticoForm diagnostico={selectedDiagnostico} onSubmit={(data) => handleActualizarDiagnostico(selectedDiagnostico.id, data)} onCancel={() => setShowEditarModal(false)} lotes={lotes} programas={programas} monitoreos={monitoreos} condiciones_dia={['Soleado', 'Nublado', 'Lluvia']} currentUser={user} esEdicion />}
