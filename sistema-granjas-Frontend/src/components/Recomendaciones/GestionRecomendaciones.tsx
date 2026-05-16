@@ -191,6 +191,11 @@ const GestionRecomendaciones: React.FC = () => {
                                 lote_id: nueva.lote_id,
                                 trabajador_id: labor.trabajador_id,
                                 comentario: labor.comentario || '',
+                                productos: (labor.productos || []).filter((p: any) => p.inventario_item_id).map((p: any) => ({
+                                    inventario_item_id: p.inventario_item_id,
+                                    cantidad_usada: p.cantidad_sugerida ?? null,
+                                    unidad_dosis: p.unidad_dosis ?? null,
+                                })),
                             } as any, user);
                             creadas++;
                         } catch (e: any) {

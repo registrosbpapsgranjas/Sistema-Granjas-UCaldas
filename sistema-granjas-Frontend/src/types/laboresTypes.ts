@@ -83,12 +83,22 @@ export interface MovimientoHerramienta {
     herramienta_nombre?: string;
 }
 
+export interface ProductoLaborDto {
+    inventario_item_id: number | null;
+    cantidad_usada?: number | null;
+    dosis_aplicada?: number | null;
+    unidad_dosis?: string | null;
+    descripcion?: string | null;
+}
+
 export interface CreateLaborDto {
     tipo_labor_id: number;
     recomendacion_id: number;
     trabajador_id: number;
     lote_id: number;
     comentario?: string;
+    formulario_labor?: Record<string, any>;
+    productos?: ProductoLaborDto[];
     evidencias?: {
         file: File;
         descripcion: string;

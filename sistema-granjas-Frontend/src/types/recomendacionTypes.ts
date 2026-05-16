@@ -1,4 +1,10 @@
 // src/types/recomendacionTypes.ts
+export interface ProductoRecomendacionDto {
+    inventario_item_id: number | null;
+    cantidad_sugerida?: number | null;
+    descripcion?: string | null;
+}
+
 export interface Recomendacion {
   id: number;
   titulo: "Gestión de Recomendaciones";
@@ -21,6 +27,8 @@ export interface Recomendacion {
   fecha_aprobacion?: string;
   evidencias?: Evidencia[];
   labores_count?: number;
+  productos?: ProductoRecomendacionDto[];
+  items_sugeridos?: ProductoRecomendacionDto[];
 }
 
 export interface Evidencia {
@@ -45,15 +53,26 @@ export interface Diagnostico {
   fecha_creacion: string;
 }
 
+export interface ItemSugeridoDto {
+  inventario_item_id: number | null;
+  cantidad_sugerida?: number | null;
+  unidad_dosis?: string | null;
+  descripcion?: string | null;
+}
+
 export interface CreateRecomendacionDto {
   titulo: string;
   descripcion: string;
-  tipo: string;
+  tipo?: string;
+  estado?: string;
   docente_id: number;
   lote_id: number;
   diagnostico_id?: number;
+  subtipo_id?: number | null;
+  formulario_recomendacion?: Record<string, any> | null;
   inventario_item_id?: number;
   cantidad_sugerida?: number;
+  items_sugeridos?: ItemSugeridoDto[];
 }
 
 export interface UpdateRecomendacionDto {

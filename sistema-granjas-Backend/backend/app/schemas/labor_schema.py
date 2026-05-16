@@ -66,6 +66,7 @@ class LaborBase(BaseModel):
 class LaborCreate(LaborBase):
     recomendacion_id: int = Field(..., gt=0, description="ID de la recomendación asociada")
     trabajador_id: Optional[int] = Field(None, gt=0, description="ID del trabajador asignado (opcional al crear)")
+    productos: Optional[List[ProductoLaborCreate]] = Field(default=[], description="Productos a asociar a la labor")
 
 
 # ============================================================

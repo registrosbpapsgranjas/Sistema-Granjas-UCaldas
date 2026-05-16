@@ -417,11 +417,11 @@ const LaborForm: React.FC<LaborFormProps> = ({
         }
 
         // Incluir productos de la labor
-        datosSubmit.items_sugeridos = productosLabor
+        datosSubmit.productos = productosLabor
             .filter(p => p.inventario_item_id)
             .map(p => ({
                 inventario_item_id: p.inventario_item_id,
-                cantidad_sugerida: p.dosis ? parseFloat(p.dosis) : null,
+                cantidad_usada: p.dosis ? parseFloat(p.dosis) : null,
                 unidad_dosis: p.unidad || null,
             }));
 

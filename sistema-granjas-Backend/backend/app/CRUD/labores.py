@@ -56,9 +56,24 @@ def crear_labor_crud(db: Session, data: LaborCreate, usuario: Usuario):
     )
     
     db.add(labor)
+    db.flush()
+
+    for prod_data in (data.productos or []):
+        if prod_data.inventario_item_id:
+            pl = ProductoLabor(
+                labor_id=labor.id,
+                inventario_item_id=prod_data.inventario_item_id,
+                cantidad_usada=prod_data.cantidad_usada,
+                dosis_aplicada=prod_data.dosis_aplicada,
+                unidad_dosis=prod_data.unidad_dosis,
+                descripcion=prod_data.descripcion,
+            )
+            db.add(pl)
+
     db.commit()
     db.refresh(labor)
     _cargar_relaciones_labor(labor)
+    _cargar_recursos_labor(db, labor)
     
     return _labor_a_dict_con_recursos(labor)
 
