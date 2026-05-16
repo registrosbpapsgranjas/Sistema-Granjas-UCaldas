@@ -26,7 +26,6 @@ import GestionEstadisticasPage from './pages/GestionEstadisticas';
 import LoteMapa from './components/Lotes/LoteMapa';
 import TableroLaboresPage from './pages/TableroLaboresPage';
 
-
 function AppContent() {
   const { token } = useAuthValue();
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
@@ -80,7 +79,7 @@ function AppContent() {
         }}
       />
 
-      {/* Banners de estado de conexión — solo se muestran cuando hay problemas */}
+      {/* Banners de estado de conexión */}
       {!navigator.onLine && (
         <div className="bg-yellow-500 text-white text-center py-1.5 px-4 text-sm font-medium flex items-center justify-center gap-2">
           <i className="fas fa-wifi-slash text-xs"></i>
@@ -122,6 +121,8 @@ function AppContent() {
         />
 
         {/* ===== RUTAS DE GESTIÓN PRINCIPALES ===== */}
+
+        {/* Granjas - Solo admin */}
         <Route
           path="/gestion/granjas"
           element={
@@ -131,42 +132,47 @@ function AppContent() {
           }
         />
 
+        {/* Mapa de lote - Todos excepto talento_humano */}
         <Route
           path="/lotes/:loteId/mapa"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante', 'trabajador']}>
               <LoteMapa />
             </ProtectedRoute>
           }
         />
 
+        {/* Programas - Admin y docente (docente solo su programa) */}
         <Route
           path="/gestion/programas"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente']}>
               <GestionProgramasPage />
             </ProtectedRoute>
           }
         />
 
+        {/* Lotes - Admin, docente, estudiante, trabajador */}
         <Route
           path="/gestion/lotes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante', 'trabajador']}>
               <GestionLotesPage />
             </ProtectedRoute>
           }
         />
 
+        {/* Cultivos - Admin y docente */}
         <Route
           path="/gestion/cultivos"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante']}>
               <GestionCultivosPage />
             </ProtectedRoute>
           }
         />
 
+        {/* Plantas - Admin y docente */}
         <Route
           path="/gestion/plantas"
           element={
@@ -176,6 +182,7 @@ function AppContent() {
           }
         />
 
+        {/* Tablero de labores - Admin, docente, talento_humano, trabajador */}
         <Route
           path="/tablero"
           element={
@@ -185,6 +192,7 @@ function AppContent() {
           }
         />
 
+        {/* Gestión de labores - Admin, docente, talento_humano, trabajador, asesor */}
         <Route
           path="/gestion/labores"
           element={
@@ -194,6 +202,7 @@ function AppContent() {
           }
         />
 
+        {/* Usuarios - Admin (todos) y talento_humano (solo trabajadores) - La lógica de filtrado va en el componente */}
         <Route
           path="/gestion/usuarios"
           element={
@@ -203,6 +212,7 @@ function AppContent() {
           }
         />
 
+        {/* Inventario - Admin, docente, asesor */}
         <Route
           path="/gestion/inventario"
           element={
@@ -212,6 +222,7 @@ function AppContent() {
           }
         />
 
+        {/* Diagnósticos - Admin, docente (ver), asesor (ver), estudiante (crear) */}
         <Route
           path="/gestion/diagnosticos"
           element={
@@ -221,6 +232,7 @@ function AppContent() {
           }
         />
 
+        {/* Recomendaciones - Admin, docente (crear/aprobar), asesor (ver), estudiante (ver sus asociadas) */}
         <Route
           path="/gestion/recomendaciones"
           element={
@@ -230,6 +242,7 @@ function AppContent() {
           }
         />
 
+        {/* Estadísticas - Solo admin */}
         <Route
           path="/gestion/estadisticas"
           element={
@@ -245,7 +258,7 @@ function AppContent() {
         <Route
           path="/granjas/:granjaId/programas"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente']}>
               <GestionProgramasPage />
             </ProtectedRoute>
           }
@@ -255,7 +268,7 @@ function AppContent() {
         <Route
           path="/granjas/:granjaId/programas/:programaId/lotes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante', 'trabajador']}>
               <GestionLotesPage />
             </ProtectedRoute>
           }
@@ -265,27 +278,27 @@ function AppContent() {
         <Route
           path="/programas/:programaId/lotes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante', 'trabajador']}>
               <GestionLotesPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Lotes filtrados por cultivo (vía query params) */}
+        {/* Lotes filtrados por cultivo */}
         <Route
           path="/lotes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante', 'trabajador']}>
               <GestionLotesPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Cultivos filtrados por programa (vía query params) */}
+        {/* Cultivos filtrados por programa */}
         <Route
           path="/gestion/cultivos"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'asesor', 'estudiante']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante']}>
               <GestionCultivosPage />
             </ProtectedRoute>
           }
