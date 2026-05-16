@@ -24,22 +24,21 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
     onCrearRecomendacion,
     currentUser
 }) => {
-    // Determinar si el usuario actual es docente (rol_id 2 o 5)
-    const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
-    // Determinar si es admin
+    // Determinar rol
     const esAdmin = currentUser?.rol_id === 1;
+    const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
+    
+    // Obtener IDs de programas del docente desde la relación usuario_programa
+    const programasDocente = currentUser?.programas?.map((p: any) => p.id) || [];
 
-    // Filtrar diagnósticos: docente solo ve los de su programa
-    // NOTA: Esta lógica DEBERÍA hacerse en el backend, pero la agregamos aquí como respaldo
+    // Filtrar diagnósticos: docente solo ve los de sus programas
     const diagnosticosFiltrados = diagnosticos.filter(d => {
         if (esAdmin) return true; // Admin ve todo
         if (esDocente) {
-            // Docente solo ve diagnósticos de su programa
-            // El programa_id se obtiene del diagnóstico (d.programa_id)
-            // Y se compara con el programa del docente (currentUser.programa_id)
-            const programaDocente = currentUser?.programa_id;
-            if (!programaDocente) return false;
-            return d.programa_id === programaDocente;
+            // Si no tiene programas asignados, no ve nada
+            if (programasDocente.length === 0) return false;
+            // Ver si el diagnóstico pertenece a alguno de sus programas
+            return programasDocente.includes(d.programa_id);
         }
         return true; // Otros roles ven lo que reciben
     });
@@ -61,13 +60,11 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
         );
     };
 
-    // Verificar si puede crear recomendación (solo para diagnósticos pendientes)
+    // Verificar si puede crear recomendación
     const puedeCrearRecomendacion = (diagnostico: DiagnosticoItem) => {
         if (!onCrearRecomendacion) return false;
         const pendiente = !diagnostico.estado_revision || diagnostico.estado_revision === 'pendiente_revision';
-        // Solo docentes y admin pueden crear recomendaciones
-        const puede = (esAdmin || esDocente);
-        return puede && pendiente;
+        return (esAdmin || esDocente) && pendiente;
     };
 
     if (diagnosticosFiltrados.length === 0) {
@@ -76,9 +73,14 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                 <div className="text-center py-8 text-gray-400">
                     <i className="fas fa-microscope text-3xl mb-2 block"></i>
                     <p>No hay diagnósticos disponibles</p>
-                    {esDocente && (
+                    {esDocente && programasDocente.length === 0 && (
                         <p className="text-xs text-gray-400 mt-1">
-                            Los diagnósticos de estudiantes aparecerán aquí para su revisión
+                            No tiene programas asignados. Contacte al administrador.
+                        </p>
+                    )}
+                    {esDocente && programasDocente.length > 0 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                            No hay diagnósticos en sus programas asignados.
                         </p>
                     )}
                 </div>
@@ -104,70 +106,70 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                     </thead>
 
                     <tbody className="divide-y divide-gray-200">
-                        {diagnosticosFiltrados.map((d) => {
-                            const pendiente = !d.estado_revision || d.estado_revision === 'pendiente_revision';
-                            return (
-                                <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-4 py-3 text-sm">
-                                        <div className="font-medium text-gray-900">
-                                            {d.tipo_diagnostico?.replace(/_/g, ' ') || d.tipo?.replace(/_/g, ' ') || '—'}
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                        {d.programa_nombre || 'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                        {d.tipo_monitoreo_nombre || 'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <div className="font-medium">{d.lote_nombre || `Lote ${d.lote_id}`}</div>
-                                        <div className="text-xs text-gray-500">{d.granja_nombre}</div>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                        {d.usuario_nombre || 'N/A'}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700">
-                                        {new Date(d.fecha_creacion).toLocaleDateString('es-CO')}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {getBadgeRevision(d.estado_revision)}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm">
-                                        <div className="flex gap-2 flex-wrap items-center">
-                                            <button onClick={() => onVerDetalles(d)} className="text-blue-600 hover:text-blue-800" title="Ver detalles">
-                                                👁
+                        {diagnosticosFiltrados.map((d) => (
+                            <tr key={d.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-3 text-sm">
+                                    <div className="font-medium text-gray-900">
+                                        {d.tipo_diagnostico?.replace(/_/g, ' ') || d.tipo?.replace(/_/g, ' ') || '—'}
+                                    </div>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                    {d.programa_nombre || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                    {d.tipo_monitoreo_nombre || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                    <div className="font-medium">{d.lote_nombre || `Lote ${d.lote_id}`}</div>
+                                    <div className="text-xs text-gray-500">{d.granja_nombre}</div>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                    {d.usuario_nombre || 'N/A'}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                    {new Date(d.fecha_creacion).toLocaleDateString('es-CO')}
+                                </td>
+                                <td className="px-4 py-3">
+                                    {getBadgeRevision(d.estado_revision)}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                    <div className="flex gap-2 flex-wrap items-center">
+                                        <button onClick={() => onVerDetalles(d)} className="text-blue-600 hover:text-blue-800" title="Ver detalles">
+                                            👁
+                                        </button>
+                                        {(esAdmin || esDocente) && (
+                                            <button onClick={() => onEditar(d)} className="text-yellow-600 hover:text-yellow-800" title="Editar">
+                                                ✏️
                                             </button>
-                                            {(esAdmin || (esDocente && d.usuario_id !== currentUser?.id)) && (
-                                                <button onClick={() => onEditar(d)} className="text-yellow-600 hover:text-yellow-800" title="Editar">
-                                                    ✏️
-                                                </button>
-                                            )}
-                                            {esAdmin && (
-                                                <button onClick={() => onEliminar(d.id)} className="text-red-600 hover:text-red-800" title="Eliminar">
-                                                    🗑
-                                                </button>
-                                            )}
-                                            {puedeCrearRecomendacion(d) && (
-                                                <button
-                                                    onClick={() => onCrearRecomendacion && onCrearRecomendacion(d)}
-                                                    className="text-xs font-semibold border border-orange-300 rounded px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-700 hover:text-orange-900 transition-colors"
-                                                    title="Crear recomendación para este diagnóstico"
-                                                >
-                                                    + Rec.
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                                        )}
+                                        {esAdmin && (
+                                            <button onClick={() => onEliminar(d.id)} className="text-red-600 hover:text-red-800" title="Eliminar">
+                                                🗑
+                                            </button>
+                                        )}
+                                        {puedeCrearRecomendacion(d) && (
+                                            <button
+                                                onClick={() => onCrearRecomendacion && onCrearRecomendacion(d)}
+                                                className="text-xs font-semibold border border-orange-300 rounded px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-700 hover:text-orange-900 transition-colors"
+                                                title="Crear recomendación para este diagnóstico"
+                                            >
+                                                + Rec.
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
             {esDocente && (
-                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
-                    <i className="fas fa-info-circle mr-1"></i>
-                    Mostrando diagnósticos del programa asociado a su cuenta
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center">
+                    <span>
+                        <i className="fas fa-info-circle mr-1"></i>
+                        Mostrando diagnósticos de sus programas asignados: 
+                        {currentUser?.programas?.map((p: any) => p.nombre).join(', ') || 'Ninguno'}
+                    </span>
                 </div>
             )}
         </div>

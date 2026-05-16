@@ -56,6 +56,9 @@ const GestionDiagnosticos: React.FC = () => {
   const esEstudiante = user?.rol_id === 4;
   const esAdminODocente = esAdmin || esDocente;
   
+  // Obtener IDs de programas del docente (desde relación usuario_programa)
+  const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+  
   // Solo estudiantes pueden crear diagnósticos
   const puedeCrearDiagnostico = esEstudiante;
   // Solo docentes y admin pueden crear recomendaciones desde diagnóstico
@@ -103,8 +106,24 @@ const GestionDiagnosticos: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const data = await diagnosticoService.obtenerDiagnosticos(filtros);
-      const diagnosticosData = Array.isArray(data) ? data : (data?.items || []);
+      // Construir filtros base
+      const filtrosActuales = { ...filtros };
+      
+      // Si es docente y no tiene filtro de programa explícito, filtrar por sus programas
+      if (esDocente && !filtrosActuales.programa_id && programasDocente.length > 0) {
+        filtrosActuales.programa_id = programasDocente[0];
+      }
+
+      const data = await diagnosticoService.obtenerDiagnosticos(filtrosActuales);
+      let diagnosticosData = Array.isArray(data) ? data : (data?.items || []);
+      
+      // Filtrar adicionalmente por programas del docente si es necesario
+      if (esDocente && programasDocente.length > 0) {
+        diagnosticosData = diagnosticosData.filter(d => 
+          programasDocente.includes(d.programa_id)
+        );
+      }
+      
       setDiagnosticos(diagnosticosData);
 
       try {
@@ -227,11 +246,15 @@ const GestionDiagnosticos: React.FC = () => {
     navigate(`/gestion/recomendaciones?${params.toString()}`);
   };
 
-  // Filtrado de diagnósticos según rol
+  // Filtrado de diagnósticos según rol (con soporte para programas del docente)
   const diagnosticosFiltrados = diagnosticos.filter(d => {
     if (!user) return false;
     if (esAdmin) return true;  // Admin ve todo
-    if (esDocente) return true; // Docente ve todos (para revisar)
+    if (esDocente) {
+      // Docente solo ve diagnósticos de sus programas asignados
+      if (programasDocente.length === 0) return false;
+      return programasDocente.includes(d.programa_id);
+    }
     if (esAsesor) return true;  // Asesor ve todos
     if (esEstudiante) return (d as any).usuario_id === user.id; // Estudiante solo sus diagnósticos
     return false;
@@ -317,12 +340,20 @@ const GestionDiagnosticos: React.FC = () => {
                 ))}
               </select>
 
-              <select className="border rounded p-2 text-sm" value={filtros.programa_id || ''} onChange={(e) => setFiltros({ ...filtros, programa_id: e.target.value ? parseInt(e.target.value) : undefined })}>
+              <select 
+                className="border rounded p-2 text-sm" 
+                value={filtros.programa_id || ''} 
+                onChange={(e) => setFiltros({ ...filtros, programa_id: e.target.value ? parseInt(e.target.value) : undefined })}
+              >
                 <option value="">Todos los programas</option>
                 {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
 
-              <select className="border rounded p-2 text-sm" value={filtros.estado_revision || ''} onChange={(e) => setFiltros({ ...filtros, estado_revision: (e.target.value as DiagnosticoFiltros['estado_revision']) || undefined })}>
+              <select 
+                className="border rounded p-2 text-sm" 
+                value={filtros.estado_revision || ''} 
+                onChange={(e) => setFiltros({ ...filtros, estado_revision: (e.target.value as DiagnosticoFiltros['estado_revision']) || undefined })}
+              >
                 <option value="">Todos (revisión)</option>
                 <option value="pendiente_revision">⏳ Pendientes</option>
                 <option value="revisado">✅ Revisados</option>
