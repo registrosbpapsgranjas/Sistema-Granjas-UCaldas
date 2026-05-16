@@ -28,20 +28,8 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
     const esAdmin = currentUser?.rol_id === 1;
     const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
     
-    // Obtener IDs de programas del docente desde la relación usuario_programa
-    const programasDocente = currentUser?.programas?.map((p: any) => p.id) || [];
-
-    // Filtrar diagnósticos: docente solo ve los de sus programas
-    const diagnosticosFiltrados = diagnosticos.filter(d => {
-        if (esAdmin) return true; // Admin ve todo
-        if (esDocente) {
-            // Si no tiene programas asignados, no ve nada
-            if (programasDocente.length === 0) return false;
-            // Ver si el diagnóstico pertenece a alguno de sus programas
-            return programasDocente.includes(d.programa_id);
-        }
-        return true; // Otros roles ven lo que reciben
-    });
+    // NO filtrar por programa para docentes - mostrar todos los diagnósticos
+    const diagnosticosFiltrados = diagnosticos;
 
     const getBadgeRevision = (estado?: string) => {
         if (!estado || estado === 'pendiente_revision') {
@@ -73,16 +61,6 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                 <div className="text-center py-8 text-gray-400">
                     <i className="fas fa-microscope text-3xl mb-2 block"></i>
                     <p>No hay diagnósticos disponibles</p>
-                    {esDocente && programasDocente.length === 0 && (
-                        <p className="text-xs text-gray-400 mt-1">
-                            No tiene programas asignados. Contacte al administrador.
-                        </p>
-                    )}
-                    {esDocente && programasDocente.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-1">
-                            No hay diagnósticos en sus programas asignados.
-                        </p>
-                    )}
                 </div>
             </div>
         );
@@ -143,7 +121,7 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                                             </button>
                                         )}
                                         {esAdmin && (
-                                            <button onClick={() => onEliminar(d.id)} className="text-red-600 hover:text-red-800" title="Eliminar">
+                                            <button onClick={() => onEliminar(d.id)} className="text-red-600 hover:text-red-900" title="Eliminar">
                                                 🗑
                                             </button>
                                         )}
@@ -163,15 +141,6 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                     </tbody>
                 </table>
             </div>
-            {esDocente && (
-                <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center">
-                    <span>
-                        <i className="fas fa-info-circle mr-1"></i>
-                        Mostrando diagnósticos de sus programas asignados: 
-                        {currentUser?.programas?.map((p: any) => p.nombre).join(', ') || 'Ninguno'}
-                    </span>
-                </div>
-            )}
         </div>
     );
 };
