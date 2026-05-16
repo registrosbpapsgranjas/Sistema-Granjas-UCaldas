@@ -288,7 +288,7 @@ function AppContent() {
         <Route
           path="/lotes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'trabajador']}>
               <GestionLotesPage />
             </ProtectedRoute>
           }
@@ -298,7 +298,7 @@ function AppContent() {
         <Route
           path="/gestion/cultivos"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'estudiante']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente']}>
               <GestionCultivosPage />
             </ProtectedRoute>
           }
