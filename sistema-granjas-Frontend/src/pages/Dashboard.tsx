@@ -157,8 +157,6 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
   estudiante:     [
     { label: 'Diagnóstico',     icon: 'fa-stethoscope',    path: '/gestion/diagnosticos',    color: 'bg-teal-500' },
     { label: 'Recomendaciones', icon: 'fa-lightbulb',      path: '/gestion/recomendaciones', color: 'bg-yellow-500' },
-    { label: 'Lotes',           icon: 'fa-tractor',        path: '/gestion/lotes',           color: 'bg-purple-500' },
-    { label: 'Cultivos',        icon: 'fa-leaf',           path: '/gestion/cultivos',        color: 'bg-green-500' },
   ],
   trabajador:     [
     { label: 'Mi tablero', icon: 'fa-th-large',        path: '/tablero',         color: 'bg-orange-500' },
