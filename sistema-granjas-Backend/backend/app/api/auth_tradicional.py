@@ -102,7 +102,7 @@ def get_roles_disponibles(db: Session = Depends(get_db)):
 
 
 @router.get("/verify", response_model=UserVerification)
-def verify_token_endpoint(token: str):
+def verify_token_endpoint(token: str, db: Session = Depends(get_db)):
     """
     Endpoint para verificar si un token es válido y devolver la información del usuario.
     """
@@ -114,12 +114,35 @@ def verify_token_endpoint(token: str):
             detail="Token inválido o expirado"
         )
     
+    # Obtener el usuario completo de la base de datos para incluir sus programas
+    from app.db.models import Usuario
+    user_id = payload.get("id")
+    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no encontrado"
+        )
+    
+    # Obtener programas asociados
+    programas = []
+    for programa in usuario.programas:
+        programas.append({
+            "id": programa.id,
+            "nombre": programa.nombre,
+            "tipo": programa.tipo,
+            "activo": programa.activo
+        })
+    
     return UserVerification(
         valid=True,
         user={
-            "email": payload.get("sub"),
-            "rol": payload.get("rol"),
-            "rol_id": payload.get("rol_id"),
-            "nombre": payload.get("nombre")
+            "id": usuario.id,
+            "email": usuario.email,
+            "rol": usuario.rol.nombre if usuario.rol else None,
+            "rol_id": usuario.rol_id,
+            "nombre": usuario.nombre,
+            "programas": programas  # 👈 NUEVO: incluir programas
         }
     )

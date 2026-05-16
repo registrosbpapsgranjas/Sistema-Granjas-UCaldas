@@ -16,8 +16,21 @@ class AuthService:
     """Clase que encapsula la lógica de negocio para la autenticación."""
 
     @staticmethod
+    def _get_programas_info(usuario):
+        """Obtiene la lista de programas asociados al usuario desde la tabla usuario_programa."""
+        programas = []
+        for programa in usuario.programas:
+            programas.append({
+                "id": programa.id,
+                "nombre": programa.nombre,
+                "tipo": programa.tipo,
+                "activo": programa.activo
+            })
+        return programas
+
+    @staticmethod
     def _create_token_response(usuario, message: str = None) -> TokenResponse:
-        """Helper para generar el JWT y la respuesta estándar."""
+        """Helper para generar el JWT y la respuesta estándar con programas incluidos."""
         access_token = create_access_token({
             "id": usuario.id,
             "sub": usuario.email,
@@ -29,6 +42,9 @@ class AuthService:
         # Verificar si el usuario tiene rol y obtener su nombre
         rol_nombre = usuario.rol.nombre if hasattr(usuario, 'rol') and usuario.rol else "usuario"
         
+        # Obtener programas asociados
+        programas = AuthService._get_programas_info(usuario)
+        
         return TokenResponse(
             id=usuario.id,
             access_token=access_token,
@@ -37,6 +53,7 @@ class AuthService:
             rol=rol_nombre,
             rol_id=usuario.rol_id,
             email=usuario.email,
+            programas=programas,  # 👈 NUEVO: incluir programas
             message=message
         )
 

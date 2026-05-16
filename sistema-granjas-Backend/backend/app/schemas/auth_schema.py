@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import re
 
 class TokenResponse(BaseModel):
@@ -10,6 +10,7 @@ class TokenResponse(BaseModel):
     rol: str
     rol_id: int
     email: EmailStr
+    programas: Optional[List[Dict[str, Any]]] = []  # 👈 NUEVO: lista de programas
     message: str | None = None 
 
 class LoginRequest(BaseModel):
@@ -85,7 +86,7 @@ class LogoutRequest(BaseModel):
 
 class UserVerification(BaseModel):
     valid: bool
-    user: dict
+    user: Optional[Dict[str, Any]] = None  # 👈 NUEVO: incluir programas aquí también
     
 class SuccessMessage(BaseModel):
     message: str

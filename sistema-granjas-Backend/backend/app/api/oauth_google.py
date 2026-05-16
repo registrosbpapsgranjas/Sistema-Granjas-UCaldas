@@ -14,8 +14,6 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# La función verify_google_token fue movida a app.services.auth_service.py
-
 @router.get("/roles-disponibles", response_model=RolesAvailableResponse)
 def obtener_roles_para_registro(db: Session = Depends(get_db)):
     """
@@ -45,21 +43,22 @@ def login_with_google(data: GoogleLoginRequest, db: Session = Depends(get_db)):
         
         # Llama al servicio para manejar toda la lógica de verificación y login
         response = AuthService.login_with_google(db, data)
-        response.message = "Login con Google exitoso" # Aunque el TokenResponse no tiene message en el esquema, se incluye por consistencia.
+        response.message = "Login con Google exitoso"
         return response
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error inesperado en login Google: {str(e)}")
-        # Los errores 500 deberían ser muy raros aquí, ya que el servicio maneja la mayoría.
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error en autenticación: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Error en autenticación: {str(e)}"
+        )
 
-# Endpoint de DEBUG para verificar configuración Google (se mantiene en el router)
 @router.get("/debug/google-config")
 def debug_google_config():
     """Endpoint para debug de configuración Google"""
-    from app.core.config import settings # Importación local
+    from app.core.config import settings
     client_id = settings.GOOGLE_CLIENT_ID
     return {
         "client_id": client_id,
