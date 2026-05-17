@@ -30,12 +30,24 @@ type CampoTab = 'diagnostico' | 'recomendacion';
 const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }) => {
   const { user } = useAuth();
   
+  // Estado de carga para permisos
+  const [permisosCargando, setPermisosCargando] = useState(true);
+  
   // Permisos según rol
   const esAdmin = user?.rol_id === 1;
   const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
   
   // Obtener IDs de programas del docente
   const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+  
+  // Verificar permisos después de que user esté cargado
+  useEffect(() => {
+    // Pequeño delay para asegurar que user está completamente cargado
+    const timer = setTimeout(() => {
+      setPermisosCargando(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [user]);
   
   // Verificar si el usuario puede gestionar este programa
   const puedeGestionarPrograma = esAdmin || (esDocente && programasDocente.includes(programaId));
@@ -81,6 +93,16 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     opciones_texto: '', filas_texto: '', tipo_celda: 'boolean',
     orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
+
+  // Mostrar loading mientras se verifican permisos
+  if (permisosCargando) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <span className="ml-3 text-gray-600">Verificando permisos...</span>
+      </div>
+    );
+  }
 
   // Si el usuario no puede gestionar este programa, mostrar mensaje
   if (!puedeGestionarPrograma) {
