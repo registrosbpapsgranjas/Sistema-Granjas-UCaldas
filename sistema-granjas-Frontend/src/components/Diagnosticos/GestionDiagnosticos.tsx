@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import diagnosticoService from '../../services/diagnosticoService';
@@ -18,224 +18,179 @@ import { useAuth } from '../../hooks/useAuth';
 import granjaService from '../../services/granjaService';
 import exportService from '../../services/exportService';
 
+type TabType = 'diagnosticos' | 'tipos';
+
 const GestionDiagnosticos: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // ── Roles ──────────────────────────────────────────────────────────────────
+  const esAdmin = user?.rol_id === 1;
+  const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+  const esAsesor = user?.rol_id === 3;
+  const esEstudiante = user?.rol_id === 4;
+
+  // Memoizado para evitar loops en useEffect
+  const programasDocente = useMemo(
+    () => user?.programas?.map((p: any) => p.id) || [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.id]
+  );
+
+  const puedeCrearDiagnostico = esEstudiante;
+  const puedeCrearRecomendacion = esAdmin || esDocente;
+  const puedeGestionarTipos = esAdmin || esDocente;
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+  const [tabActivo, setTabActivo] = useState<TabType>('diagnosticos');
+
+  // ── Estado pestaña Diagnósticos ────────────────────────────────────────────
   const [diagnosticos, setDiagnosticos] = useState<DiagnosticoItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingDiag, setLoadingDiag] = useState(true);
+  const [errorDiag, setErrorDiag] = useState<string | null>(null);
+  const [lotes, setLotes] = useState<any[]>([]);
+  const [filtros, setFiltros] = useState<DiagnosticoFiltros>({});
+  const [subtiposFiltro, setSubtiposFiltro] = useState<DiagnosticoTipo[]>([]);
+  const [cargandoSubtipos, setCargandoSubtipos] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState('');
 
   const [showCrearModal, setShowCrearModal] = useState(false);
   const [showEditarModal, setShowEditarModal] = useState(false);
   const [showEvidenciaModal, setShowEvidenciaModal] = useState(false);
   const [showDetallesModal, setShowDetallesModal] = useState(false);
-
   const [selectedDiagnostico, setSelectedDiagnostico] = useState<DiagnosticoItem | null>(null);
 
-  const [lotes, setLotes] = useState<any[]>([]);
+  // ── Estado pestaña Tipos ───────────────────────────────────────────────────
   const [programas, setProgramas] = useState<any[]>([]);
   const [monitoreos, setMonitoreos] = useState<any[]>([]);
-  const [subtiposFiltro, setSubtiposFiltro] = useState<DiagnosticoTipo[]>([]);
-  const [cargandoSubtipos, setCargandoSubtipos] = useState(false);
-  const [cargandoMonitoreos, setCargandoMonitoreos] = useState(true);
+  const [programaSeleccionado, setProgramaSeleccionado] = useState<number | null>(null);
+  const [loadingTipos, setLoadingTipos] = useState(false);
 
-  const [filtros, setFiltros] = useState<DiagnosticoFiltros>({});
-  const [estadisticas, setEstadisticas] = useState<any>(null);
+  // ── Carga inicial de programas y monitoreos (para pestaña Tipos) ───────────
+  const cargarDatosParaTipos = useCallback(async () => {
+    if (!user) return;
+    setLoadingTipos(true);
+    try {
+      // Cargar programas
+      const programasData = await programaService.obtenerProgramas();
+      let listaProgramas = Array.isArray(programasData)
+        ? programasData
+        : (programasData?.items || []);
 
-  const [exporting, setExporting] = useState(false);
-  const [exportMessage, setExportMessage] = useState('');
-
-  // Tabs
-  const [tabActivo, setTabActivo] = useState<'diagnosticos' | 'tipos'>('diagnosticos');
-  const [programaSeleccionadoTipos, setProgramaSeleccionadoTipos] = useState<number | null>(null);
-
-  // Permisos según rol
-  const esAdmin = user?.rol_id === 1;
-  const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
-  const esAsesor = user?.rol_id === 3;
-  const esEstudiante = user?.rol_id === 4;
-  
-  // Obtener IDs de programas del docente — memoizado para evitar bucles en useEffect
-  const programasDocente = useMemo(
-    () => user?.programas?.map((p: any) => p.id) || [],
-    [user?.id]
-  );
-  
-  // Solo estudiantes pueden crear diagnósticos
-  const puedeCrearDiagnostico = esEstudiante;
-  // Solo docentes y admin pueden crear recomendaciones desde diagnóstico
-  const puedeCrearRecomendacion = esAdmin || esDocente;
-  // Solo admin y docente pueden gestionar tipos de diagnóstico
-  const puedeGestionarTipos = esAdmin || esDocente;
-
-  // Cargar programas de forma independiente al montar (necesario para la pestaña de Tipos)
-  useEffect(() => {
-    const cargarProgramas = async () => {
-      try {
-        const programasData = await programaService.obtenerProgramas();
-        let lista = Array.isArray(programasData) ? programasData : (programasData?.items || []);
-        // Docente solo gestiona tipos de sus propios programas
-        if (esDocente && programasDocente.length > 0) {
-          lista = lista.filter((p: any) => programasDocente.includes(p.id));
-        }
-        setProgramas(lista);
-        if (lista.length > 0) {
-          setProgramaSeleccionadoTipos(prev => prev || lista[0].id);
-        }
-      } catch {
-        setProgramas([]);
+      // Docente solo ve sus programas
+      if (esDocente && programasDocente.length > 0) {
+        listaProgramas = listaProgramas.filter((p: any) =>
+          programasDocente.includes(p.id)
+        );
       }
-    };
-    cargarProgramas();
-  }, [esDocente, programasDocente]);
+      setProgramas(listaProgramas);
+      if (listaProgramas.length > 0) {
+        setProgramaSeleccionado(prev => prev ?? listaProgramas[0].id);
+      }
 
-  // Cargar monitoreos una sola vez al montar el componente
-  useEffect(() => {
-    const cargarMonitoreos = async () => {
-      setCargandoMonitoreos(true);
-      try {
-        let todosMonitoreos = await monitoreoService.obtenerMonitoreos();
-        let monitoreosArray = Array.isArray(todosMonitoreos) ? todosMonitoreos : (todosMonitoreos?.items || []);
-        
-        // Si es docente, filtrar monitoreos por sus programas
-        if (esDocente && programasDocente.length > 0) {
-          const monitoreosPorPrograma = await Promise.all(
-            programasDocente.map(async (programaId) => {
-              try {
-                return await monitoreoService.obtenerMonitoreosPorPrograma(programaId);
-              } catch {
-                return [];
-              }
-            })
-          );
-          // Unir y deduplicar monitoreos
-          const monitoreosUnicos = new Map();
-          monitoreosPorPrograma.flat().forEach((m: any) => {
-            if (!monitoreosUnicos.has(m.id)) {
-              monitoreosUnicos.set(m.id, m);
+      // Cargar monitoreos filtrados por programas del docente
+      if (esDocente && programasDocente.length > 0) {
+        const monitoreosPorPrograma = await Promise.all(
+          programasDocente.map(async (pid: number) => {
+            try {
+              return await monitoreoService.obtenerMonitoreosPorPrograma(pid);
+            } catch {
+              return [];
             }
-          });
-          monitoreosArray = Array.from(monitoreosUnicos.values());
-        }
-        
-        setMonitoreos(monitoreosArray);
-      } catch (error) {
-        console.error('Error cargando monitoreos:', error);
-        setMonitoreos([]);
-      } finally {
-        setCargandoMonitoreos(false);
+          })
+        );
+        const mapaUnicos = new Map<number, any>();
+        monitoreosPorPrograma.flat().forEach((m: any) => {
+          if (!mapaUnicos.has(m.id)) mapaUnicos.set(m.id, m);
+        });
+        setMonitoreos(Array.from(mapaUnicos.values()));
+      } else {
+        const todos = await monitoreoService.obtenerMonitoreos();
+        setMonitoreos(Array.isArray(todos) ? todos : (todos?.items || []));
       }
-    };
-    
-    cargarMonitoreos();
-  }, [esDocente, programasDocente]);
-
-  const handleExportDiagnosticos = async () => {
-    if (exporting) return;
-    setExporting(true);
-    setExportMessage('Exportando diagnósticos...');
-    try {
-      const result = await exportService.exportarDiagnosticos();
-      setExportMessage(`¡Exportación completada! (${result.filename})`);
-      setTimeout(() => setExportMessage(''), 5000);
-    } catch (error) {
-      console.error('❌ Error exportando diagnósticos:', error);
-      setExportMessage('Error al exportar.');
-      setTimeout(() => setExportMessage(''), 5000);
+    } catch (err) {
+      console.error('Error cargando datos para tipos:', err);
+      toast.error('Error al cargar los tipos de diagnóstico');
     } finally {
-      setExporting(false);
+      setLoadingTipos(false);
     }
-  };
+  }, [user?.id, esDocente, programasDocente]);
 
+  // Cargar datos para tipos cuando el usuario esté disponible
   useEffect(() => {
-    if (tabActivo === 'diagnosticos') {
-      cargarDatos();
-      cargarEstadisticas();
-    }
-  }, [filtros, tabActivo]);
+    if (user) cargarDatosParaTipos();
+  }, [user?.id]);
 
-  useEffect(() => {
-    const monitoreoId = filtros.tipo_monitoreo_id;
-    if (!monitoreoId) {
-      setSubtiposFiltro([]);
-      return;
-    }
-    setCargandoSubtipos(true);
-    diagnosticoDinamicoService.listarSubtiposPorMonitoreo(monitoreoId)
-      .then(data => setSubtiposFiltro(data.filter(s => s.activo)))
-      .catch(() => setSubtiposFiltro([]))
-      .finally(() => setCargandoSubtipos(false));
-  }, [filtros.tipo_monitoreo_id]);
-
-  const cargarDatos = async () => {
+  // ── Carga de diagnósticos ──────────────────────────────────────────────────
+  const cargarDiagnosticos = useCallback(async () => {
+    setLoadingDiag(true);
+    setErrorDiag(null);
     try {
-      setLoading(true);
-      setError(null);
-
-      // Construir filtros base
       const filtrosActuales = { ...filtros };
-      
-      // Si es docente y no tiene filtro de programa explícito, filtrar por sus programas
+
       if (esDocente && !filtrosActuales.programa_id && programasDocente.length > 0) {
         filtrosActuales.programa_id = programasDocente[0];
       }
 
       const data = await diagnosticoService.obtenerDiagnosticos(filtrosActuales);
-      let diagnosticosData = Array.isArray(data) ? data : (data?.items || []);
-      
-      // Filtrar adicionalmente por programas del docente si es necesario
+      let items = Array.isArray(data) ? data : (data?.items || []);
+
       if (esDocente && programasDocente.length > 0) {
-        diagnosticosData = diagnosticosData.filter(d => 
+        items = items.filter((d: DiagnosticoItem) =>
           programasDocente.includes(d.programa_id)
         );
       }
-      
-      setDiagnosticos(diagnosticosData);
+
+      setDiagnosticos(items);
 
       if (lotes.length === 0) {
-        try {
-          const lotesData = await loteService.obtenerLotes();
-          let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
-          lotesArray = await Promise.all(
-            lotesArray.map(async (lote: any) => {
-              try {
-                if (lote.granja_id) {
-                  const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
-                  return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
-                }
-                return { ...lote, granja_nombre: 'Sin granja' };
-              } catch {
-                return { ...lote, granja_nombre: 'Error al cargar' };
+        const lotesData = await loteService.obtenerLotes();
+        let lotesArr = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
+        lotesArr = await Promise.all(
+          lotesArr.map(async (lote: any) => {
+            try {
+              if (lote.granja_id) {
+                const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
+                return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
               }
-            })
-          );
-          setLotes(lotesArray);
-        } catch { setLotes([]); }
+              return { ...lote, granja_nombre: 'Sin granja' };
+            } catch {
+              return { ...lote, granja_nombre: 'Error al cargar' };
+            }
+          })
+        );
+        setLotes(lotesArr);
       }
     } catch (err: any) {
-      console.error('❌ Error en cargarDatos:', err);
-      setError(err.message || 'Error al cargar diagnósticos');
-      toast.error(`Error al cargar datos: ${err.message}`);
+      setErrorDiag(err.message || 'Error al cargar diagnósticos');
+      toast.error(`Error: ${err.message}`);
     } finally {
-      setLoading(false);
+      setLoadingDiag(false);
     }
-  };
+  }, [filtros, esDocente, programasDocente]);
 
-  const cargarEstadisticas = async () => {
-    try {
-      const stats = await diagnosticoService.obtenerEstadisticas();
-      setEstadisticas(stats);
-    } catch (err) {
-      console.error('❌ Error cargando estadísticas:', err);
+  useEffect(() => {
+    if (tabActivo === 'diagnosticos' && user) {
+      cargarDiagnosticos();
     }
-  };
+  }, [filtros, tabActivo, user?.id]);
 
+  // Subtipos para filtro
+  useEffect(() => {
+    const monitoreoId = filtros.tipo_monitoreo_id;
+    if (!monitoreoId) { setSubtiposFiltro([]); return; }
+    setCargandoSubtipos(true);
+    diagnosticoDinamicoService
+      .listarSubtiposPorMonitoreo(monitoreoId)
+      .then(data => setSubtiposFiltro(data.filter(s => s.activo)))
+      .catch(() => setSubtiposFiltro([]))
+      .finally(() => setCargandoSubtipos(false));
+  }, [filtros.tipo_monitoreo_id]);
+
+  // ── Handlers CRUD ──────────────────────────────────────────────────────────
   const handleCrearDiagnostico = async (formData: FormData) => {
-    if (!puedeCrearDiagnostico) {
-      toast.error('No tiene permisos para crear diagnósticos');
-      return;
-    }
+    if (!puedeCrearDiagnostico) { toast.error('Sin permisos para crear diagnósticos'); return; }
     try {
       if (!user?.id) throw new Error('Usuario no autenticado');
       formData.append('usuario_id', String(user.id));
@@ -243,9 +198,8 @@ const GestionDiagnosticos: React.FC = () => {
       setDiagnosticos(prev => [nuevo, ...prev]);
       toast.success('Diagnóstico creado exitosamente');
       setShowCrearModal(false);
-      cargarEstadisticas();
     } catch (err: any) {
-      toast.error(`Error al crear diagnóstico: ${err.message}`);
+      toast.error(`Error al crear: ${err.message}`);
     }
   };
 
@@ -266,7 +220,6 @@ const GestionDiagnosticos: React.FC = () => {
       await diagnosticoService.eliminarDiagnostico(id);
       setDiagnosticos(prev => prev.filter(d => d.id !== id));
       toast.success('Diagnóstico eliminado');
-      cargarEstadisticas();
     } catch (err: any) {
       toast.error(`Error al eliminar: ${err.message}`);
     }
@@ -287,15 +240,24 @@ const GestionDiagnosticos: React.FC = () => {
     }
   };
 
-  const openEditarModal = (diag: DiagnosticoItem) => { setSelectedDiagnostico(diag); setShowEditarModal(true); };
-  const openEvidenciaModal = (diag: DiagnosticoItem) => { setSelectedDiagnostico(diag); setShowEvidenciaModal(true); };
-  const openDetallesModal = (diag: DiagnosticoItem) => { setSelectedDiagnostico(diag); setShowDetallesModal(true); };
+  const handleExportar = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setExportMessage('Exportando diagnósticos...');
+    try {
+      const result = await exportService.exportarDiagnosticos();
+      setExportMessage(`¡Completado! (${result.filename})`);
+      setTimeout(() => setExportMessage(''), 5000);
+    } catch {
+      setExportMessage('Error al exportar.');
+      setTimeout(() => setExportMessage(''), 5000);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const crearRecomendacionDesdeDiagnostico = (diag: DiagnosticoItem) => {
-    if (!puedeCrearRecomendacion) {
-      toast.error('No tiene permisos para crear recomendaciones');
-      return;
-    }
+    if (!puedeCrearRecomendacion) { toast.error('Sin permisos'); return; }
     const params = new URLSearchParams({
       diagnostico_id: String(diag.id),
       lote_id: String((diag as any).lote_id || ''),
@@ -303,28 +265,28 @@ const GestionDiagnosticos: React.FC = () => {
     navigate(`/gestion/recomendaciones?${params.toString()}`);
   };
 
-  // Filtrado de diagnósticos según rol
+  // ── Filtrado final por rol ─────────────────────────────────────────────────
   const diagnosticosFiltrados = diagnosticos.filter(d => {
     if (!user) return false;
-    if (esAdmin) return true;
-    if (esDocente) {
-      if (programasDocente.length === 0) return false;
-      return programasDocente.includes(d.programa_id);
-    }
-    if (esAsesor) return true;
+    if (esAdmin || esAsesor) return true;
+    if (esDocente) return programasDocente.length > 0 && programasDocente.includes(d.programa_id);
     if (esEstudiante) return (d as any).usuario_id === user.id;
     return false;
   });
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="p-6">
-      {/* Tabs */}
+      {/* HEADER */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-800">Diagnósticos</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             {tabActivo === 'diagnosticos' && puedeCrearDiagnostico && (
-              <button onClick={() => setShowCrearModal(true)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+              <button
+                onClick={() => setShowCrearModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+              >
                 <i className="fas fa-plus"></i> Nuevo Diagnóstico
               </button>
             )}
@@ -336,8 +298,8 @@ const GestionDiagnosticos: React.FC = () => {
           </div>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex border-b border-gray-200 mb-4">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
           <button
             onClick={() => setTabActivo('diagnosticos')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition ${tabActivo === 'diagnosticos' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -355,7 +317,7 @@ const GestionDiagnosticos: React.FC = () => {
         </div>
       </div>
 
-      {/* TAB: Diagnósticos */}
+      {/* ── PESTAÑA: DIAGNÓSTICOS ── */}
       {tabActivo === 'diagnosticos' && (
         <>
           <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -364,60 +326,52 @@ const GestionDiagnosticos: React.FC = () => {
               <select
                 className="border rounded p-2 text-sm"
                 value={filtros.tipo_monitoreo_id || ''}
-                onChange={(e) => setFiltros({
+                onChange={e => setFiltros({
                   ...filtros,
                   tipo_monitoreo_id: e.target.value ? parseInt(e.target.value) : undefined,
                   diagnostico_tipo_id: undefined,
                 })}
               >
                 <option value="">Todos los tipos de monitoreo</option>
-                {monitoreos.map(m => (
-                  <option key={m.id} value={m.id}>{m.nombre}</option>
-                ))}
+                {monitoreos.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
               </select>
 
               <select
                 className="border rounded p-2 text-sm"
                 value={filtros.diagnostico_tipo_id || ''}
-                onChange={(e) => setFiltros({ ...filtros, diagnostico_tipo_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={e => setFiltros({ ...filtros, diagnostico_tipo_id: e.target.value ? parseInt(e.target.value) : undefined })}
                 disabled={!filtros.tipo_monitoreo_id || cargandoSubtipos}
               >
                 <option value="">
-                  {!filtros.tipo_monitoreo_id
-                    ? 'Selecciona un monitoreo primero'
-                    : cargandoSubtipos
-                    ? 'Cargando subtipos...'
-                    : subtiposFiltro.length === 0
-                    ? 'Sin subtipos disponibles'
+                  {!filtros.tipo_monitoreo_id ? 'Selecciona un monitoreo primero'
+                    : cargandoSubtipos ? 'Cargando subtipos...'
+                    : subtiposFiltro.length === 0 ? 'Sin subtipos disponibles'
                     : 'Todos los subtipos'}
                 </option>
-                {subtiposFiltro.map(s => (
-                  <option key={s.id} value={s.id}>{s.nombre}</option>
-                ))}
+                {subtiposFiltro.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
               </select>
 
               {esAdmin && (
-                <select 
-                  className="border rounded p-2 text-sm" 
-                  value={filtros.programa_id || ''} 
-                  onChange={(e) => setFiltros({ ...filtros, programa_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                <select
+                  className="border rounded p-2 text-sm"
+                  value={filtros.programa_id || ''}
+                  onChange={e => setFiltros({ ...filtros, programa_id: e.target.value ? parseInt(e.target.value) : undefined })}
                 >
                   <option value="">Todos los programas</option>
                   {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
               )}
 
-              <select 
-                className="border rounded p-2 text-sm" 
-                value={filtros.estado_revision || ''} 
-                onChange={(e) => setFiltros({ ...filtros, estado_revision: (e.target.value as DiagnosticoFiltros['estado_revision']) || undefined })}
+              <select
+                className="border rounded p-2 text-sm"
+                value={filtros.estado_revision || ''}
+                onChange={e => setFiltros({ ...filtros, estado_revision: (e.target.value as DiagnosticoFiltros['estado_revision']) || undefined })}
               >
                 <option value="">Todos (revisión)</option>
                 <option value="pendiente_revision">⏳ Pendientes</option>
                 <option value="revisado">✅ Revisados</option>
               </select>
             </div>
-
             <div className="mt-3 flex justify-end">
               <button
                 onClick={() => { setFiltros({}); setSubtiposFiltro([]); }}
@@ -428,17 +382,23 @@ const GestionDiagnosticos: React.FC = () => {
             </div>
           </div>
 
-          {loading ? (
-            <div className="text-center py-8"><i className="fas fa-spinner fa-spin text-2xl"></i><p className="mt-2 text-gray-600">Cargando...</p></div>
-          ) : error ? (
-            <div className="bg-red-50 p-4 rounded text-red-700"><p>{error}</p><button onClick={cargarDatos} className="mt-2 text-blue-600 underline">Reintentar</button></div>
+          {loadingDiag ? (
+            <div className="text-center py-8">
+              <i className="fas fa-spinner fa-spin text-2xl text-blue-500"></i>
+              <p className="mt-2 text-gray-600">Cargando diagnósticos...</p>
+            </div>
+          ) : errorDiag ? (
+            <div className="bg-red-50 p-4 rounded text-red-700">
+              <p>{errorDiag}</p>
+              <button onClick={cargarDiagnosticos} className="mt-2 text-blue-600 underline">Reintentar</button>
+            </div>
           ) : (
             <DiagnosticosTable
               diagnosticos={diagnosticosFiltrados}
-              onEditar={openEditarModal}
+              onEditar={d => { setSelectedDiagnostico(d); setShowEditarModal(true); }}
               onEliminar={handleEliminarDiagnostico}
-              onAgregarEvidencia={openEvidenciaModal}
-              onVerDetalles={openDetallesModal}
+              onAgregarEvidencia={d => { setSelectedDiagnostico(d); setShowEvidenciaModal(true); }}
+              onVerDetalles={d => { setSelectedDiagnostico(d); setShowDetallesModal(true); }}
               currentUser={user}
               onCrearRecomendacion={puedeCrearRecomendacion ? crearRecomendacionDesdeDiagnostico : undefined}
             />
@@ -446,32 +406,37 @@ const GestionDiagnosticos: React.FC = () => {
         </>
       )}
 
-      {/* TAB: Tipos de Diagnóstico */}
+      {/* ── PESTAÑA: TIPOS DE DIAGNÓSTICO ── */}
       {tabActivo === 'tipos' && puedeGestionarTipos && (
         <div className="bg-white rounded-lg shadow p-6">
-          {cargandoMonitoreos ? (
+          {loadingTipos ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-              <span className="ml-3 text-gray-600">Cargando tipos de monitoreo...</span>
+              <span className="ml-3 text-gray-600">Cargando datos...</span>
             </div>
           ) : programas.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No hay programas disponibles.</div>
+            <div className="text-center py-8 text-gray-500">
+              <i className="fas fa-info-circle text-3xl mb-3 block text-gray-300"></i>
+              {esDocente
+                ? 'No tiene programas asignados. Contacte al administrador.'
+                : 'No hay programas disponibles.'}
+            </div>
           ) : (
             <>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Seleccionar Programa</label>
                 <select
-                  value={programaSeleccionadoTipos || ''}
-                  onChange={e => setProgramaSeleccionadoTipos(e.target.value ? parseInt(e.target.value) : null)}
+                  value={programaSeleccionado || ''}
+                  onChange={e => setProgramaSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
                   className="border rounded-lg p-2.5 text-sm w-full md:w-auto min-w-[260px]"
                 >
                   {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
               </div>
-              {programaSeleccionadoTipos && (
+              {programaSeleccionado && (
                 <GestionTiposDiagnostico
-                  programaId={programaSeleccionadoTipos}
-                  programaNombre={programas.find(p => p.id === programaSeleccionadoTipos)?.nombre}
+                  programaId={programaSeleccionado}
+                  programaNombre={programas.find(p => p.id === programaSeleccionado)?.nombre}
                   monitoreosIniciales={monitoreos}
                 />
               )}
@@ -480,19 +445,53 @@ const GestionDiagnosticos: React.FC = () => {
         </div>
       )}
 
-      {/* Modales */}
+      {/* ── MODALES ── */}
       {puedeCrearDiagnostico && (
         <Modal isOpen={showCrearModal} onClose={() => setShowCrearModal(false)} width="max-w-2xl">
-          <DiagnosticoForm onSubmit={handleCrearDiagnostico} onCancel={() => setShowCrearModal(false)} lotes={lotes} programas={programas} monitoreos={monitoreos} condiciones_dia={['Soleado', 'Nublado', 'Lluvia']} currentUser={user} />
+          <DiagnosticoForm
+            onSubmit={handleCrearDiagnostico}
+            onCancel={() => setShowCrearModal(false)}
+            lotes={lotes}
+            programas={programas}
+            monitoreos={monitoreos}
+            condiciones_dia={['Soleado', 'Nublado', 'Lluvia']}
+            currentUser={user}
+          />
         </Modal>
       )}
 
       <Modal isOpen={showEditarModal} onClose={() => setShowEditarModal(false)} width="max-w-2xl">
-        {selectedDiagnostico && <DiagnosticoForm diagnostico={selectedDiagnostico} onSubmit={(data) => handleActualizarDiagnostico(selectedDiagnostico.id, data)} onCancel={() => setShowEditarModal(false)} lotes={lotes} programas={programas} monitoreos={monitoreos} condiciones_dia={['Soleado', 'Nublado', 'Lluvia']} currentUser={user} esEdicion />}
+        {selectedDiagnostico && (
+          <DiagnosticoForm
+            diagnostico={selectedDiagnostico}
+            onSubmit={data => handleActualizarDiagnostico(selectedDiagnostico.id, data)}
+            onCancel={() => setShowEditarModal(false)}
+            lotes={lotes}
+            programas={programas}
+            monitoreos={monitoreos}
+            condiciones_dia={['Soleado', 'Nublado', 'Lluvia']}
+            currentUser={user}
+            esEdicion
+          />
+        )}
       </Modal>
 
-      {showEvidenciaModal && selectedDiagnostico && <AgregarEvidenciaModal isOpen={showEvidenciaModal} onClose={() => setShowEvidenciaModal(false)} diagnostico={selectedDiagnostico} onSubmit={handleAgregarEvidencia} />}
-      {showDetallesModal && selectedDiagnostico && <DetallesDiagnosticoModal isOpen={showDetallesModal} onClose={() => setShowDetallesModal(false)} diagnostico={selectedDiagnostico} />}
+      {showEvidenciaModal && selectedDiagnostico && (
+        <AgregarEvidenciaModal
+          isOpen={showEvidenciaModal}
+          onClose={() => setShowEvidenciaModal(false)}
+          diagnostico={selectedDiagnostico}
+          onSubmit={handleAgregarEvidencia}
+        />
+      )}
+
+      {showDetallesModal && selectedDiagnostico && (
+        <DetallesDiagnosticoModal
+          isOpen={showDetallesModal}
+          onClose={() => setShowDetallesModal(false)}
+          diagnostico={selectedDiagnostico}
+        />
+      )}
     </div>
   );
 };
