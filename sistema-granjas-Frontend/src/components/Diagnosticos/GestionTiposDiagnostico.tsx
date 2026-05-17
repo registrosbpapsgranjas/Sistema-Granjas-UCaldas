@@ -88,6 +88,17 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
     orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
 
+  // ── Actualizar lista de campos padre disponibles ──────────────────────────
+  // IMPORTANTE: este useEffect debe estar ANTES de cualquier return condicional
+  useEffect(() => {
+    if (subtipoSel) {
+      const currentFields = campoTab === 'diagnostico' ? camposDiag : camposRec;
+      setCamposPadre(currentFields.filter(c => c.tipo_dato === 'select' || c.tipo_dato === 'multiselect'));
+    } else {
+      setCamposPadre([]);
+    }
+  }, [camposDiag, camposRec, campoTab, subtipoSel]);
+
   // Mostrar loading mientras se verifica usuario
   if (loading) {
     return (
@@ -115,16 +126,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
       </div>
     );
   }
-
-  // ── Actualizar lista de campos padre disponibles ──────────────────────────
-  useEffect(() => {
-    if (subtipoSel) {
-      const currentFields = campoTab === 'diagnostico' ? camposDiag : camposRec;
-      setCamposPadre(currentFields.filter(c => c.tipo_dato === 'select' || c.tipo_dato === 'multiselect'));
-    } else {
-      setCamposPadre([]);
-    }
-  }, [camposDiag, camposRec, campoTab, subtipoSel]);
 
   const seleccionarMonitoreo = async (m: Monitoreo) => {
     setMonitoreoSel(m);
