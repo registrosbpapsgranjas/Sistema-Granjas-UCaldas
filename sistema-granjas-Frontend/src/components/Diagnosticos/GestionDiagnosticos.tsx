@@ -38,6 +38,7 @@ const GestionDiagnosticos: React.FC = () => {
   const [monitoreos, setMonitoreos] = useState<any[]>([]);
   const [subtiposFiltro, setSubtiposFiltro] = useState<DiagnosticoTipo[]>([]);
   const [cargandoSubtipos, setCargandoSubtipos] = useState(false);
+  const [cargandoMonitoreos, setCargandoMonitoreos] = useState(true);
 
   const [filtros, setFiltros] = useState<DiagnosticoFiltros>({});
   const [estadisticas, setEstadisticas] = useState<any>(null);
@@ -65,9 +66,10 @@ const GestionDiagnosticos: React.FC = () => {
   // Solo admin y docente pueden gestionar tipos de diagnóstico
   const puedeGestionarTipos = esAdmin || esDocente;
 
-  // Cargar monitoreos según el rol del usuario
+  // Cargar monitoreos una sola vez al montar el componente
   useEffect(() => {
     const cargarMonitoreos = async () => {
+      setCargandoMonitoreos(true);
       try {
         let todosMonitoreos = await monitoreoService.obtenerMonitoreos();
         let monitoreosArray = Array.isArray(todosMonitoreos) ? todosMonitoreos : (todosMonitoreos?.items || []);
@@ -97,11 +99,13 @@ const GestionDiagnosticos: React.FC = () => {
       } catch (error) {
         console.error('Error cargando monitoreos:', error);
         setMonitoreos([]);
+      } finally {
+        setCargandoMonitoreos(false);
       }
     };
     
     cargarMonitoreos();
-  }, [esDocente, programasDocente]);
+  }, [esDocente, programasDocente]); // Solo se ejecuta cuando cambia el docente o sus programas
 
   const handleExportDiagnosticos = async () => {
     if (exporting) return;
@@ -121,9 +125,11 @@ const GestionDiagnosticos: React.FC = () => {
   };
 
   useEffect(() => {
-    cargarDatos();
-    cargarEstadisticas();
-  }, [filtros]);
+    if (tabActivo === 'diagnosticos') {
+      cargarDatos();
+      cargarEstadisticas();
+    }
+  }, [filtros, tabActivo]);
 
   useEffect(() => {
     const monitoreoId = filtros.tipo_monitoreo_id;
@@ -163,31 +169,35 @@ const GestionDiagnosticos: React.FC = () => {
       
       setDiagnosticos(diagnosticosData);
 
-      try {
-        const programasData = await programaService.obtenerProgramas();
-        const lista = Array.isArray(programasData) ? programasData : (programasData?.items || []);
-        setProgramas(lista);
-        if (lista.length > 0 && !programaSeleccionadoTipos) setProgramaSeleccionadoTipos(lista[0].id);
-      } catch { setProgramas([]); }
+      if (programas.length === 0) {
+        try {
+          const programasData = await programaService.obtenerProgramas();
+          const lista = Array.isArray(programasData) ? programasData : (programasData?.items || []);
+          setProgramas(lista);
+          if (lista.length > 0 && !programaSeleccionadoTipos) setProgramaSeleccionadoTipos(lista[0].id);
+        } catch { setProgramas([]); }
+      }
 
-      try {
-        const lotesData = await loteService.obtenerLotes();
-        let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
-        lotesArray = await Promise.all(
-          lotesArray.map(async (lote: any) => {
-            try {
-              if (lote.granja_id) {
-                const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
-                return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
+      if (lotes.length === 0) {
+        try {
+          const lotesData = await loteService.obtenerLotes();
+          let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
+          lotesArray = await Promise.all(
+            lotesArray.map(async (lote: any) => {
+              try {
+                if (lote.granja_id) {
+                  const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
+                  return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
+                }
+                return { ...lote, granja_nombre: 'Sin granja' };
+              } catch {
+                return { ...lote, granja_nombre: 'Error al cargar' };
               }
-              return { ...lote, granja_nombre: 'Sin granja' };
-            } catch {
-              return { ...lote, granja_nombre: 'Error al cargar' };
-            }
-          })
-        );
-        setLotes(lotesArray);
-      } catch { setLotes([]); }
+            })
+          );
+          setLotes(lotesArray);
+        } catch { setLotes([]); }
+      }
     } catch (err: any) {
       console.error('❌ Error en cargarDatos:', err);
       setError(err.message || 'Error al cargar diagnósticos');
@@ -278,17 +288,16 @@ const GestionDiagnosticos: React.FC = () => {
     navigate(`/gestion/recomendaciones?${params.toString()}`);
   };
 
-  // Filtrado de diagnósticos según rol (con soporte para programas del docente)
+  // Filtrado de diagnósticos según rol
   const diagnosticosFiltrados = diagnosticos.filter(d => {
     if (!user) return false;
-    if (esAdmin) return true;  // Admin ve todo
+    if (esAdmin) return true;
     if (esDocente) {
-      // Docente solo ve diagnósticos de sus programas asignados
       if (programasDocente.length === 0) return false;
       return programasDocente.includes(d.programa_id);
     }
-    if (esAsesor) return true;  // Asesor ve todos
-    if (esEstudiante) return (d as any).usuario_id === user.id; // Estudiante solo sus diagnósticos
+    if (esAsesor) return true;
+    if (esEstudiante) return (d as any).usuario_id === user.id;
     return false;
   });
 
@@ -337,7 +346,6 @@ const GestionDiagnosticos: React.FC = () => {
           <div className="bg-white p-4 rounded-lg shadow mb-6">
             <h3 className="font-semibold mb-3 text-sm text-gray-700">Filtros</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Tipo de Monitoreo - filtrado para docentes */}
               <select
                 className="border rounded p-2 text-sm"
                 value={filtros.tipo_monitoreo_id || ''}
@@ -353,7 +361,6 @@ const GestionDiagnosticos: React.FC = () => {
                 ))}
               </select>
 
-              {/* Subtipo - depende del monitoreo seleccionado */}
               <select
                 className="border rounded p-2 text-sm"
                 value={filtros.diagnostico_tipo_id || ''}
@@ -374,7 +381,6 @@ const GestionDiagnosticos: React.FC = () => {
                 ))}
               </select>
 
-              {/* Programa - solo visible para admin */}
               {esAdmin && (
                 <select 
                   className="border rounded p-2 text-sm" 
@@ -386,7 +392,6 @@ const GestionDiagnosticos: React.FC = () => {
                 </select>
               )}
 
-              {/* Estado de revisión */}
               <select 
                 className="border rounded p-2 text-sm" 
                 value={filtros.estado_revision || ''} 
@@ -429,13 +434,13 @@ const GestionDiagnosticos: React.FC = () => {
       {/* TAB: Tipos de Diagnóstico */}
       {tabActivo === 'tipos' && puedeGestionarTipos && (
         <div className="bg-white rounded-lg shadow p-6">
-          {programas.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No hay programas disponibles.</div>
-          ) : monitoreos.length === 0 ? (
+          {cargandoMonitoreos ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
               <span className="ml-3 text-gray-600">Cargando tipos de monitoreo...</span>
             </div>
+          ) : programas.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No hay programas disponibles.</div>
           ) : (
             <>
               <div className="mb-4">

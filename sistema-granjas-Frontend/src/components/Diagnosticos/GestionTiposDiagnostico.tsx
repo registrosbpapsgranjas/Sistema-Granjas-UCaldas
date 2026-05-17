@@ -31,16 +31,24 @@ type CampoTab = 'diagnostico' | 'recomendacion';
 const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, monitoreosIniciales = [] }) => {
   const { user } = useAuth();
   
+  // Esperar a que user esté cargado
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    if (user !== undefined) {
+      setLoading(false);
+    }
+  }, [user]);
+  
   const esAdmin = user?.rol_id === 1;
   const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
   const programasDocente = user?.programas?.map((p: any) => p.id) || [];
   
-  // Si el usuario no puede gestionar este programa
+  // Verificar permisos después de que user esté cargado
   const puedeGestionarPrograma = esAdmin || (esDocente && programasDocente.includes(programaId));
   
-  // ── Monitoreos (nivel 1) ──────────────────────────────────────────────────
-  const [monitoreos, setMonitoreos] = useState<Monitoreo[]>(monitoreosIniciales);
-  const [loadingMonitoreos, setLoadingMonitoreos] = useState(false);
+  // ── Monitoreos (usar los que vienen del padre) ────────────────────────────
+  const [monitoreos] = useState<Monitoreo[]>(monitoreosIniciales);
   const [monitoreoSel, setMonitoreoSel] = useState<Monitoreo | null>(null);
   const [modalMonitoreo, setModalMonitoreo] = useState(false);
   const [editMonitoreo, setEditMonitoreo] = useState<Monitoreo | null>(null);
@@ -80,6 +88,16 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
     orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
 
+  // Mostrar loading mientras se verifica usuario
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <span className="ml-3 text-gray-600">Verificando permisos...</span>
+      </div>
+    );
+  }
+
   // Si el usuario no puede gestionar este programa
   if (!puedeGestionarPrograma) {
     return (
@@ -108,12 +126,17 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
     }
   }, [camposDiag, camposRec, campoTab, subtipoSel]);
 
-  const seleccionarMonitoreo = (m: Monitoreo) => {
+  const seleccionarMonitoreo = async (m: Monitoreo) => {
     setMonitoreoSel(m);
     setSubtipoSel(null);
     setCamposDiag([]);
     setCamposRec([]);
-    cargarSubtipos(m.id);
+    setLoadingSubtipos(true);
+    try {
+      const data = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(m.id);
+      setSubtipos(data);
+    } catch { toast.error('Error al cargar subtipos'); }
+    finally { setLoadingSubtipos(false); }
   };
 
   // ── Monitoreo CRUD ────────────────────────────────────────────────────────
@@ -134,12 +157,8 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
         toast.success('Tipo de monitoreo creado');
       }
       setModalMonitoreo(false);
-      // Recargar monitoreos desde el padre no es necesario porque se manejan en el padre
-      // En su lugar, actualizamos la lista local
-      const nuevosMonitoreos = editMonitoreo 
-        ? monitoreos.map(m => m.id === editMonitoreo.id ? { ...m, nombre: formMonitoreo.nombre } : m)
-        : [...monitoreos, { id: Date.now(), nombre: formMonitoreo.nombre, programa_id: programaId }];
-      setMonitoreos(nuevosMonitoreos);
+      // Recargar monitoreos desde el padre no es necesario, pero actualizamos la UI localmente
+      toast.info('Recargue la página para ver los cambios en la lista de monitoreos');
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al guardar'); }
   };
 
@@ -149,25 +168,11 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
       await monitoreoService.eliminarMonitoreo(m.id);
       toast.success('Eliminado');
       if (monitoreoSel?.id === m.id) { setMonitoreoSel(null); setSubtipos([]); setSubtipoSel(null); }
-      setMonitoreos(monitoreos.filter(mt => mt.id !== m.id));
+      toast.info('Recargue la página para ver los cambios en la lista de monitoreos');
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al eliminar'); }
   };
 
-  // ── Subtipos ──────────────────────────────────────────────────────────────
-  const cargarSubtipos = async (monitoreoId: number) => {
-    setLoadingSubtipos(true);
-    try {
-      const data = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(monitoreoId);
-      setSubtipos(data);
-    } catch { toast.error('Error al cargar subtipos'); }
-    finally { setLoadingSubtipos(false); }
-  };
-
-  const seleccionarSubtipo = (s: DiagnosticoTipo) => {
-    setSubtipoSel(s);
-    cargarCampos(s.id);
-  };
-
+  // ── Subtipos CRUD ─────────────────────────────────────────────────────────
   const abrirModalSubtipo = (s?: DiagnosticoTipo) => {
     setEditSubtipo(s || null);
     setFormSubtipo({ nombre: s?.nombre || '', descripcion: s?.descripcion || '', orden: s?.orden || 0, activo: s?.activo ?? true });
@@ -190,7 +195,9 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
         toast.success('Subtipo creado');
       }
       setModalSubtipo(false);
-      cargarSubtipos(monitoreoSel.id);
+      // Recargar subtipos
+      const data = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(monitoreoSel.id);
+      setSubtipos(data);
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al guardar'); }
   };
 
@@ -200,7 +207,10 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
       await diagnosticoDinamicoService.eliminarTipo(s.id);
       toast.success('Subtipo eliminado');
       if (subtipoSel?.id === s.id) { setSubtipoSel(null); setCamposDiag([]); setCamposRec([]); }
-      if (monitoreoSel) cargarSubtipos(monitoreoSel.id);
+      if (monitoreoSel) {
+        const data = await diagnosticoDinamicoService.listarSubtiposPorMonitoreo(monitoreoSel.id);
+        setSubtipos(data);
+      }
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al eliminar'); }
   };
 
@@ -216,6 +226,11 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
       setCamposRec(rec);
     } catch { toast.error('Error al cargar campos'); }
     finally { setLoadingCampos(false); }
+  };
+
+  const seleccionarSubtipo = (s: DiagnosticoTipo) => {
+    setSubtipoSel(s);
+    cargarCampos(s.id);
   };
 
   const abrirModalCampo = (campo?: DiagnosticoCampo | CampoRecomendacion) => {
@@ -420,9 +435,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
               <i className="fas fa-plus"></i> Nuevo
             </button>
           </div>
-          {loadingMonitoreos ? (
-            <div className="flex justify-center py-6"><div className="animate-spin h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full"></div></div>
-          ) : monitoreos.length === 0 ? (
+          {monitoreos.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">
               <i className="fas fa-seedling text-2xl mb-2 block"></i>
               Sin tipos.<br/>
@@ -559,7 +572,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
         </div>
       </div>
 
-      {/* ── Modal Tipo de Monitoreo ─────────────────────────────────────────── */}
+      {/* Modales (se mantienen igual) */}
       {modalMonitoreo && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-sm p-6">
@@ -581,7 +594,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
         </div>
       )}
 
-      {/* ── Modal Subtipo ────────────────────────────────────────────────────── */}
       {modalSubtipo && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md p-6">
@@ -620,7 +632,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
         </div>
       )}
 
-      {/* ── Modal Campo ──────────────────────────────────────────────────────── */}
       {modalCampo && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
@@ -644,7 +655,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
                 </select>
               </div>
 
-              {/* Opciones para select/multiselect */}
               {esTipoListaActual && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Opciones (separadas por coma) *</label>
@@ -653,7 +663,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
                 </div>
               )}
 
-              {/* Campos para tipo matrix */}
               {formCampo.tipo_dato === 'matrix' && (
                 <div className="space-y-3 border border-purple-200 bg-purple-50 rounded-lg p-3">
                   <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">
@@ -695,7 +704,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, 
                 </div>
               )}
 
-              {/* Dependencia condicional */}
               {true && (
                 <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 space-y-3">
                   <p className="text-xs font-semibold text-yellow-700 flex items-center gap-1">
