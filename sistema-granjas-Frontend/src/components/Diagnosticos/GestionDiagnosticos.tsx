@@ -340,14 +340,17 @@ const GestionDiagnosticos: React.FC = () => {
                 ))}
               </select>
 
-              <select 
-                className="border rounded p-2 text-sm" 
-                value={filtros.programa_id || ''} 
-                onChange={(e) => setFiltros({ ...filtros, programa_id: e.target.value ? parseInt(e.target.value) : undefined })}
-              >
-                <option value="">Todos los programas</option>
-                {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
+              {/* 👇 OCULTAR FILTRO DE PROGRAMA PARA DOCENTES */}
+              {esAdmin && (
+                <select 
+                  className="border rounded p-2 text-sm" 
+                  value={filtros.programa_id || ''} 
+                  onChange={(e) => setFiltros({ ...filtros, programa_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                >
+                  <option value="">Todos los programas</option>
+                  {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              )}
 
               <select 
                 className="border rounded p-2 text-sm" 
