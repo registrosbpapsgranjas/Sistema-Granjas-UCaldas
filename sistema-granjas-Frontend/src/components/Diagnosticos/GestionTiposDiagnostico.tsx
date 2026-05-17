@@ -7,6 +7,7 @@ import {
   type CampoRecomendacion,
 } from '../../services/diagnosticoDinamicoService';
 import { monitoreoService, type Monitoreo } from '../../services/monitoreoService';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Props {
   programaId: number;
@@ -27,6 +28,18 @@ const TIPOS_DATO_LABELS: Record<string, string> = {
 type CampoTab = 'diagnostico' | 'recomendacion';
 
 const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }) => {
+  const { user } = useAuth();
+  
+  // Permisos según rol
+  const esAdmin = user?.rol_id === 1;
+  const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+  
+  // Obtener IDs de programas del docente
+  const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+  
+  // Verificar si el usuario puede gestionar este programa
+  const puedeGestionarPrograma = esAdmin || (esDocente && programasDocente.includes(programaId));
+  
   // ── Monitoreos (nivel 1) ──────────────────────────────────────────────────
   const [monitoreos, setMonitoreos] = useState<Monitoreo[]>([]);
   const [loadingMonitoreos, setLoadingMonitoreos] = useState(false);
@@ -68,6 +81,24 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     opciones_texto: '', filas_texto: '', tipo_celda: 'boolean',
     orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
+
+  // Si el usuario no puede gestionar este programa, mostrar mensaje
+  if (!puedeGestionarPrograma) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+        <i className="fas fa-lock text-4xl text-yellow-600 mb-3 block"></i>
+        <h3 className="text-lg font-semibold text-yellow-800 mb-2">Acceso restringido</h3>
+        <p className="text-yellow-700">
+          No tiene permisos para gestionar los tipos de diagnóstico de este programa.
+          {esDocente && (
+            <span className="block text-sm mt-2">
+              Solo puede gestionar los programas asignados a su cuenta.
+            </span>
+          )}
+        </p>
+      </div>
+    );
+  }
 
   // ── Load monitoreos ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -371,10 +402,21 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-6">
-        <i className="fas fa-info-circle mr-1"></i>
-        Define la jerarquía de monitoreo para <strong>{programaNombre}</strong>: Tipos → Subtipos → Campos (Diagnóstico y Recomendación).
-      </p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">Tipos de Diagnóstico</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            <i className="fas fa-info-circle mr-1"></i>
+            Define la jerarquía de monitoreo para <strong>{programaNombre}</strong>: Tipos → Subtipos → Campos (Diagnóstico y Recomendación).
+          </p>
+        </div>
+        {!esAdmin && esDocente && (
+          <div className="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-1">
+            <i className="fas fa-chalkboard-teacher"></i>
+            Gestión limitada a su programa
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -658,13 +700,13 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
                       <option value="boolean">Presencia (Checkbox)</option>
                       <option value="number">Número</option>
                       <option value="text">Texto</option>
-                      <option value="radio">Selección única por fila (Radio)</option> {/* ← NUEVO */}
+                      <option value="radio">Selección única por fila (Radio)</option>
                     </select>
                   </div>
                 </div>
               )}
 
-              {/* Dependencia: solo si no es un campo de tipo lista Y hay campos padre disponibles */}
+              {/* Dependencia condicional */}
               {true && (
                 <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 space-y-3">
                   <p className="text-xs font-semibold text-yellow-700 flex items-center gap-1">
