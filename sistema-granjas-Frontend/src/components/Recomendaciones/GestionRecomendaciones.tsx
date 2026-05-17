@@ -1,5 +1,5 @@
 // src/components/Recomendaciones/GestionRecomendaciones.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import recomendacionService from '../../services/recomendacionService';
@@ -61,8 +61,11 @@ const GestionRecomendaciones: React.FC = () => {
     const [urlDiagnosticoId, setUrlDiagnosticoId] = useState<number | undefined>(undefined);
     const [urlLoteId, setUrlLoteId] = useState<number | undefined>(undefined);
 
-    // Obtener programas del usuario (desde relación usuario_programa)
-    const programasUsuario = user?.programas?.map((p: any) => p.id) || [];
+    // Obtener programas del usuario — memoizado para evitar bucles en useEffect
+    const programasUsuario = useMemo(
+        () => user?.programas?.map((p: any) => p.id) || [],
+        [user?.id]
+    );
     const esAdmin = user?.rol_id === 1;
     const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
 

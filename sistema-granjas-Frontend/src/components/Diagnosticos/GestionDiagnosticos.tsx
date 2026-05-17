@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import diagnosticoService from '../../services/diagnosticoService';
@@ -56,8 +56,11 @@ const GestionDiagnosticos: React.FC = () => {
   const esAsesor = user?.rol_id === 3;
   const esEstudiante = user?.rol_id === 4;
   
-  // Obtener IDs de programas del docente (desde relación usuario_programa)
-  const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+  // Obtener IDs de programas del docente — memoizado para evitar bucles en useEffect
+  const programasDocente = useMemo(
+    () => user?.programas?.map((p: any) => p.id) || [],
+    [user?.id]
+  );
   
   // Solo estudiantes pueden crear diagnósticos
   const puedeCrearDiagnostico = esEstudiante;
