@@ -271,7 +271,12 @@ const GestionLaboresPage: React.FC = () => {
     const laboresFiltradas = Array.isArray(labores) ? labores.filter(l => {
         if (!user) return false;
         if (user.rol_id === 1) return true; // Admin ve todo
-        if (user.rol_id === 2 || user?.rol_id === 5) return true; // Docentes ven todo
+        if (user.rol_id === 2 || user.rol_id === 5) {
+            // Docente solo ve las labores que él creó (vinculadas a sus recomendaciones)
+            return (l as any).docente_id === user.id
+                || ((l as any).recomendacion as any)?.docente_id === user.id
+                || (l as any).creado_por_id === user.id;
+        }
         if (user.rol_id === 3) return l.trabajador_id === user.id; // Trabajador ve las suyas
         return true;
     }) : [];

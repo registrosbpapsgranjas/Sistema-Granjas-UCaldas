@@ -9,6 +9,7 @@ import {
 import { monitoreoService, type Monitoreo } from '../../services/monitoreoService';
 import { programaService } from '../../services/programaService';
 import type { Programa } from '../../types/granjaTypes';
+import { useAuth } from '../../hooks/useAuth';
 
 const TIPOS_DATO_LABELS: Record<string, string> = {
   text: 'Texto corto',
@@ -33,6 +34,10 @@ const emptyFormCampo = {
 type MainTab = 'tipos' | 'estructura';
 
 const GestionTiposLabores: React.FC = () => {
+  const { user } = useAuth();
+  const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+  const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+
   const [mainTab, setMainTab] = useState<MainTab>('tipos');
 
   // ── Tab 1: TipoLabor CRUD ────────────────────────────────────────────────
@@ -152,7 +157,12 @@ const GestionTiposLabores: React.FC = () => {
     setLoadingProgramas(true);
     try {
       const data = await programaService.obtenerProgramas();
-      setProgramas(Array.isArray(data) ? data : []);
+      let lista = Array.isArray(data) ? data : [];
+      // Docente solo puede gestionar la estructura de sus propios programas
+      if (esDocente && programasDocente.length > 0) {
+        lista = lista.filter((p: Programa) => programasDocente.includes(p.id));
+      }
+      setProgramas(lista);
     } catch { toast.error('Error al cargar programas'); }
     finally { setLoadingProgramas(false); }
   };

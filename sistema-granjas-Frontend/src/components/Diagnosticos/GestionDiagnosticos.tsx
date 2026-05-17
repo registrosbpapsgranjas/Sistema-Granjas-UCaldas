@@ -172,7 +172,11 @@ const GestionDiagnosticos: React.FC = () => {
       if (programas.length === 0) {
         try {
           const programasData = await programaService.obtenerProgramas();
-          const lista = Array.isArray(programasData) ? programasData : (programasData?.items || []);
+          let lista = Array.isArray(programasData) ? programasData : (programasData?.items || []);
+          // Docente solo puede ver/gestionar tipos de sus propios programas
+          if (esDocente && programasDocente.length > 0) {
+            lista = lista.filter((p: any) => programasDocente.includes(p.id));
+          }
           setProgramas(lista);
           if (lista.length > 0 && !programaSeleccionadoTipos) setProgramaSeleccionadoTipos(lista[0].id);
         } catch { setProgramas([]); }
