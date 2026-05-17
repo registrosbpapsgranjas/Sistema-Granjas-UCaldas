@@ -12,6 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 interface Props {
   programaId: number;
   programaNombre?: string;
+  monitoreosIniciales?: Monitoreo[];
 }
 
 const TIPOS_DATO_LABELS: Record<string, string> = {
@@ -27,33 +28,18 @@ const TIPOS_DATO_LABELS: Record<string, string> = {
 
 type CampoTab = 'diagnostico' | 'recomendacion';
 
-const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }) => {
+const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre, monitoreosIniciales = [] }) => {
   const { user } = useAuth();
   
-  // Estado de carga para permisos
-  const [permisosCargando, setPermisosCargando] = useState(true);
-  
-  // Permisos según rol
   const esAdmin = user?.rol_id === 1;
   const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
-  
-  // Obtener IDs de programas del docente
   const programasDocente = user?.programas?.map((p: any) => p.id) || [];
   
-  // Verificar permisos después de que user esté cargado
-  useEffect(() => {
-    // Pequeño delay para asegurar que user está completamente cargado
-    const timer = setTimeout(() => {
-      setPermisosCargando(false);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [user]);
-  
-  // Verificar si el usuario puede gestionar este programa
+  // Si el usuario no puede gestionar este programa
   const puedeGestionarPrograma = esAdmin || (esDocente && programasDocente.includes(programaId));
   
   // ── Monitoreos (nivel 1) ──────────────────────────────────────────────────
-  const [monitoreos, setMonitoreos] = useState<Monitoreo[]>([]);
+  const [monitoreos, setMonitoreos] = useState<Monitoreo[]>(monitoreosIniciales);
   const [loadingMonitoreos, setLoadingMonitoreos] = useState(false);
   const [monitoreoSel, setMonitoreoSel] = useState<Monitoreo | null>(null);
   const [modalMonitoreo, setModalMonitoreo] = useState(false);
@@ -94,17 +80,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     orden: 0, campo_padre_id: null, opciones_padre_texto: '',
   });
 
-  // Mostrar loading mientras se verifican permisos
-  if (permisosCargando) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-3 text-gray-600">Verificando permisos...</span>
-      </div>
-    );
-  }
-
-  // Si el usuario no puede gestionar este programa, mostrar mensaje
+  // Si el usuario no puede gestionar este programa
   if (!puedeGestionarPrograma) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
@@ -122,11 +98,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
     );
   }
 
-  // ── Load monitoreos ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (programaId) cargarMonitoreos();
-  }, [programaId]);
-
   // ── Actualizar lista de campos padre disponibles ──────────────────────────
   useEffect(() => {
     if (subtipoSel) {
@@ -136,15 +107,6 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
       setCamposPadre([]);
     }
   }, [camposDiag, camposRec, campoTab, subtipoSel]);
-
-  const cargarMonitoreos = async () => {
-    setLoadingMonitoreos(true);
-    try {
-      const data = await monitoreoService.obtenerMonitoreosPorPrograma(programaId);
-      setMonitoreos(Array.isArray(data) ? data : []);
-    } catch { toast.error('Error al cargar tipos de monitoreo'); }
-    finally { setLoadingMonitoreos(false); }
-  };
 
   const seleccionarMonitoreo = (m: Monitoreo) => {
     setMonitoreoSel(m);
@@ -172,7 +134,12 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
         toast.success('Tipo de monitoreo creado');
       }
       setModalMonitoreo(false);
-      cargarMonitoreos();
+      // Recargar monitoreos desde el padre no es necesario porque se manejan en el padre
+      // En su lugar, actualizamos la lista local
+      const nuevosMonitoreos = editMonitoreo 
+        ? monitoreos.map(m => m.id === editMonitoreo.id ? { ...m, nombre: formMonitoreo.nombre } : m)
+        : [...monitoreos, { id: Date.now(), nombre: formMonitoreo.nombre, programa_id: programaId }];
+      setMonitoreos(nuevosMonitoreos);
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al guardar'); }
   };
 
@@ -182,7 +149,7 @@ const GestionTiposDiagnostico: React.FC<Props> = ({ programaId, programaNombre }
       await monitoreoService.eliminarMonitoreo(m.id);
       toast.success('Eliminado');
       if (monitoreoSel?.id === m.id) { setMonitoreoSel(null); setSubtipos([]); setSubtipoSel(null); }
-      cargarMonitoreos();
+      setMonitoreos(monitoreos.filter(mt => mt.id !== m.id));
     } catch (e: any) { toast.error(e?.response?.data?.detail || 'Error al eliminar'); }
   };
 

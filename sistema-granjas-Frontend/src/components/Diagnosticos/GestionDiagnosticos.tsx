@@ -36,7 +36,6 @@ const GestionDiagnosticos: React.FC = () => {
   const [lotes, setLotes] = useState<any[]>([]);
   const [programas, setProgramas] = useState<any[]>([]);
   const [monitoreos, setMonitoreos] = useState<any[]>([]);
-  const [monitoreosFiltrados, setMonitoreosFiltrados] = useState<any[]>([]); // 👈 NUEVO: monitoreos filtrados por programa
   const [subtiposFiltro, setSubtiposFiltro] = useState<DiagnosticoTipo[]>([]);
   const [cargandoSubtipos, setCargandoSubtipos] = useState(false);
 
@@ -55,7 +54,6 @@ const GestionDiagnosticos: React.FC = () => {
   const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
   const esAsesor = user?.rol_id === 3;
   const esEstudiante = user?.rol_id === 4;
-  const esAdminODocente = esAdmin || esDocente;
   
   // Obtener IDs de programas del docente (desde relación usuario_programa)
   const programasDocente = user?.programas?.map((p: any) => p.id) || [];
@@ -67,23 +65,6 @@ const GestionDiagnosticos: React.FC = () => {
   // Solo admin y docente pueden gestionar tipos de diagnóstico
   const puedeGestionarTipos = esAdmin || esDocente;
 
-  const handleExportDiagnosticos = async () => {
-    if (exporting) return;
-    setExporting(true);
-    setExportMessage('Exportando diagnósticos...');
-    try {
-      const result = await exportService.exportarDiagnosticos();
-      setExportMessage(`¡Exportación completada! (${result.filename})`);
-      setTimeout(() => setExportMessage(''), 5000);
-    } catch (error) {
-      console.error('❌ Error exportando diagnósticos:', error);
-      setExportMessage('Error al exportar.');
-      setTimeout(() => setExportMessage(''), 5000);
-    } finally {
-      setExporting(false);
-    }
-  };
-
   // Cargar monitoreos según el rol del usuario
   useEffect(() => {
     const cargarMonitoreos = async () => {
@@ -93,7 +74,6 @@ const GestionDiagnosticos: React.FC = () => {
         
         // Si es docente, filtrar monitoreos por sus programas
         if (esDocente && programasDocente.length > 0) {
-          // Obtener todos los monitoreos de los programas del docente
           const monitoreosPorPrograma = await Promise.all(
             programasDocente.map(async (programaId) => {
               try {
@@ -114,16 +94,31 @@ const GestionDiagnosticos: React.FC = () => {
         }
         
         setMonitoreos(monitoreosArray);
-        setMonitoreosFiltrados(monitoreosArray);
       } catch (error) {
         console.error('Error cargando monitoreos:', error);
         setMonitoreos([]);
-        setMonitoreosFiltrados([]);
       }
     };
     
     cargarMonitoreos();
   }, [esDocente, programasDocente]);
+
+  const handleExportDiagnosticos = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setExportMessage('Exportando diagnósticos...');
+    try {
+      const result = await exportService.exportarDiagnosticos();
+      setExportMessage(`¡Exportación completada! (${result.filename})`);
+      setTimeout(() => setExportMessage(''), 5000);
+    } catch (error) {
+      console.error('❌ Error exportando diagnósticos:', error);
+      setExportMessage('Error al exportar.');
+      setTimeout(() => setExportMessage(''), 5000);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     cargarDatos();
@@ -436,6 +431,11 @@ const GestionDiagnosticos: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6">
           {programas.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No hay programas disponibles.</div>
+          ) : monitoreos.length === 0 ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <span className="ml-3 text-gray-600">Cargando tipos de monitoreo...</span>
+            </div>
           ) : (
             <>
               <div className="mb-4">
@@ -452,6 +452,7 @@ const GestionDiagnosticos: React.FC = () => {
                 <GestionTiposDiagnostico
                   programaId={programaSeleccionadoTipos}
                   programaNombre={programas.find(p => p.id === programaSeleccionadoTipos)?.nombre}
+                  monitoreosIniciales={monitoreos}
                 />
               )}
             </>
