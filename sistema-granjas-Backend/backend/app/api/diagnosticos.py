@@ -461,8 +461,11 @@ async def actualizar_diagnostico(
     user: Usuario = Depends(get_current_user)
 ):
     obj = get_or_404(db, Diagnostico, id)
-    if user.rol.nombre == "estudiante" and obj.usuario_id != user.id:
+    rol = user.rol.nombre
+    if rol == "estudiante" and obj.usuario_id != user.id:
         raise HTTPException(403, "No tiene permisos para editar este diagnóstico")
+    if rol in ("estudiante", "docente") and obj.estado_revision == "revisado":
+        raise HTTPException(403, "No se puede editar un diagnóstico que ya ha sido revisado")
 
     form_data = await request.form()
     update_data = {}
@@ -567,9 +570,14 @@ async def actualizar_diagnostico(
 def eliminar_diagnostico(
     id: int,
     db: Session = Depends(get_db),
-    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor"]))
+    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
     obj = get_or_404(db, Diagnostico, id)
+    rol = user.rol.nombre
+    if rol == "estudiante" and obj.usuario_id != user.id:
+        raise HTTPException(403, "Solo puede eliminar sus propios diagnósticos")
+    if rol in ("estudiante", "docente") and obj.estado_revision == "revisado":
+        raise HTTPException(403, "No se puede eliminar un diagnóstico que ya ha sido revisado")
     if obj.recomendaciones:
         raise HTTPException(400, "No se puede eliminar un diagnóstico con recomendaciones asociadas")
 

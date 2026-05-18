@@ -81,7 +81,7 @@ def eliminar(
     id: int,
     db: Session = Depends(get_db),
     usuario=Depends(get_current_user),
-    _=Depends(require_any_role(["admin", "docente"]))
+    _=Depends(require_any_role(["admin"]))
 ):
     rec = obtener_recomendacion(db, id, usuario)
     if not rec:

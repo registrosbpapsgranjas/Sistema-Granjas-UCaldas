@@ -24,24 +24,42 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
     onCrearRecomendacion,
     currentUser
 }) => {
-    // Determinar rol
     const esAdmin = currentUser?.rol_id === 1;
     const esDocente = currentUser?.rol_id === 2 || currentUser?.rol_id === 5;
-    
-    // Obtener IDs de programas del docente desde la relación usuario_programa
+    const esEstudiante = currentUser?.rol_id === 4;
+
     const programasDocente = currentUser?.programas?.map((p: any) => p.id) || [];
 
-    // Filtrar diagnósticos: docente solo ve los de sus programas
     const diagnosticosFiltrados = diagnosticos.filter(d => {
-        if (esAdmin) return true; // Admin ve todo
+        if (esAdmin) return true;
         if (esDocente) {
-            // Si no tiene programas asignados, no ve nada
             if (programasDocente.length === 0) return false;
-            // Ver si el diagnóstico pertenece a alguno de sus programas
             return programasDocente.includes(d.programa_id);
         }
-        return true; // Otros roles ven lo que reciben
+        return true;
     });
+
+    const estaRevisado = (d: DiagnosticoItem) =>
+        d.estado_revision === 'revisado';
+
+    const puedeEditar = (d: DiagnosticoItem) => {
+        if (esAdmin) return true;
+        if (esDocente) return !estaRevisado(d);
+        if (esEstudiante) return !estaRevisado(d);
+        return false;
+    };
+
+    const puedeEliminar = (d: DiagnosticoItem) => {
+        if (esAdmin) return true;
+        if (esDocente) return !estaRevisado(d);
+        if (esEstudiante) return !estaRevisado(d);
+        return false;
+    };
+
+    const puedeCrearRecomendacion = (d: DiagnosticoItem) => {
+        if (!onCrearRecomendacion) return false;
+        return (esAdmin || esDocente) && !estaRevisado(d);
+    };
 
     const getBadgeRevision = (estado?: string) => {
         if (!estado || estado === 'pendiente_revision') {
@@ -58,13 +76,6 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                 Revisado
             </span>
         );
-    };
-
-    // Verificar si puede crear recomendación
-    const puedeCrearRecomendacion = (diagnostico: DiagnosticoItem) => {
-        if (!onCrearRecomendacion) return false;
-        const pendiente = !diagnostico.estado_revision || diagnostico.estado_revision === 'pendiente_revision';
-        return (esAdmin || esDocente) && pendiente;
     };
 
     if (diagnosticosFiltrados.length === 0) {
@@ -134,19 +145,34 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                                 </td>
                                 <td className="px-4 py-3 text-sm">
                                     <div className="flex gap-2 flex-wrap items-center">
-                                        <button onClick={() => onVerDetalles(d)} className="text-blue-600 hover:text-blue-800" title="Ver detalles">
+                                        <button
+                                            onClick={() => onVerDetalles(d)}
+                                            className="text-blue-600 hover:text-blue-800"
+                                            title="Ver detalles"
+                                        >
                                             👁
                                         </button>
-                                        {(esAdmin || esDocente) && (
-                                            <button onClick={() => onEditar(d)} className="text-yellow-600 hover:text-yellow-800" title="Editar">
+
+                                        {puedeEditar(d) && (
+                                            <button
+                                                onClick={() => onEditar(d)}
+                                                className="text-yellow-600 hover:text-yellow-800"
+                                                title="Editar"
+                                            >
                                                 ✏️
                                             </button>
                                         )}
-                                        {esAdmin && (
-                                            <button onClick={() => onEliminar(d.id)} className="text-red-600 hover:text-red-800" title="Eliminar">
+
+                                        {puedeEliminar(d) && (
+                                            <button
+                                                onClick={() => onEliminar(d.id)}
+                                                className="text-red-600 hover:text-red-800"
+                                                title="Eliminar"
+                                            >
                                                 🗑
                                             </button>
                                         )}
+
                                         {puedeCrearRecomendacion(d) && (
                                             <button
                                                 onClick={() => onCrearRecomendacion && onCrearRecomendacion(d)}
@@ -167,7 +193,7 @@ const DiagnosticosTable: React.FC<DiagnosticosTableProps> = ({
                 <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex justify-between items-center">
                     <span>
                         <i className="fas fa-info-circle mr-1"></i>
-                        Mostrando diagnósticos de sus programas asignados: 
+                        Mostrando diagnósticos de sus programas asignados:{' '}
                         {currentUser?.programas?.map((p: any) => p.nombre).join(', ') || 'Ninguno'}
                     </span>
                 </div>
