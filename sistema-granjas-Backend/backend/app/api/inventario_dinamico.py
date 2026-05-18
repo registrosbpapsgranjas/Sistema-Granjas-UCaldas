@@ -14,7 +14,7 @@ from app.schemas.inventario_dinamico_schema import (
 from app.db.models import Programa
 
 router = APIRouter(prefix="/inventario-dinamico", tags=["Inventario Dinámico"])
-role_required = Depends(require_any_role(["admin", "asesor", "talento_humano"]))
+role_required = Depends(require_any_role(["admin", "asesor", "docente", "talento_humano"]))
 
 # ---------- Tipos de inventario ----------
 @router.get("/programas/{programa_id}/tipos", response_model=List[ProgramaInventarioTipoResponse])

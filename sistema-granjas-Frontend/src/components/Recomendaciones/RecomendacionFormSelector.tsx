@@ -13,6 +13,7 @@ import type { TipoInventario, ItemInventario } from '../../types/inventarioDinam
 import type { DiagnosticoTipo } from '../../services/diagnosticoDinamicoService';
 import tipoLaborService from '../../services/tipoLaboresService';
 import usuarioService from '../../services/usuarioService';
+import { useAuth } from '../../hooks/useAuth';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────────
 interface ProductoSugerido {
@@ -77,7 +78,7 @@ const InventarioItemSelect: React.FC<{
 }> = ({ items, loading, value, onChange, label = "Producto" }) => {
     const getItemNombre = (item: any) => {
         const v = item.valores || {};
-        return (v['Nombre Comercial'] || v.Nombre || v.producto || v.nombre || `Producto #${item.id}`) +
+        return (v['Nombre Comercial'] || v['nombre_comercial'] || v.Nombre || v.nombre || v.producto || `Producto #${item.id}`) +
             (item.unidad_medida ? ` (${item.unidad_medida})` : '');
     };
 
@@ -91,7 +92,7 @@ const InventarioItemSelect: React.FC<{
     }
 
     if (items.length === 0) {
-        return <p className="text-xs text-yellow-600">No hay productos disponibles</p>;
+        return <p className="text-xs text-yellow-600">No hay productos disponibles en este tipo de inventario</p>;
     }
 
     return (
@@ -103,7 +104,7 @@ const InventarioItemSelect: React.FC<{
             <option value="">Seleccionar {label.toLowerCase()}...</option>
             {items.map(item => (
                 <option key={item.id} value={item.id}>
-                    {getItemNombre(item)} — Disp: {item.cantidad_disponible}
+                    {getItemNombre(item)} — Stock: {item.cantidad_disponible || 0} {item.unidad_medida || ''}
                 </option>
             ))}
         </select>
@@ -121,17 +122,27 @@ const ProductoRow: React.FC<{
     // Cargar items cuando cambia el tipo de inventario de este producto
     useEffect(() => {
         if (!producto.tipo_inventario_id) {
-            onUpdate({ items: [], inventario_item_id: null });
+            onUpdate({ items: [], inventario_item_id: null, loadingItems: false });
             return;
         }
-        onUpdate({ loadingItems: true });
-        inventarioDinamicoService.listarItems(producto.tipo_inventario_id)
-            .then(data => onUpdate({
-                items: data.filter((i: any) => i.cantidad_disponible > 0),
-                loadingItems: false,
-                inventario_item_id: null
-            }))
-            .catch(() => onUpdate({ items: [], loadingItems: false }));
+        
+        const cargarItems = async () => {
+            onUpdate({ loadingItems: true });
+            try {
+                const data = await inventarioDinamicoService.listarItems(producto.tipo_inventario_id);
+                const itemsConStock = data.filter((i: any) => (i.cantidad_disponible || 0) > 0);
+                onUpdate({
+                    items: itemsConStock,
+                    loadingItems: false,
+                    inventario_item_id: null
+                });
+            } catch (error) {
+                console.error('Error cargando items:', error);
+                onUpdate({ items: [], loadingItems: false, inventario_item_id: null });
+            }
+        };
+        
+        cargarItems();
     }, [producto.tipo_inventario_id]);
 
     return (
@@ -141,7 +152,15 @@ const ProductoRow: React.FC<{
                     <label className="block text-xs font-medium text-gray-600 mb-1">Tipo inventario</label>
                     <select
                         value={producto.tipo_inventario_id || ''}
-                        onChange={e => onUpdate({ tipo_inventario_id: e.target.value ? parseInt(e.target.value) : null })}
+                        onChange={e => {
+                            const newTipoId = e.target.value ? parseInt(e.target.value) : null;
+                            onUpdate({ 
+                                tipo_inventario_id: newTipoId, 
+                                inventario_item_id: null,
+                                items: [],
+                                loadingItems: false
+                            });
+                        }}
                         className="w-full border border-gray-300 rounded p-2 text-sm"
                     >
                         <option value="">Seleccionar tipo...</option>
@@ -161,17 +180,31 @@ const ProductoRow: React.FC<{
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Dosis</label>
-                    <input type="number" value={producto.dosis} onChange={e => onUpdate({ dosis: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2 text-sm" placeholder="Ej: 2.5" min="0" step="any" />
+                    <input 
+                        type="number" 
+                        value={producto.dosis} 
+                        onChange={e => onUpdate({ dosis: e.target.value })}
+                        className="w-full border border-gray-300 rounded p-2 text-sm" 
+                        placeholder="Ej: 2.5" 
+                        min="0" 
+                        step="any" 
+                    />
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Unidad</label>
-                    <input type="text" value={producto.unidad} onChange={e => onUpdate({ unidad: e.target.value })}
-                        className="w-full border border-gray-300 rounded p-2 text-sm" placeholder="L/ha, kg, ml..." />
+                    <input 
+                        type="text" 
+                        value={producto.unidad} 
+                        onChange={e => onUpdate({ unidad: e.target.value })}
+                        className="w-full border border-gray-300 rounded p-2 text-sm" 
+                        placeholder="L/ha, kg, ml..." 
+                    />
                 </div>
             </div>
             <button type="button" onClick={onRemove}
-                className="text-red-500 hover:text-red-700 mt-5 p-1"><i className="fas fa-trash text-xs"></i></button>
+                className="text-red-500 hover:text-red-700 mt-5 p-1">
+                <i className="fas fa-trash text-xs"></i>
+            </button>
         </div>
     );
 };
@@ -195,18 +228,12 @@ const FormVinculadaDiagnostico: React.FC<{
     const [descripcion, setDescripcion] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // Productos de la recomendación (múltiples, cada uno con su tipo de inventario)
     const [productosRecomendacion, setProductosRecomendacion] = useState<ProductoSugerido[]>([]);
-
-    // Tipos de inventario (global, cargado por programa)
     const [tiposInventario, setTiposInventario] = useState<TipoInventario[]>([]);
-
-    // Labores
     const [tiposLabor, setTiposLabor] = useState<any[]>([]);
     const [laboresToCrear, setLaboresToCrear] = useState<LaborRow[]>([]);
     const [trabajadores, setTrabajadores] = useState<any[]>([]);
 
-    // Cargar trabajadores
     useEffect(() => {
         const cargarTrabajadores = async () => {
             try {
@@ -218,7 +245,6 @@ const FormVinculadaDiagnostico: React.FC<{
         cargarTrabajadores();
     }, []);
 
-    // Load diagnosis context
     useEffect(() => {
         const load = async () => {
             setLoading(true);
@@ -236,9 +262,12 @@ const FormVinculadaDiagnostico: React.FC<{
                 const programaId = (diag as any).programa_id;
                 if (programaId) {
                     const tipos = await inventarioDinamicoService.listarTipos(programaId);
-                    setTiposInventario(tipos.filter(t => t.activo));
+                    const tiposActivos = tipos.filter(t => t.activo);
+                    console.log('Tipos de inventario cargados:', tiposActivos);
+                    setTiposInventario(tiposActivos);
                 }
             } catch (e) {
+                console.error('Error:', e);
                 toast.error('Error al cargar el diagnóstico');
             } finally {
                 setLoading(false);
@@ -374,7 +403,6 @@ const FormVinculadaDiagnostico: React.FC<{
                 </div>
             )}
 
-            {/* Productos sugeridos (múltiples, cada uno con su tipo de inventario) */}
             <div className="border border-purple-200 rounded-xl p-4 bg-purple-50">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-purple-800 text-sm"><i className="fas fa-boxes mr-1"></i>Productos sugeridos</h4>
@@ -383,6 +411,11 @@ const FormVinculadaDiagnostico: React.FC<{
                         <i className="fas fa-plus"></i> Agregar producto
                     </button>
                 </div>
+                {tiposInventario.length === 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-3 text-xs text-yellow-700">
+                        <i className="fas fa-exclamation-triangle mr-1"></i> No hay tipos de inventario configurados para este programa.
+                    </div>
+                )}
                 {productosRecomendacion.length === 0 ? (
                     <p className="text-xs text-purple-600">No hay productos sugeridos.</p>
                 ) : (
@@ -414,7 +447,6 @@ const FormVinculadaDiagnostico: React.FC<{
                 <p className="text-xs text-gray-400 mt-1">{descripcion.length} / mín. 10 caracteres</p>
             </div>
 
-            {/* Labores */}
             <div className="border border-green-200 rounded-xl p-4 bg-green-50">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-green-800 text-sm"><i className="fas fa-tasks mr-1"></i>Labores a crear (opcional)</h4>
@@ -457,7 +489,6 @@ const FormVinculadaDiagnostico: React.FC<{
                                         className="text-red-500 hover:text-red-700 mt-5 p-1"><i className="fas fa-trash text-xs"></i></button>
                                 </div>
 
-                                {/* Productos de la labor (cada uno con su tipo de inventario) */}
                                 <div className="mt-3 pl-2 border-l-2 border-green-300">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs font-medium text-green-700">Productos para esta labor</span>
@@ -515,6 +546,16 @@ const FormGeneral: React.FC<{
     submitting: boolean;
     setSubmitting: (v: boolean) => void;
 }> = ({ recomendacion, lotes, docentes, programas, currentUser, esEdicion, onSubmit, onCancel, submitting, setSubmitting }) => {
+    const { user } = useAuth();
+    const esAdmin = user?.rol_id === 1;
+    const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+    const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+
+    // Filtrar programas según rol del usuario
+    const programasDisponibles = esAdmin 
+        ? programas 
+        : programas.filter(p => programasDocente.includes(p.id));
+
     const [programaId, setProgramaId] = useState<number | null>(null);
     const [monitoreoId, setMonitoreoId] = useState<number | null>(null);
     const [subtipoId, setSubtipoId] = useState<number | null>(null);
@@ -534,16 +575,54 @@ const FormGeneral: React.FC<{
     const [diagnosticosPendientes, setDiagnosticosPendientes] = useState<any[]>([]);
     const [loadingDiagnosticos, setLoadingDiagnosticos] = useState(false);
 
-    // Productos de la recomendación (múltiples, cada uno con su tipo de inventario)
     const [productosRecomendacion, setProductosRecomendacion] = useState<ProductoSugerido[]>([]);
-
-    // Tipos de inventario (cargados por programa)
     const [tiposInventario, setTiposInventario] = useState<any[]>([]);
     const [trabajadores, setTrabajadores] = useState<any[]>([]);
 
     const lotesFiltrados = lotes.filter(l => l.programa_id === programaId);
 
-    // Cargar trabajadores
+    // Validar acceso
+    if (esDocente && programasDocente.length === 0) {
+        return (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                        <i className="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>
+                    </div>
+                    <div className="ml-3">
+                        <h3 className="text-sm font-medium text-yellow-800">
+                            Sin programas asignados
+                        </h3>
+                        <p className="text-sm text-yellow-700 mt-1">
+                            No tienes programas asignados para crear recomendaciones.
+                            Contacta con un administrador para obtener acceso.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (programasDisponibles.length === 0 && !esEdicion) {
+        return (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                        <i className="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>
+                    </div>
+                    <div className="ml-3">
+                        <h3 className="text-sm font-medium text-yellow-800">
+                            No hay programas disponibles
+                        </h3>
+                        <p className="text-sm text-yellow-700 mt-1">
+                            No hay programas disponibles para crear recomendaciones.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     useEffect(() => {
         const cargarTrabajadores = async () => {
             try {
@@ -555,15 +634,25 @@ const FormGeneral: React.FC<{
         cargarTrabajadores();
     }, []);
 
-    // Cargar tipos de inventario cuando cambia programaId
     useEffect(() => {
-        if (!programaId) { setTiposInventario([]); return; }
-        inventarioDinamicoService.listarTipos(programaId)
-            .then(data => setTiposInventario(data.filter(t => t.activo)))
-            .catch(() => setTiposInventario([]));
+        if (!programaId) { 
+            setTiposInventario([]); 
+            return; 
+        }
+        const cargarTiposInventario = async () => {
+            try {
+                const data = await inventarioDinamicoService.listarTipos(programaId);
+                const tiposActivos = data.filter(t => t.activo);
+                console.log('Tipos de inventario para programa', programaId, ':', tiposActivos);
+                setTiposInventario(tiposActivos);
+            } catch (error) {
+                console.error('Error cargando tipos de inventario:', error);
+                setTiposInventario([]);
+            }
+        };
+        cargarTiposInventario();
     }, [programaId]);
 
-    // ── Cargar diagnósticos pendientes ────────────────────────────────────────
     useEffect(() => {
         if (!loteId || !subtipoId || esEdicion) {
             setDiagnosticosPendientes([]);
@@ -585,7 +674,6 @@ const FormGeneral: React.FC<{
         cargarDiagnosticos();
     }, [loteId, subtipoId, esEdicion]);
 
-    // ── Inicializar desde recomendación (modo edición) ────────────────────────
     useEffect(() => {
         if (!esEdicion || !recomendacion) { setInitialLoading(false); return; }
 
@@ -707,7 +795,7 @@ const FormGeneral: React.FC<{
                 <select value={programaId || ''} onChange={e => { setProgramaId(e.target.value ? parseInt(e.target.value) : null); setMonitoreoId(null); setSubtipoId(null); setLoteId(null); setDiagnosticoSeleccionadoId(null); }}
                     className="w-full border border-gray-300 rounded-lg p-3 text-sm" disabled={esEdicion}>
                     <option value="">Seleccionar programa...</option>
-                    {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                    {programasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
             </div>
             {programaId && monitoreos.length > 0 && (
@@ -768,13 +856,17 @@ const FormGeneral: React.FC<{
                     ))}
                 </div>
             )}
-            {/* Productos sugeridos */}
             <div className="border border-purple-200 rounded-xl p-4 bg-purple-50">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-purple-800 text-sm"><i className="fas fa-boxes mr-1"></i>Productos sugeridos</h4>
                     <button type="button" onClick={() => setProductosRecomendacion(prev => [...prev, newProductoRow()])}
                         className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1"><i className="fas fa-plus"></i> Agregar producto</button>
                 </div>
+                {tiposInventario.length === 0 && programaId && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mb-3 text-xs text-yellow-700">
+                        <i className="fas fa-exclamation-triangle mr-1"></i> No hay tipos de inventario configurados para este programa.
+                    </div>
+                )}
                 {productosRecomendacion.length === 0 ? (<p className="text-xs text-purple-600">No hay productos sugeridos.</p>) : (
                     <div className="space-y-3">
                         {productosRecomendacion.map((prod, idx) => (
@@ -788,7 +880,6 @@ const FormGeneral: React.FC<{
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Título *</label><input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" required /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Descripción *</label><textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" rows={4} required /><p className="text-xs text-gray-400 mt-1">{descripcion.length} / mín. 10 caracteres</p></div>
             {esEdicion && (<div><label className="block text-sm font-medium text-gray-700 mb-1">Estado</label><select value={estado} onChange={e => setEstado(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"><option value="pendiente">Pendiente</option><option value="aprobada">Aprobada</option><option value="en_ejecucion">En ejecución</option><option value="completada">Completada</option><option value="cancelada">Cancelada</option></select></div>)}
-            {/* Labores */}
             <div className="border border-green-200 rounded-xl p-4 bg-green-50">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-green-800 text-sm"><i className="fas fa-tasks mr-1"></i>Labores {esEdicion ? '' : 'a crear (opcional)'}</h4>
