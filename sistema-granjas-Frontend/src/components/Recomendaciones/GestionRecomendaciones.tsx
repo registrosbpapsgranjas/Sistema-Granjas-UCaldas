@@ -104,6 +104,8 @@ const GestionRecomendaciones: React.FC = () => {
                 filteredItems = items.filter((d: any) => programasUsuario.includes(d.programa_id));
             }
             setPendientes(filteredItems);
+            console.log('📊 programasUsuario:', programasUsuario);
+            console.log('📊 items sin filtrar:', items.map((d: any) => ({ id: d.id, programa_id: d.programa_id })));
         } catch (e) {
             toast.error('Error al cargar diagnósticos pendientes');
         } finally {
