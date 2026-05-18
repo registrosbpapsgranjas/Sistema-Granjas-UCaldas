@@ -98,20 +98,29 @@ const GestionRecomendaciones: React.FC = () => {
             const data = await diagnosticoService.obtenerDiagnosticos({ estado_revision: 'pendiente_revision' } as any);
             const items = Array.isArray(data) ? data : ((data as any)?.items || []);
             
-            // Filtrar diagnósticos pendientes según programas del usuario
-            let filteredItems = items;
-            if (esDocente && programasUsuario.length > 0) {
-                filteredItems = items.filter((d: any) => programasUsuario.includes(d.programa_id));
+            let filteredItems: any[] = [];
+            
+            if (esAdmin) {
+                // Admin ve todo
+                filteredItems = items;
+            } else if (esDocente) {
+                // Docente: solo ve diagnósticos de sus programas
+                if (programasUsuario.length > 0) {
+                    filteredItems = items.filter((d: any) => programasUsuario.includes(d.programa_id));
+                }
+                // Si no tiene programas, filteredItems ya está vacío (no ve nada)
+            } else {
+                // Otros roles (asesor, etc.) ven todo
+                filteredItems = items;
             }
+            
             setPendientes(filteredItems);
-            console.log('📊 programasUsuario:', programasUsuario);
-            console.log('📊 items sin filtrar:', items.map((d: any) => ({ id: d.id, programa_id: d.programa_id })));
         } catch (e) {
             toast.error('Error al cargar diagnósticos pendientes');
         } finally {
             setLoadingPendientes(false);
         }
-    }, [esDocente, programasUsuario]);
+    }, [esAdmin, esDocente, programasUsuario]);
 
     useEffect(() => {
         if (tabActivo === 'pendientes') {
@@ -157,10 +166,15 @@ const GestionRecomendaciones: React.FC = () => {
             let recomendacionesData = Array.isArray(data) ? data : (data?.items || data || []);
             
             // Filtrar adicionalmente por programas del docente
-            if (esDocente && programasUsuario.length > 0) {
-                recomendacionesData = recomendacionesData.filter((rec: any) => 
-                    programasUsuario.includes(rec.programa_id) && rec.docente_id === user?.id
-                );
+            if (esDocente) {
+                if (programasUsuario.length > 0) {
+                    recomendacionesData = recomendacionesData.filter((rec: any) => 
+                        programasUsuario.includes(rec.programa_id) && rec.docente_id === user?.id
+                    );
+                } else {
+                    // Docente sin programas asignados no ve ninguna recomendación
+                    recomendacionesData = [];
+                }
             }
             
             setRecomendaciones(recomendacionesData);
@@ -308,6 +322,8 @@ const GestionRecomendaciones: React.FC = () => {
         if (!user) return false;
         if (esAdmin) return true;
         if (esDocente) {
+            // Docente sin programas asignados no ve nada
+            if (programasUsuario.length === 0) return false;
             // Docente: solo ve sus recomendaciones Y que pertenezcan a sus programas
             const esSuRecomendacion = rec.docente_id === user.id;
             const perteneceASuPrograma = programasUsuario.includes(rec.programa_id);
