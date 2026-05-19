@@ -7,6 +7,7 @@ interface LaboresTableProps {
     onEditar: (labor: Labor) => void;
     onEliminar: (id: number) => void;
     onVerDetalles: (labor: Labor) => void;
+    onAsignarRecursos?: (labor: Labor) => void;
     onCompletar?: (labor: Labor) => void;
     currentUser: any;
 }
@@ -16,11 +17,11 @@ const LaboresTable: React.FC<LaboresTableProps> = ({
     onEditar,
     onEliminar,
     onVerDetalles,
+    onAsignarRecursos,
     onCompletar,
     currentUser
 }) => {
-    const rolesPermitidos = [1, 3, 5, 6]; // IDs de roles permitidos para ver información de labores
-    
+    const rolesPermitidos = [1, 3,  5, 6]; // IDs de roles permitidos para ver información de labores
     // Función para obtener el color del estado
     const getEstadoBadge = (estado: string) => {
         const estados: Record<string, { color: string; icon: string }> = {
@@ -59,7 +60,7 @@ const LaboresTable: React.FC<LaboresTableProps> = ({
 
     // Funciones de permisos
     const puedeEditar = (labor: Labor) => {
-        if (rolesPermitidos.includes(currentUser?.rol_id)) return true;
+        if (rolesPermitidos.includes(currentUser?.rol_id)) return true; // Admin
         if (labor.trabajador_id === currentUser?.id && labor.estado !== 'completada') return true;
         return false;
     };
@@ -97,11 +98,9 @@ const LaboresTable: React.FC<LaboresTableProps> = ({
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Fechas
                             </th>
-                            {(currentUser?.rol_id && rolesPermitidos.includes(currentUser?.rol_id)) && (
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Acciones
-                                </th>
-                            )}
+                            {(currentUser?.rol_id && rolesPermitidos.includes(currentUser?.rol_id)) && (<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones
+                            </th>)}
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -182,49 +181,47 @@ const LaboresTable: React.FC<LaboresTableProps> = ({
                                             </div>
                                         )}
                                     </td>
-                                    {(currentUser?.rol_id && rolesPermitidos.includes(currentUser?.rol_id)) && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div className="flex space-x-2">
+                                    {(currentUser?.rol_id && rolesPermitidos.includes(currentUser?.rol_id)) && (<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => onVerDetalles(labor)}
+                                                className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                                                title="Ver detalles"
+                                            >
+                                                <i className="fas fa-eye"></i>
+                                            </button>
+
+                                            {puedeEditar(labor) && (
                                                 <button
-                                                    onClick={() => onVerDetalles(labor)}
-                                                    className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
-                                                    title="Ver detalles"
+                                                    onClick={() => onEditar(labor)}
+                                                    className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
+                                                    title="Editar"
                                                 >
-                                                    <i className="fas fa-eye"></i>
+                                                    <i className="fas fa-edit"></i>
                                                 </button>
+                                            )}
 
-                                                {puedeEditar(labor) && (
-                                                    <button
-                                                        onClick={() => onEditar(labor)}
-                                                        className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
-                                                        title="Editar"
-                                                    >
-                                                        <i className="fas fa-edit"></i>
-                                                    </button>
-                                                )}
+                                            {puedeCompletar(labor) && onCompletar && (
+                                                <button
+                                                    onClick={() => onCompletar(labor)}
+                                                    className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                                    title="Completar labor"
+                                                >
+                                                    <i className="fas fa-check-circle"></i>
+                                                </button>
+                                            )}
 
-                                                {puedeCompletar(labor) && onCompletar && (
-                                                    <button
-                                                        onClick={() => onCompletar(labor)}
-                                                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                                                        title="Completar labor"
-                                                    >
-                                                        <i className="fas fa-check-circle"></i>
-                                                    </button>
-                                                )}
-
-                                                {puedeEliminar(labor) && (
-                                                    <button
-                                                        onClick={() => onEliminar(labor.id)}
-                                                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                                                        title="Eliminar"
-                                                    >
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    )}
+                                            {puedeEliminar(labor) && (
+                                                <button
+                                                    onClick={() => onEliminar(labor.id)}
+                                                    className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                                    title="Eliminar"
+                                                >
+                                                    <i className="fas fa-trash"></i>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>)}
                                 </tr>
                             ))
                         )}
