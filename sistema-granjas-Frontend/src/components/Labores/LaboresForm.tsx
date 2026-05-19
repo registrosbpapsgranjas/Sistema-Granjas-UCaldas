@@ -239,11 +239,11 @@ const LaborForm: React.FC<LaborFormProps> = ({
             setFormulario(labor.formulario_labor || {});
 
             // Cargar productos existentes de la labor
-            if ((labor as any).items_sugeridos?.length > 0) {
-                setProductosLabor((labor as any).items_sugeridos.map((item: any) => ({
+            if ((labor as any).productos?.length > 0) {
+                setProductosLabor((labor as any).productos.map((item: any) => ({
                     ...newProductoLabor(),
                     inventario_item_id: item.inventario_item_id,
-                    dosis: item.cantidad_sugerida ? String(item.cantidad_sugerida) : '',
+                    dosis: item.cantidad_usada ? String(item.cantidad_usada) : '',
                     unidad: item.unidad_dosis || '',
                 })));
             } else {

@@ -653,10 +653,10 @@ const FormGeneral: React.FC<{
                         tipo_labor_id: lab.tipo_labor_id,
                         trabajador_id: lab.trabajador_id,
                         comentario: lab.comentario || '',
-                        productos: lab.items_sugeridos?.map((item: any) => ({
+                        productos: lab.productos?.map((item: any) => ({
                             ...newProductoRow(),
                             inventario_item_id: item.inventario_item_id,
-                            dosis: item.cantidad_sugerida ? String(item.cantidad_sugerida) : '',
+                            dosis: item.cantidad_usada ? String(item.cantidad_usada) : '',
                             unidad: item.unidad_dosis || '',
                         })) || [],
                     })));
@@ -766,9 +766,9 @@ const FormGeneral: React.FC<{
                     cantidad_sugerida: p.dosis ? parseFloat(p.dosis) : null,
                     unidad_dosis: p.unidad || null,
                 })),
-                labores: labores.map(l => ({
+                labores_a_crear: labores.map(l => ({
                     id: l.id, tipo_labor_id: l.tipo_labor_id, trabajador_id: l.trabajador_id, comentario: l.comentario,
-                    items_sugeridos: l.productos.filter(p => p.inventario_item_id).map(p => ({
+                    productos: l.productos.filter(p => p.inventario_item_id).map(p => ({
                         inventario_item_id: p.inventario_item_id,
                         cantidad_sugerida: p.dosis ? parseFloat(p.dosis) : null,
                         unidad_dosis: p.unidad || null,
