@@ -83,8 +83,8 @@ const RecomendacionesTable: React.FC<RecomendacionesTableProps> = ({
     // Funciones de permisos
     const puedeEditar = (recomendacion: Recomendacion) => {
         if (esAdmin) return true;
-        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return true;
         return false;
+        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return true;
     };
 
     const puedeAprobar = (recomendacion: Recomendacion) => {
@@ -95,8 +95,8 @@ const RecomendacionesTable: React.FC<RecomendacionesTableProps> = ({
 
     const puedeEliminar = (recomendacion: Recomendacion) => {
         if (esAdmin) return true;
-        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return true;
         return false;
+        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return true;
     };
 
     if (recomendacionesFiltradas.length === 0) {
