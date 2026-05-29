@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from app.db.models import (
     Labor, Usuario, Recomendacion, Lote,
-    Evidencia, Granja, Programa, usuario_programa, ItemInventarioPrograma, ProductoLabor
+    Evidencia, Granja, Programa, usuario_programa, usuario_granja, ItemInventarioPrograma, ProductoLabor
 )
 from app.schemas.labor_schema import (
     LaborCreate, LaborUpdate, AsignacionHerramientaRequest,
@@ -105,16 +105,11 @@ def listar_labores_crud(
         query = query.outerjoin(Recomendacion, Labor.recomendacion_id == Recomendacion.id)\
                      .filter(Recomendacion.docente_id == usuario.id)
     elif usuario.rol.nombre == "talento_humano":
-        # Obtener IDs de programas del usuario de talento_humano
-        programa_ids = [programa.id for programa in usuario.programas]
-        
-        if programa_ids:
-            # Filtrar trabajadores que tengan al menos uno de los mismos programas
-            query = query.join(Usuario, Labor.trabajador_id == Usuario.id)\
-                        .join(usuario_programa, Usuario.id == usuario_programa.c.usuario_id)\
-                        .filter(usuario_programa.c.programa_id.in_(programa_ids))
+        granja_ids = [g.id for g in usuario.granjas]
+        if granja_ids:
+            lote_ids_subq = db.query(Lote.id).filter(Lote.granja_id.in_(granja_ids)).subquery()
+            query = query.filter(Labor.lote_id.in_(lote_ids_subq))
         else:
-            # Si el usuario no tiene programas, no muestra nada
             query = query.filter(False)
     # jefe_talento_humano y admin ven todo (sin filtro adicional)
     
@@ -167,14 +162,9 @@ def obtener_labor_objeto(db: Session, id: int, usuario: Usuario = None):
             if not recomendacion or recomendacion.docente_id != usuario.id:
                 return None
         elif usuario.rol.nombre == "talento_humano":
-            trabajador = labor.trabajador
-            if not trabajador:
-                return None
-            
-            trabajador_programa_ids = {programa.id for programa in trabajador.programas}
-            usuario_programa_ids = {programa.id for programa in usuario.programas}
-            
-            if not trabajador_programa_ids.intersection(usuario_programa_ids):
+            usuario_granja_ids = {g.id for g in usuario.granjas}
+            lote = labor.lote
+            if not lote or lote.granja_id not in usuario_granja_ids:
                 return None
         # jefe_talento_humano y admin ven todo (sin restricción adicional)
     
