@@ -15,7 +15,7 @@ from app.schemas.diagnostico_dinamico_schema import (
 from app.db.models import Programa, Monitoreo
 
 router = APIRouter(prefix="/diagnosticos-dinamico", tags=["Diagnósticos Dinámico"])
-role_admin = Depends(require_any_role(["admin", "docente", "asesor"]))
+role_admin = Depends(require_any_role(["admin", "docente", "asesor", "jefe_talento_humano"]))
 role_read = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "trabajador", "talento_humano", "jefe_talento_humano"]))
 
 
