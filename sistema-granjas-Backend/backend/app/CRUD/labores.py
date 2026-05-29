@@ -549,9 +549,6 @@ def _cargar_relaciones_labor(labor: Labor):
         labor.lote_nombre = labor.lote.nombre
         if labor.lote.granja:
             labor.granja_nombre = labor.lote.granja.nombre
-    if labor.tipo_labor:
-        labor.tipo_labor_nombre = labor.tipo_labor.nombre
-        labor.tipo_labor_descripcion = labor.tipo_labor.descripcion
 
 def _cargar_recursos_labor(db: Session, labor: Labor):
     """
