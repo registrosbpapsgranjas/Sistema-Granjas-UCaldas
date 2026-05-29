@@ -10,7 +10,7 @@ from app.schemas.tipo_labor_schema import (
 
 router = APIRouter(prefix="/tipos-labor", tags=["Tipos de Labor"])
 
-role_required = Depends(require_any_role(["admin", "docente","asesor","talento_humano"]))
+role_required = Depends(require_any_role(["admin", "docente","asesor","talento_humano", "jefe_talento_humano"]))
 
 @router.get("/", response_model=List[TipoLaborResponse])
 def listar(db: Session = Depends(get_db), _=role_required):
