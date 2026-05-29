@@ -21,7 +21,7 @@ from app.db.models import Usuario
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 # ✅ FORMA 1: Usando dependencies en el decorador (CORREGIDO)
-@router.get("/", response_model=List[UsuarioResponse], dependencies=[Depends(require_any_role(["admin","talento_humano","docente","asesor","estudiante","trabajador"]))])
+@router.get("/", response_model=List[UsuarioResponse], dependencies=[Depends(require_any_role(["admin","talento_humano","jefe_talento_humano","docente","asesor","estudiante","trabajador"]))])
 def listar_usuarios(
     skip: int = 0,
     limit: int = 100,
