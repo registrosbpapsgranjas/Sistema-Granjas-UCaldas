@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import recomendacionService from '../../services/recomendacionService';
 import laborService from '../../services/laboresService';
-import tipoLaborService from '../../services/tipoLaboresService';
 import trabajadorService from '../../services/usuarioService';
 import loteService from '../../services/loteService';
 import Modal from '../Common/Modal';
@@ -15,7 +14,6 @@ interface RecomendacionesSinLaboresProps {
 }
 
 interface LaborFormData {
-    tipo_labor_id: number | null;
     trabajador_id: number | null;
     fecha_programada: string;
     prioridad: 'alta' | 'media' | 'baja';
@@ -30,15 +28,14 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
     const [selectedRecomendacion, setSelectedRecomendacion] = useState<Recomendacion | null>(null);
     const [showCrearLaboresModal, setShowCrearLaboresModal] = useState(false);
     const [laboresForm, setLaboresForm] = useState<LaborFormData[]>([getEmptyLaborForm()]);
-    const [tiposLabor, setTiposLabor] = useState<any[]>([]);
     const [trabajadores, setTrabajadores] = useState<any[]>([]);
     const [lotes, setLotes] = useState<any[]>([]);
     const [camposDinamicos, setCamposDinamicos] = useState<Record<number, any[]>>({});
     const [loadingForm, setLoadingForm] = useState(false);
+    const [mostrarDetallesCompletos, setMostrarDetallesCompletos] = useState(false);
 
     function getEmptyLaborForm(): LaborFormData {
         return {
-            tipo_labor_id: null,
             trabajador_id: null,
             fecha_programada: new Date().toISOString().split('T')[0],
             prioridad: 'media',
@@ -55,11 +52,9 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
     const cargarRecomendaciones = async () => {
         setLoading(true);
         try {
-            // Cargar solo recomendaciones en estado PENDIENTE
             const data = await recomendacionService.obtenerRecomendaciones({ estado: 'pendiente' });
             let recs = Array.isArray(data) ? data : (data?.items || []);
             
-            // Filtrar solo recomendaciones que NO tengan labores asociadas
             const recsConLabores = await Promise.all(
                 recs.map(async (rec: Recomendacion) => {
                     try {
@@ -72,7 +67,6 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                 })
             );
             
-            // Solo mostrar las que NO tienen labores
             const sinLabores = recsConLabores.filter(rec => !rec.tieneLabores);
             setRecomendaciones(sinLabores);
         } catch (error) {
@@ -85,12 +79,10 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
 
     const cargarDatosMaestros = async () => {
         try {
-            const [tipos, trabajadoresData, lotesData] = await Promise.all([
-                tipoLaborService.obtenerTiposLabor(),
+            const [trabajadoresData, lotesData] = await Promise.all([
                 trabajadorService.obtenerTrabajadores(),
                 loteService.obtenerLotes()
             ]);
-            setTiposLabor(Array.isArray(tipos) ? tipos : (tipos?.items || []));
             setTrabajadores(Array.isArray(trabajadoresData) ? trabajadoresData : (trabajadoresData?.items || []));
             setLotes(Array.isArray(lotesData) ? lotesData : (lotesData?.items || []));
         } catch (error) {
@@ -112,8 +104,8 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
         setSelectedRecomendacion(recomendacion);
         setLaboresForm([getEmptyLaborForm()]);
         setCamposDinamicos({});
+        setMostrarDetallesCompletos(false);
         
-        // Cargar campos dinámicos para el primer formulario si hay subtipo
         if (recomendacion.subtipo_id) {
             await cargarCamposDinamicosPorSubtipo(recomendacion.subtipo_id, 0);
         }
@@ -158,22 +150,60 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
         ));
     };
 
+    // Función para renderizar el formulario_recomendacion de forma legible
+    const renderFormularioRecomendacion = (formulario: Record<string, any> | null | undefined) => {
+        if (!formulario || Object.keys(formulario).length === 0) {
+            return (
+                <div className="text-gray-400 italic text-sm">
+                    No hay información adicional en esta recomendación
+                </div>
+            );
+        }
+
+        const formatKey = (key: string) => {
+            return key
+                .replace(/_/g, ' ')
+                .replace(/([A-Z])/g, ' $1')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')
+                .trim();
+        };
+
+        const formatValue = (value: any): string => {
+            if (value === null || value === undefined) return '—';
+            if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+            if (Array.isArray(value)) return value.join(', ');
+            if (typeof value === 'object') return JSON.stringify(value, null, 2);
+            return String(value);
+        };
+
+        return (
+            <div className="space-y-3">
+                {Object.entries(formulario).map(([key, value]) => (
+                    <div key={key} className="border-b border-gray-100 pb-2 last:border-0">
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            {formatKey(key)}
+                        </div>
+                        <div className="text-sm text-gray-800 mt-1 whitespace-pre-wrap">
+                            {formatValue(value)}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     const handleSubmit = async () => {
         if (!selectedRecomendacion) return;
         
-        // Validar que todas las labores tengan datos requeridos
         for (let i = 0; i < laboresForm.length; i++) {
             const labor = laboresForm[i];
-            if (!labor.tipo_labor_id) {
-                toast.error(`Labor #${i + 1}: Seleccione un tipo de labor`);
-                return;
-            }
             if (!labor.fecha_programada) {
                 toast.error(`Labor #${i + 1}: Seleccione una fecha programada`);
                 return;
             }
             
-            // Validar campos dinámicos requeridos
             const campos = camposDinamicos[i] || [];
             for (const campo of campos) {
                 if (campo.requerido && (!labor.formulario_labor?.[campo.nombre_campo] || labor.formulario_labor[campo.nombre_campo] === '')) {
@@ -188,12 +218,14 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
         let errores = 0;
         
         try {
-            // Crear todas las labores
             for (const labor of laboresForm) {
                 try {
+                    // Usar el tipo_labor_id de la recomendación o un valor por defecto
+                    const tipoLaborId = (selectedRecomendacion as any).tipo_labor_id || 1;
+                    
                     await laborService.crearLabor(
                         {
-                            tipo_labor_id: labor.tipo_labor_id,
+                            tipo_labor_id: tipoLaborId,
                             trabajador_id: labor.trabajador_id || undefined,
                             fecha_programada: labor.fecha_programada,
                             prioridad: labor.prioridad,
@@ -218,7 +250,6 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
             }
             
             if (creadas > 0) {
-                // IMPORTANTE: Actualizar el estado de la recomendación a "aprobada"
                 try {
                     await recomendacionService.actualizarRecomendacion(
                         selectedRecomendacion.id,
@@ -442,26 +473,113 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                         </div>
                     </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                        <div className="flex items-start gap-3">
-                            <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
-                            <div className="text-sm text-blue-800">
-                                <p className="font-medium mb-1">Información de la recomendación</p>
-                                <p className="text-blue-700">{selectedRecomendacion?.descripcion}</p>
-                                {selectedRecomendacion?.items_sugeridos && selectedRecomendacion.items_sugeridos.length > 0 && (
-                                    <div className="mt-2">
-                                        <p className="font-medium text-xs">Productos sugeridos:</p>
-                                        <ul className="list-disc list-inside text-xs">
-                                            {selectedRecomendacion.items_sugeridos.map((item, idx) => (
-                                                <li key={idx}>
-                                                    Producto #{item.inventario_item_id} - {item.cantidad_sugerida} {item.unidad_dosis || 'unidades'}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
+                    {/* Información completa de la recomendación */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <i className="fas fa-info-circle text-blue-600"></i>
+                                <h3 className="font-semibold text-blue-800">Información completa de la recomendación</h3>
+                            </div>
+                            <button
+                                onClick={() => setMostrarDetallesCompletos(!mostrarDetallesCompletos)}
+                                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            >
+                                <i className={`fas fa-chevron-${mostrarDetallesCompletos ? 'up' : 'down'}`}></i>
+                                {mostrarDetallesCompletos ? 'Ocultar detalles' : 'Ver todos los detalles'}
+                            </button>
+                        </div>
+
+                        {/* Información básica siempre visible */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span className="text-xs font-semibold text-blue-700 uppercase">Título</span>
+                                <p className="text-gray-800">{selectedRecomendacion?.titulo}</p>
+                            </div>
+                            <div>
+                                <span className="text-xs font-semibold text-blue-700 uppercase">Estado</span>
+                                <p className="text-gray-800">
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                        {selectedRecomendacion?.estado}
+                                    </span>
+                                </p>
+                            </div>
+                            <div className="md:col-span-2">
+                                <span className="text-xs font-semibold text-blue-700 uppercase">Descripción</span>
+                                <p className="text-gray-700">{selectedRecomendacion?.descripcion}</p>
+                            </div>
+                            <div>
+                                <span className="text-xs font-semibold text-blue-700 uppercase">Lote</span>
+                                <p className="text-gray-800">{selectedRecomendacion?.lote_nombre || `#${selectedRecomendacion?.lote_id}`}</p>
+                            </div>
+                            <div>
+                                <span className="text-xs font-semibold text-blue-700 uppercase">Fecha de creación</span>
+                                <p className="text-gray-800">{selectedRecomendacion?.fecha_creacion && new Date(selectedRecomendacion.fecha_creacion).toLocaleString()}</p>
                             </div>
                         </div>
+
+                        {/* Detalles completos (toggle) */}
+                        {mostrarDetallesCompletos && (
+                            <div className="mt-4 pt-4 border-t border-blue-200">
+                                {/* Formulario de recomendación */}
+                                {selectedRecomendacion?.formulario_recomendacion && (
+                                    <div className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <i className="fas fa-clipboard-list text-blue-600 text-sm"></i>
+                                            <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                                                Formulario de recomendación
+                                            </span>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-blue-100">
+                                            {renderFormularioRecomendacion(selectedRecomendacion.formulario_recomendacion as Record<string, any>)}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Productos sugeridos */}
+                                {selectedRecomendacion?.items_sugeridos && selectedRecomendacion.items_sugeridos.length > 0 && (
+                                    <div className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <i className="fas fa-boxes text-blue-600 text-sm"></i>
+                                            <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                                                Productos sugeridos
+                                            </span>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3 border border-blue-100">
+                                            <div className="space-y-2">
+                                                {selectedRecomendacion.items_sugeridos.map((item, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
+                                                        <span className="text-sm text-gray-700">
+                                                            Producto #{item.inventario_item_id}
+                                                        </span>
+                                                        <span className="text-sm font-medium text-blue-600">
+                                                            {item.cantidad_sugerida} {item.unidad_dosis || 'unidades'}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Otros metadatos */}
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                    <div className="bg-white rounded p-2 border border-blue-100">
+                                        <span className="text-gray-500">ID Recomendación</span>
+                                        <p className="font-mono text-gray-700">#{selectedRecomendacion?.id}</p>
+                                    </div>
+                                    <div className="bg-white rounded p-2 border border-blue-100">
+                                        <span className="text-gray-500">Docente que la creó</span>
+                                        <p className="text-gray-700">{selectedRecomendacion?.docente_nombre || 'No especificado'}</p>
+                                    </div>
+                                    {selectedRecomendacion?.subtipo_id && (
+                                        <div className="bg-white rounded p-2 border border-blue-100">
+                                            <span className="text-gray-500">Subtipo ID</span>
+                                            <p className="font-mono text-gray-700">{selectedRecomendacion.subtipo_id}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-6">
@@ -484,7 +602,6 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Trabajador Asignado
