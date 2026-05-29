@@ -348,6 +348,12 @@ const FormVinculadaDiagnostico: React.FC<{
                 </div>
             )}
 
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Título de la recomendación..." required />
+            </div>
+
             <div className="border border-purple-200 rounded-xl p-4 bg-purple-50">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-purple-800 text-sm"><i className="fas fa-boxes mr-1"></i>Productos sugeridos</h4>
@@ -378,24 +384,10 @@ const FormVinculadaDiagnostico: React.FC<{
                 )}
             </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Título de la recomendación..." required />
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción / Observaciones *</label>
-                <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" rows={4}
-                    placeholder="Describe las acciones a realizar, hallazgos y justificación..." required />
-                <p className="text-xs text-gray-400 mt-1">{descripcion.length} / mín. 10 caracteres</p>
-            </div>
-
             <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">Cancelar</button>
                 <button type="button" onClick={handleSubmit}
-                    disabled={submitting || !titulo || !descripcion}
+                    disabled={submitting || !titulo}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-lg font-medium text-sm disabled:bg-gray-400 transition-colors">
                     {submitting ? (<span className="flex items-center gap-2"><div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>Guardando...</span>) : 'Crear Recomendación'}
                 </button>
