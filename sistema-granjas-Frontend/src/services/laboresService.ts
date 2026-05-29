@@ -1,4 +1,4 @@
-// src/services/laborService.ts
+// src/services/laboresService.ts
 import type {
     Labor,
     TipoLabor,
@@ -70,11 +70,23 @@ export const laborService = {
 
     async crearLabor(datos: CreateLaborDto, user?: any): Promise<Labor> {
         try {
-            // 1. Crear la labor
+            // Asegurar que los datos requeridos estén presentes
+            const payload: any = {
+                tipo_labor_id: datos.tipo_labor_id,
+                lote_id: datos.lote_id,
+                recomendacion_id: datos.recomendacion_id,
+                fecha_programada: datos.fecha_programada || new Date().toISOString().split('T')[0],
+                prioridad: datos.prioridad || 'media',
+                ...(datos.trabajador_id && { trabajador_id: datos.trabajador_id }),
+                ...(datos.comentario && { comentario: datos.comentario }),
+                ...(datos.formulario_labor && { formulario_labor: datos.formulario_labor }),
+                ...(datos.productos && { productos: datos.productos })
+            };
+
             const response = await fetch(`${API_BASE_URL}/labores/`, {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify(datos)
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -84,12 +96,11 @@ export const laborService = {
 
             const laborCreada: Labor = await response.json();
 
-            // 2. Si hay evidencias iniciales, procesarlas
+            // Si hay evidencias iniciales, procesarlas
             if (datos.evidencias?.length && user) {
                 await Promise.all(
                     datos.evidencias.map(async (ev: any) => {
                         try {
-                            // Subir archivo
                             const formData = new FormData();
                             formData.append('file', ev.file);
 
@@ -102,14 +113,12 @@ export const laborService = {
                             });
 
                             if (!uploadRes.ok) {
-                                const errorText = await uploadRes.text();
-                                console.error(`❌ Error subiendo archivo ${ev.file.name}:`, errorText);
-                                throw new Error(`Error subiendo archivo ${ev.file.name}`);
+                                console.error(`❌ Error subiendo archivo ${ev.file.name}`);
+                                return null;
                             }
 
                             const fileData = await uploadRes.json();
 
-                            // Crear registro de evidencia
                             const evidenciaPayload = {
                                 tipo: ev.tipo || 'imagen',
                                 descripcion: ev.descripcion || `Evidencia para labor ${laborCreada.id}`,
@@ -126,9 +135,8 @@ export const laborService = {
                             });
 
                             if (!evidenciaRes.ok) {
-                                const errorData = await evidenciaRes.json().catch(() => ({}));
-                                console.error(`❌ Error creando evidencia:`, errorData);
-                                throw new Error(`Error creando registro de evidencia`);
+                                console.error(`❌ Error creando evidencia`);
+                                return null;
                             }
 
                             return await evidenciaRes.json();
@@ -138,8 +146,6 @@ export const laborService = {
                         }
                     })
                 );
-
-                console.log('✅ Todas las evidencias procesadas para labor');
             }
 
             return laborCreada;
@@ -152,7 +158,6 @@ export const laborService = {
 
     async actualizarLabor(id: number, datos: UpdateLaborDto, user?: any): Promise<Labor> {
         try {
-            // 1. Actualizar la labor
             const response = await fetch(`${API_BASE_URL}/labores/${id}`, {
                 method: 'PUT',
                 headers: getHeaders(),
@@ -166,15 +171,10 @@ export const laborService = {
 
             const laborActualizada: Labor = await response.json();
 
-            // 2. Si hay evidencias para subir, procesarlas
             if (datos.evidencias?.length && user) {
-                const evidenciasParaSubir = datos.evidencias;
-                console.log(`🔄 Procesando ${evidenciasParaSubir.length} evidencias para labor ${id}`);
-
                 await Promise.all(
-                    evidenciasParaSubir.map(async (ev: any) => {
+                    datos.evidencias.map(async (ev: any) => {
                         try {
-                            // Subir archivo
                             const formData = new FormData();
                             formData.append('file', ev.file);
 
@@ -186,15 +186,10 @@ export const laborService = {
                                 body: formData
                             });
 
-                            if (!uploadRes.ok) {
-                                const errorText = await uploadRes.text();
-                                console.error(`❌ Error subiendo archivo ${ev.file.name}:`, errorText);
-                                throw new Error(`Error subiendo archivo ${ev.file.name}`);
-                            }
+                            if (!uploadRes.ok) return null;
 
                             const fileData = await uploadRes.json();
 
-                            // Crear registro de evidencia
                             const evidenciaPayload = {
                                 tipo: ev.tipo || 'imagen',
                                 descripcion: ev.descripcion || `Evidencia para labor ${id}`,
@@ -210,23 +205,15 @@ export const laborService = {
                                 body: JSON.stringify(evidenciaPayload)
                             });
 
-                            if (!evidenciaRes.ok) {
-                                const errorData = await evidenciaRes.json().catch(() => ({}));
-                                console.error(`❌ Error creando evidencia:`, errorData);
-                                throw new Error(`Error creando registro de evidencia`);
-                            }
+                            if (!evidenciaRes.ok) return null;
 
-                            const evidenciaCreada = await evidenciaRes.json();
-                            console.log(`✅ Evidencia creada: ${evidenciaCreada.id}`);
-                            return evidenciaCreada;
+                            return await evidenciaRes.json();
                         } catch (error) {
                             console.error(`❌ Error procesando evidencia:`, error);
                             return null;
                         }
                     })
                 );
-
-                console.log('✅ Todas las evidencias procesadas para labor actualizada');
             }
 
             return laborActualizada;
@@ -431,7 +418,7 @@ export const laborService = {
             });
         }
 
-        const url = `${API_BASE_URL}/labores/trabajador/mis-labores${params.toString() ? `?${params}` : ''}`;
+        const url = `${API_BASE_URL}/labores/mis-labores${params.toString() ? `?${params}` : ''}`;
         const response = await fetch(url, { headers: getHeaders() });
         return handleResponse(response);
     },

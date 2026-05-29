@@ -94,7 +94,7 @@ export interface ProductoLaborDto {
 export interface CreateLaborDto {
     tipo_labor_id: number;
     recomendacion_id: number;
-    trabajador_id: number;
+    trabajador_id?: number;
     lote_id: number;
     comentario?: string;
     formulario_labor?: Record<string, any>;
@@ -119,7 +119,7 @@ export interface LaborFilters {
     estado?: string;
     trabajador_id?: number;
     lote_id?: number;
-    recomendacion_id?: number;
+    recomendacion_id?: number;  // Añadir este filtro
     tipo_labor_id?: number;
     fecha_desde?: string;
     fecha_hasta?: string;

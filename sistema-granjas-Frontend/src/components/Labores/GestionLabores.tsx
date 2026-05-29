@@ -15,11 +15,12 @@ import DetallesLaborModal from '../../components/Labores/DetallesLabores';
 import EstadisticasLaboresModal from '../../components/Labores/Estadisticas';
 import AsignarRecursosModal from '../../components/Labores/AsignarRecursos';
 import CompletarLaborModal from '../../components/Labores/CompletarLabores';
+import RecomendacionesSinLabores from '../../components/Labores/RecomendacionesSinLabores';
 import { useAuth } from '../../hooks/useAuth';
 import exportService from '../../services/exportService';
 import GestionTiposLabores from './GestionTiposLabores';
 
-type LaboresTab = 'labores' | 'tipos';
+type LaboresTab = 'labores' | 'tipos' | 'recomendaciones-pendientes';
 
 const GestionLaboresPage: React.FC = () => {
     const [tabActivo, setTabActivo] = useState<LaboresTab>('labores');
@@ -50,6 +51,9 @@ const GestionLaboresPage: React.FC = () => {
     // Estados específicos para exportación
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
+
+    // Verificar si el usuario es Talento Humano o Jefe Talento Humano
+    const esTalentoHumano = user?.rol_id === 6 || user?.rol_id === 7 || user?.rol === 'jefe_talento_humano';
 
     // Handler para exportar labores
     const handleExportLabores = async () => {
@@ -265,8 +269,6 @@ const GestionLaboresPage: React.FC = () => {
     };
 
     // ✅ EL BACKEND YA FILTRA POR ROL AUTOMÁTICAMENTE
-    // No es necesario filtrar nuevamente en el frontend
-    // Solo aplicamos filtros específicos que el usuario selecciona en la UI
     const laboresFiltradas = Array.isArray(labores) ? labores : [];
 
     return (
@@ -333,6 +335,16 @@ const GestionLaboresPage: React.FC = () => {
                             <i className="fas fa-tag mr-2"></i>Tipos de Labor
                         </button>
                     )}
+                    {/* Nueva pestaña para Talento Humano */}
+                    {esTalentoHumano && (
+                        <button 
+                            onClick={() => setTabActivo('recomendaciones-pendientes')}
+                            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tabActivo === 'recomendaciones-pendientes' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <i className="fas fa-clipboard-list"></i>
+                            Recomendaciones sin labores
+                        </button>
+                    )}
                 </div>
 
                 {/* Filtros */}
@@ -392,6 +404,11 @@ const GestionLaboresPage: React.FC = () => {
             {/* TAB: Tipos de Labor */}
             {tabActivo === 'tipos' && (
                 <GestionTiposLabores />
+            )}
+
+            {/* TAB: Recomendaciones sin labores (Talento Humano) */}
+            {tabActivo === 'recomendaciones-pendientes' && esTalentoHumano && (
+                <RecomendacionesSinLabores onLaborCreada={cargarDatos} />
             )}
 
             {/* TAB: Labores tabla */}
