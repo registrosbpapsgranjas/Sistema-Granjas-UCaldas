@@ -484,22 +484,6 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Tipo de Labor *
-                                        </label>
-                                        <select
-                                            value={labor.tipo_labor_id || ''}
-                                            onChange={e => actualizarLaborForm(idx, 'tipo_labor_id', parseInt(e.target.value))}
-                                            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
-                                            required
-                                        >
-                                            <option value="">Seleccionar tipo...</option>
-                                            {tiposLabor.map(tipo => (
-                                                <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
