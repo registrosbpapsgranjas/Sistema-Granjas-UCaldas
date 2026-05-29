@@ -127,8 +127,16 @@ def listar_recomendaciones(
     if programa_id:
         query = query.join(Lote, Recomendacion.lote_id == Lote.id).filter(Lote.programa_id == programa_id)
 
-    if usuario and usuario.rol.nombre == "docente":
-        query = query.filter(Recomendacion.docente_id == usuario.id)
+    if usuario:
+        if usuario.rol.nombre == "docente":
+            query = query.filter(Recomendacion.docente_id == usuario.id)
+        elif usuario.rol.nombre == "talento_humano":
+            granja_ids = [g.id for g in usuario.granjas]
+            if granja_ids:
+                lote_ids_subq = db.query(Lote.id).filter(Lote.granja_id.in_(granja_ids)).subquery()
+                query = query.filter(Recomendacion.lote_id.in_(lote_ids_subq))
+            else:
+                query = query.filter(False)
 
     total = query.count()
     items = query.order_by(Recomendacion.fecha_creacion.desc()).offset(skip).limit(limit).all()

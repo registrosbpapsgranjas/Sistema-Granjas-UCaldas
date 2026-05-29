@@ -9,6 +9,7 @@ import { StatsCard } from "../Common/StatsCard";
 import { EditarUsuarioModal } from "./EditarUsuario";
 import { CambiarRolModal } from "./CambiarRol";
 import { AsignarProgramaModal } from "./AsignarProgramaModal";
+import { AsignarGranjaModal } from "./AsignarGranjaModal";
 import UsuariosTable from "./UsuariosTable";
 import exportService from "../../services/exportService";
 
@@ -52,6 +53,7 @@ export default function GestionUsuarios() {
     const [modalEditar, setModalEditar] = useState(false);
     const [modalCambiarRol, setModalCambiarRol] = useState(false);
     const [modalAsignarPrograma, setModalAsignarPrograma] = useState(false);
+    const [modalAsignarGranja, setModalAsignarGranja] = useState(false);
 
     // Selecciones
     const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<any>(null);
@@ -197,6 +199,11 @@ export default function GestionUsuarios() {
         setModalAsignarPrograma(true);
     };
 
+    const abrirAsignarGranja = (usuario: any) => {
+        setUsuarioSeleccionado(usuario);
+        setModalAsignarGranja(true);
+    };
+
     const manejarEliminar = async (id: number) => {
         if (!confirm("¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.")) return;
 
@@ -289,6 +296,7 @@ export default function GestionUsuarios() {
         setModalEditar(false);
         setModalCambiarRol(false);
         setModalAsignarPrograma(false);
+        setModalAsignarGranja(false);
         setUsuarioSeleccionado(null);
         setDatosFormulario({
             nombre: "",
@@ -401,6 +409,7 @@ export default function GestionUsuarios() {
                 onChangeRol={abrirCambiarRol}
                 onToggleActivo={toggleActivo}
                 onAsignarPrograma={abrirAsignarPrograma}
+                onAsignarGranja={abrirAsignarGranja}
                 totalUsuarios={usuarios.length}
             />
 
@@ -427,6 +436,13 @@ export default function GestionUsuarios() {
             {/* MODAL Asignar Programa */}
             <AsignarProgramaModal
                 isOpen={modalAsignarPrograma}
+                onClose={cerrarModales}
+                usuario={usuarioSeleccionado}
+            />
+
+            {/* MODAL Asignar Granja */}
+            <AsignarGranjaModal
+                isOpen={modalAsignarGranja}
                 onClose={cerrarModales}
                 usuario={usuarioSeleccionado}
             />

@@ -159,6 +159,22 @@ export const usuarioService = {
         }
     },
 
+    // Obtener programas asignados a un usuario
+    async obtenerProgramasDeUsuario(usuarioId: number): Promise<any[]> {
+        const response = await fetch(`${API_BASE_URL}/usuarios/${usuarioId}/programas`, {
+            headers: getHeaders()
+        });
+        return handleResponse(response);
+    },
+
+    // Obtener granjas asignadas a un usuario
+    async obtenerGranjasDeUsuario(usuarioId: number): Promise<any[]> {
+        const response = await fetch(`${API_BASE_URL}/usuarios/${usuarioId}/granjas`, {
+            headers: getHeaders()
+        });
+        return handleResponse(response);
+    },
+
     // Obtener conteo de usuarios por rol
     async obtenerConteoUsuariosPorRol(): Promise<Record<string, number>> {
         try {

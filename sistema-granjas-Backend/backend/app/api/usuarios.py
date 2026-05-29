@@ -83,6 +83,30 @@ def listar_trabajadores(
     ]
 
 
+@router.get("/{usuario_id}/programas")
+def obtener_programas_de_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_any_role(["admin"]))
+):
+    usuario = get_usuario_by_id(db, usuario_id)
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    return [{"id": p.id, "nombre": p.nombre} for p in usuario.programas]
+
+
+@router.get("/{usuario_id}/granjas")
+def obtener_granjas_de_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_any_role(["admin"]))
+):
+    usuario = get_usuario_by_id(db, usuario_id)
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    return [{"id": g.id, "nombre": g.nombre, "ubicacion": g.ubicacion} for g in usuario.granjas]
+
+
 # ✅ FORMA 2: Usando el dependency como parámetro (ALTERNATIVA)
 @router.get("/{usuario_id}", response_model=UsuarioResponse)
 def obtener_usuario(

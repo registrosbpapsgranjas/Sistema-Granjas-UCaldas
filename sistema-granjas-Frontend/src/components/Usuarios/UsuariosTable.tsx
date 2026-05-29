@@ -9,6 +9,7 @@ interface UsuariosTableProps {
     onChangeRol: (usuario: any) => void;
     onToggleActivo: (usuario: any) => void;
     onAsignarPrograma: (usuario: any) => void;
+    onAsignarGranja: (usuario: any) => void;
     totalUsuarios: number;
 }
 
@@ -20,6 +21,7 @@ const UsuariosTable: React.FC<UsuariosTableProps> = ({
     onChangeRol,
     onToggleActivo,
     onAsignarPrograma,
+    onAsignarGranja,
     totalUsuarios
 }) => {
     // Función para obtener nombre del rol por ID
@@ -160,6 +162,15 @@ const UsuariosTable: React.FC<UsuariosTableProps> = ({
                                             title="Asignar programa"
                                         >
                                             <i className="fas fa-clipboard-list"></i>
+                                        </button>
+
+                                        {/* Botón Asignar Granja */}
+                                        <button
+                                            onClick={() => onAsignarGranja(usuario)}
+                                            className="text-amber-600 hover:text-amber-900 transition-colors p-1.5 rounded hover:bg-amber-50"
+                                            title="Asignar granja"
+                                        >
+                                            <i className="fas fa-tractor"></i>
                                         </button>
 
                                         {/* Botón Eliminar */}
