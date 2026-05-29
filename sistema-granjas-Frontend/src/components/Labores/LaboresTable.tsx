@@ -21,7 +21,7 @@ const LaboresTable: React.FC<LaboresTableProps> = ({
     onCompletar,
     currentUser
 }) => {
-    const rolesPermitidos = [1, 3,  5, 6]; // IDs de roles permitidos para ver información de labores
+    const rolesPermitidos = [1, 3,  5, 6, 7]; // IDs de roles permitidos para ver información de labores
     // Función para obtener el color del estado
     const getEstadoBadge = (estado: string) => {
         const estados: Record<string, { color: string; icon: string }> = {
