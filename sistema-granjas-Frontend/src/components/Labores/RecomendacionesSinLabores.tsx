@@ -5,6 +5,7 @@ import recomendacionService from '../../services/recomendacionService';
 import laborService from '../../services/laboresService';
 import trabajadorService from '../../services/usuarioService';
 import loteService from '../../services/loteService';
+import { inventarioDinamicoService } from '../../services/inventarioDinamicoService';
 import Modal from '../Common/Modal';
 import type { Recomendacion } from '../../types/recomendacionTypes';
 import { useAuth } from '../../hooks/useAuth';
@@ -21,6 +22,13 @@ interface LaborFormData {
     formulario_labor?: Record<string, any>;
 }
 
+interface ProductoDetalle {
+    id: number;
+    nombre: string;
+    cantidad_sugerida: number;
+    unidad: string;
+}
+
 const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ onLaborCreada }) => {
     const { user } = useAuth();
     const [recomendaciones, setRecomendaciones] = useState<Recomendacion[]>([]);
@@ -33,6 +41,7 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
     const [camposDinamicos, setCamposDinamicos] = useState<Record<number, any[]>>({});
     const [loadingForm, setLoadingForm] = useState(false);
     const [mostrarDetallesCompletos, setMostrarDetallesCompletos] = useState(false);
+    const [productosDetalle, setProductosDetalle] = useState<ProductoDetalle[]>([]);
 
     function getEmptyLaborForm(): LaborFormData {
         return {
@@ -90,6 +99,80 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
         }
     };
 
+    // Función para obtener el nombre del producto desde los valores
+    const obtenerNombreProducto = (valores: Record<string, any>): string => {
+        // Buscar campos que contengan "nombre" (case insensitive)
+        const nombreKeys = Object.keys(valores).filter(key => 
+            key.toLowerCase().includes('nombre')
+        );
+        
+        for (const key of nombreKeys) {
+            if (valores[key] && typeof valores[key] === 'string' && valores[key].trim()) {
+                return valores[key];
+            }
+        }
+        
+        // Si no hay campo de nombre, buscar "producto"
+        if (valores.producto) return valores.producto;
+        
+        return 'Producto sin nombre';
+    };
+
+    // Función para obtener la unidad del producto
+    const obtenerUnidadProducto = (valores: Record<string, any>, item: any): string => {
+        if (item.unidad_medida) return item.unidad_medida;
+        if (valores.unidad) return valores.unidad;
+        if (valores.unidad_medida) return valores.unidad_medida;
+        return 'unidades';
+    };
+
+    // Cargar detalles de productos cuando se selecciona una recomendación
+    const cargarDetallesProductos = async (recomendacion: Recomendacion) => {
+        if (!recomendacion.items_sugeridos || recomendacion.items_sugeridos.length === 0) {
+            setProductosDetalle([]);
+            return;
+        }
+
+        const detalles: ProductoDetalle[] = [];
+        
+        for (const item of recomendacion.items_sugeridos) {
+            try {
+                // Intentar obtener el detalle completo del producto desde el inventario
+                if (item.inventario_item_id) {
+                    const productoCompleto = await inventarioDinamicoService.obtenerItem(item.inventario_item_id);
+                    const valores = productoCompleto.valores || {};
+                    const nombre = obtenerNombreProducto(valores);
+                    const unidad = obtenerUnidadProducto(valores, productoCompleto);
+                    
+                    detalles.push({
+                        id: item.inventario_item_id,
+                        nombre: nombre,
+                        cantidad_sugerida: item.cantidad_sugerida || 0,
+                        unidad: unidad,
+                    });
+                } else {
+                    // Si no hay ID, mostrar información básica
+                    detalles.push({
+                        id: 0,
+                        nombre: item.descripcion || 'Producto sugerido',
+                        cantidad_sugerida: item.cantidad_sugerida || 0,
+                        unidad: item.unidad_dosis || 'unidades',
+                    });
+                }
+            } catch (error) {
+                console.error('Error cargando producto:', error);
+                detalles.push({
+                    id: item.inventario_item_id || 0,
+                    nombre: `Producto #${item.inventario_item_id}`,
+                    cantidad_sugerida: item.cantidad_sugerida || 0,
+                    unidad: item.unidad_dosis || 'unidades',
+                });
+            }
+        }
+        
+        setProductosDetalle(detalles);
+    };
+
     const cargarCamposDinamicosPorSubtipo = async (subtipoId: number, index: number) => {
         try {
             const { diagnosticoDinamicoService } = await import('../../services/diagnosticoDinamicoService');
@@ -105,6 +188,9 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
         setLaboresForm([getEmptyLaborForm()]);
         setCamposDinamicos({});
         setMostrarDetallesCompletos(false);
+        
+        // Cargar detalles de productos
+        await cargarDetallesProductos(recomendacion);
         
         if (recomendacion.subtipo_id) {
             await cargarCamposDinamicosPorSubtipo(recomendacion.subtipo_id, 0);
@@ -220,7 +306,6 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
         try {
             for (const labor of laboresForm) {
                 try {
-                    // Usar el tipo_labor_id de la recomendación o un valor por defecto
                     const tipoLaborId = (selectedRecomendacion as any).tipo_labor_id || 1;
                     
                     await laborService.crearLabor(
@@ -535,8 +620,8 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                                     </div>
                                 )}
 
-                                {/* Productos sugeridos */}
-                                {selectedRecomendacion?.items_sugeridos && selectedRecomendacion.items_sugeridos.length > 0 && (
+                                {/* Productos sugeridos - Versión mejorada */}
+                                {productosDetalle.length > 0 && (
                                     <div className="mb-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <i className="fas fa-boxes text-blue-600 text-sm"></i>
@@ -545,15 +630,22 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                                             </span>
                                         </div>
                                         <div className="bg-white rounded-lg p-3 border border-blue-100">
-                                            <div className="space-y-2">
-                                                {selectedRecomendacion.items_sugeridos.map((item, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0">
-                                                        <span className="text-sm text-gray-700">
-                                                            Producto #{item.inventario_item_id}
-                                                        </span>
-                                                        <span className="text-sm font-medium text-blue-600">
-                                                            {item.cantidad_sugerida} {item.unidad_dosis || 'unidades'}
-                                                        </span>
+                                            <div className="space-y-3">
+                                                {productosDetalle.map((producto, idx) => (
+                                                    <div key={idx} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                                                        <div className="flex items-start justify-between">
+                                                            <div className="flex-1">
+                                                                <div className="font-medium text-gray-800">
+                                                                    {producto.nombre}
+                                                                </div>
+                                                                <div className="flex items-center gap-3 mt-1">
+                                                                    <span className="inline-flex items-center gap-1 text-sm text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                                                        <i className="fas fa-flask text-xs"></i>
+                                                                        Dosis: {producto.cantidad_sugerida} {producto.unidad}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
