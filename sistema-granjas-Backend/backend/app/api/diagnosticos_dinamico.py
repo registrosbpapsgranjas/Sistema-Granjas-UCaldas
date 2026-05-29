@@ -16,7 +16,7 @@ from app.db.models import Programa, Monitoreo
 
 router = APIRouter(prefix="/diagnosticos-dinamico", tags=["Diagnósticos Dinámico"])
 role_admin = Depends(require_any_role(["admin", "docente", "asesor"]))
-role_read = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "trabajador", "talento_humano"]))
+role_read = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "trabajador", "talento_humano", "jefe_talento_humano"]))
 
 
 # ---------- Tipos de diagnóstico (por programa) ----------
