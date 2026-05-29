@@ -223,6 +223,7 @@ const FormVinculadaDiagnostico: React.FC<{
                 const monNombre = (diag as any).tipo_monitoreo_nombre || (diag as any).tipo_diagnostico || '';
                 const loteNombre = (diag as any).lote_nombre || '';
                 setTitulo(`Recomendación - ${monNombre}${loteNombre ? ` (${loteNombre})` : ''}`);
+                setDescripcion(`Recomendación generada a partir del diagnóstico #${diagnosticoId}`);
                 const subtipoId = (diag as any).diagnostico_tipo_id;
                 if (subtipoId) {
                     const camposData = await diagnosticoDinamicoService.listarCamposRecomendacion(subtipoId);
@@ -247,7 +248,6 @@ const FormVinculadaDiagnostico: React.FC<{
 
     const handleSubmit = async () => {
         if (!titulo.trim()) { toast.warning('El título es requerido'); return; }
-        if (!descripcion.trim() || descripcion.trim().length < 10) { toast.warning('La descripción debe tener al menos 10 caracteres'); return; }
         for (const campo of campos) {
             if (campo.requerido && !formulario[campo.nombre_campo]) {
                 toast.warning(`El campo "${campo.etiqueta}" es requerido`);
@@ -331,6 +331,12 @@ const FormVinculadaDiagnostico: React.FC<{
                 </div>
             </div>
 
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Título de la recomendación..." required />
+            </div>
+
             {campos.length > 0 && (
                 <div className="border border-orange-200 rounded-xl p-4 bg-orange-50">
                     <h4 className="font-semibold text-orange-800 mb-4 text-sm"><i className="fas fa-wpforms mr-1"></i>Formulario de recomendación</h4>
@@ -347,12 +353,6 @@ const FormVinculadaDiagnostico: React.FC<{
                     </div>
                 </div>
             )}
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" placeholder="Título de la recomendación..." required />
-            </div>
 
             <div className="border border-purple-200 rounded-xl p-4 bg-purple-50">
                 <div className="flex items-center justify-between mb-3">
@@ -396,7 +396,7 @@ const FormVinculadaDiagnostico: React.FC<{
     );
 };
 
-// ── Modo B: Formulario general (sin diagnóstico) ────────────────────────────────
+// ── Modo B: Formulario general (sin diagnóstico) REORGANIZADO ──────────────────
 const FormGeneral: React.FC<{
     recomendacion?: Recomendacion;
     lotes: any[];
@@ -427,8 +427,6 @@ const FormGeneral: React.FC<{
     const [campos, setCampos] = useState<CampoRecomendacion[]>([]);
     const [loteId, setLoteId] = useState<number | null>(null);
     const [titulo, setTitulo] = useState('');
-    const [descripcion, setDescripcion] = useState('');
-    const [estado, setEstado] = useState('pendiente');
     const [formulario, setFormulario] = useState<Record<string, any>>({});
     const [initialLoading, setInitialLoading] = useState(true);
 
@@ -439,7 +437,7 @@ const FormGeneral: React.FC<{
     const [productosRecomendacion, setProductosRecomendacion] = useState<ProductoSugerido[]>([]);
     const [tiposInventario, setTiposInventario] = useState<any[]>([]);
 
-    // ── useEffect hooks (antes de cualquier return condicional — Reglas de Hooks) ─
+    // ── useEffect hooks ──────────────────────────────────────────────────────────
     useEffect(() => {
         if (!programaId) {
             setTiposInventario([]);
@@ -485,8 +483,6 @@ const FormGeneral: React.FC<{
             try {
                 const rec = recomendacion as any;
                 setTitulo(rec.titulo || '');
-                setDescripcion(rec.descripcion || '');
-                setEstado(rec.estado || 'pendiente');
                 setLoteId(rec.lote_id || null);
                 setDiagnosticoSeleccionadoId(rec.diagnostico_id || null);
                 if (rec.formulario_recomendacion) setFormulario(rec.formulario_recomendacion);
@@ -523,6 +519,7 @@ const FormGeneral: React.FC<{
     useEffect(() => { if (!programaId) { setMonitoreos([]); return; } monitoreoService.obtenerMonitoreosPorPrograma(programaId).then(data => setMonitoreos(Array.isArray(data) ? data : [])).catch(() => { }); }, [programaId]);
     useEffect(() => { if (!monitoreoId) { setSubtipos([]); if (!esEdicion) setSubtipoId(null); return; } if (!esEdicion) setSubtipoId(null); diagnosticoDinamicoService.listarSubtiposPorMonitoreo(monitoreoId).then(data => setSubtipos(data.filter(s => s.activo))).catch(() => setSubtipos([])); }, [monitoreoId, esEdicion]);
     useEffect(() => { if (!subtipoId) { setCampos([]); return; } diagnosticoDinamicoService.listarCamposRecomendacion(subtipoId).then(data => { setCampos([...data].sort((a, b) => a.orden - b.orden)); if (!esEdicion) setFormulario({}); }).catch(() => setCampos([])); }, [subtipoId, esEdicion]);
+    
     const lotesFiltrados = lotes.filter(l => l.programa_id === programaId);
 
     // Validar acceso (early returns después de todos los hooks)
@@ -534,13 +531,8 @@ const FormGeneral: React.FC<{
                         <i className="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>
                     </div>
                     <div className="ml-3">
-                        <h3 className="text-sm font-medium text-yellow-800">
-                            Sin programas asignados
-                        </h3>
-                        <p className="text-sm text-yellow-700 mt-1">
-                            No tienes programas asignados para crear recomendaciones.
-                            Contacta con un administrador para obtener acceso.
-                        </p>
+                        <h3 className="text-sm font-medium text-yellow-800">Sin programas asignados</h3>
+                        <p className="text-sm text-yellow-700 mt-1">No tienes programas asignados para crear recomendaciones. Contacta con un administrador para obtener acceso.</p>
                     </div>
                 </div>
             </div>
@@ -555,12 +547,8 @@ const FormGeneral: React.FC<{
                         <i className="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>
                     </div>
                     <div className="ml-3">
-                        <h3 className="text-sm font-medium text-yellow-800">
-                            No hay programas disponibles
-                        </h3>
-                        <p className="text-sm text-yellow-700 mt-1">
-                            No hay programas disponibles para crear recomendaciones.
-                        </p>
+                        <h3 className="text-sm font-medium text-yellow-800">No hay programas disponibles</h3>
+                        <p className="text-sm text-yellow-700 mt-1">No hay programas disponibles para crear recomendaciones.</p>
                     </div>
                 </div>
             </div>
@@ -583,17 +571,22 @@ const FormGeneral: React.FC<{
     const handleSubmit = async () => {
         if (!loteId) { toast.warning('Selecciona un lote'); return; }
         if (!titulo.trim()) { toast.warning('El título es requerido'); return; }
-        if (!descripcion.trim() || descripcion.trim().length < 10) { toast.warning('La descripción debe tener al menos 10 caracteres'); return; }
         for (const campo of campos) { if (campo.requerido && !formulario[campo.nombre_campo]) { toast.warning(`El campo "${campo.etiqueta}" es requerido`); return; } }
+        
         const docenteId = currentUser?.id || docentes[0]?.id;
         if (!docenteId) { toast.error('No se pudo determinar el autor'); return; }
+        
         setSubmitting(true);
         try {
             await onSubmit({
-                titulo: titulo.trim(), descripcion: descripcion.trim(), estado,
-                lote_id: loteId, subtipo_id: subtipoId || null,
+                titulo: titulo.trim(),
+                descripcion: `Recomendación para lote ${loteId}`, // Descripción automática
+                estado: 'pendiente',
+                lote_id: loteId,
+                subtipo_id: subtipoId || null,
                 formulario_recomendacion: Object.keys(formulario).length > 0 ? formulario : null,
-                docente_id: docenteId, diagnostico_id: diagnosticoSeleccionadoId || null,
+                docente_id: docenteId,
+                diagnostico_id: diagnosticoSeleccionadoId || null,
                 items_sugeridos: productosRecomendacion.filter(p => p.inventario_item_id).map(p => ({
                     inventario_item_id: p.inventario_item_id,
                     cantidad_sugerida: p.dosis ? parseFloat(p.dosis) : null,
@@ -608,6 +601,15 @@ const FormGeneral: React.FC<{
 
     return (
         <div className="space-y-5">
+            {/* Título al inicio como en el modo vinculado */}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" 
+                    placeholder="Título de la recomendación..." required />
+            </div>
+
+            {/* Selección de Programa */}
             <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Programa *</label>
                 <select value={programaId || ''} onChange={e => { setProgramaId(e.target.value ? parseInt(e.target.value) : null); setMonitoreoId(null); setSubtipoId(null); setLoteId(null); setDiagnosticoSeleccionadoId(null); }}
@@ -616,6 +618,8 @@ const FormGeneral: React.FC<{
                     {programasDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
             </div>
+
+            {/* Monitoreos */}
             {programaId && monitoreos.length > 0 && (
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Monitoreo</label>
@@ -629,6 +633,8 @@ const FormGeneral: React.FC<{
                     </div>
                 </div>
             )}
+
+            {/* Subtipos */}
             {monitoreoId && (
                 <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Subtipo</label>
@@ -644,6 +650,8 @@ const FormGeneral: React.FC<{
                     )}
                 </div>
             )}
+
+            {/* Lote */}
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lote *</label>
                 <select value={loteId || ''} onChange={e => { setLoteId(e.target.value ? parseInt(e.target.value) : null); setDiagnosticoSeleccionadoId(null); }}
@@ -652,6 +660,8 @@ const FormGeneral: React.FC<{
                     {lotesFiltrados.map(l => <option key={l.id} value={l.id}>{l.nombre}{l.granja_nombre ? ` (${l.granja_nombre})` : ''}</option>)}
                 </select>
             </div>
+
+            {/* Diagnóstico asociado (opcional) */}
             {subtipoId && loteId && !esEdicion && (
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1"><i className="fas fa-microscope mr-1 text-blue-500"></i>Diagnóstico asociado (opcional)</label>
@@ -663,17 +673,26 @@ const FormGeneral: React.FC<{
                     </select>)}
                 </div>
             )}
+
+            {/* Formulario dinámico (igual que en modo vinculado) */}
             {campos.length > 0 && (
-                <div className="border border-orange-200 rounded-xl p-4 bg-orange-50 space-y-4">
-                    <h4 className="text-sm font-semibold text-orange-800"><i className="fas fa-wpforms mr-1"></i>Formulario dinámico</h4>
-                    {campos.map(campo => (
-                        <div key={campo.id}>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{campo.etiqueta}{campo.requerido && <span className="text-red-500 ml-1">*</span>}<span className="ml-2 text-xs text-gray-400">({TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato})</span></label>
-                            {renderCampo(campo)}
-                        </div>
-                    ))}
+                <div className="border border-orange-200 rounded-xl p-4 bg-orange-50">
+                    <h4 className="font-semibold text-orange-800 mb-4 text-sm"><i className="fas fa-wpforms mr-1"></i>Formulario de recomendación</h4>
+                    <div className="space-y-4">
+                        {campos.map(campo => (
+                            <div key={campo.id}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {campo.etiqueta}{campo.requerido && <span className="text-red-500 ml-1">*</span>}
+                                    <span className="ml-2 text-xs text-gray-400">({TIPOS_DATO_LABELS[campo.tipo_dato] || campo.tipo_dato})</span>
+                                </label>
+                                {renderCampo(campo)}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
+
+            {/* Productos sugeridos */}
             <div className="border border-purple-200 rounded-xl p-4 bg-purple-50">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-purple-800 text-sm"><i className="fas fa-boxes mr-1"></i>Productos sugeridos</h4>
@@ -695,12 +714,11 @@ const FormGeneral: React.FC<{
                     </div>
                 )}
             </div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Título *</label><input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" required /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Descripción *</label><textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm" rows={4} required /><p className="text-xs text-gray-400 mt-1">{descripcion.length} / mín. 10 caracteres</p></div>
-            {esEdicion && (<div><label className="block text-sm font-medium text-gray-700 mb-1">Estado</label><select value={estado} onChange={e => setEstado(e.target.value)} className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"><option value="pendiente">Pendiente</option><option value="aprobada">Aprobada</option><option value="en_ejecucion">En ejecución</option><option value="completada">Completada</option><option value="cancelada">Cancelada</option></select></div>)}
+
+            {/* Botones de acción */}
             <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={onCancel} className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">Cancelar</button>
-                <button type="button" onClick={handleSubmit} disabled={submitting || !loteId || !titulo || !descripcion}
+                <button type="button" onClick={handleSubmit} disabled={submitting || !loteId || !titulo}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-lg font-medium text-sm disabled:bg-gray-400">
                     {submitting ? 'Guardando...' : (esEdicion ? 'Actualizar' : 'Crear Recomendación')}
                 </button>
