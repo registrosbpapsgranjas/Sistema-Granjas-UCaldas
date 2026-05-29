@@ -687,19 +687,9 @@ const RecomendacionesSinLabores: React.FC<RecomendacionesSinLaboresProps> = ({ o
                                 {/* Otros metadatos */}
                                 <div className="grid grid-cols-2 gap-3 text-xs">
                                     <div className="bg-white rounded p-2 border border-blue-100">
-                                        <span className="text-gray-500">ID Recomendación</span>
-                                        <p className="font-mono text-gray-700">#{selectedRecomendacion?.id}</p>
-                                    </div>
-                                    <div className="bg-white rounded p-2 border border-blue-100">
                                         <span className="text-gray-500">Docente que la creó</span>
                                         <p className="text-gray-700">{selectedRecomendacion?.docente_nombre || 'No especificado'}</p>
                                     </div>
-                                    {selectedRecomendacion?.subtipo_id && (
-                                        <div className="bg-white rounded p-2 border border-blue-100">
-                                            <span className="text-gray-500">Subtipo ID</span>
-                                            <p className="font-mono text-gray-700">{selectedRecomendacion.subtipo_id}</p>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
