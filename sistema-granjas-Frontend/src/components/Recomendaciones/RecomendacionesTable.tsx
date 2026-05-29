@@ -90,7 +90,7 @@ const RecomendacionesTable: React.FC<RecomendacionesTableProps> = ({
     const puedeEditar = (recomendacion: Recomendacion) => {
         if (esAdmin) return true;
         if (esEstudiante) return false; // Estudiantes NO pueden editar
-        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return true;
+        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return false;
         return false;
     };
 
@@ -104,7 +104,7 @@ const RecomendacionesTable: React.FC<RecomendacionesTableProps> = ({
     const puedeEliminar = (recomendacion: Recomendacion) => {
         if (esEstudiante) return false; // Estudiantes NO pueden eliminar
         if (esAdmin) return true;
-        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return true;
+        if (esDocente && recomendacion.docente_id === currentUser?.id && recomendacion.estado === 'pendiente') return false;
         return false;
     };
 
