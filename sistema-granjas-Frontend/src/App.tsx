@@ -142,31 +142,31 @@ function AppContent() {
           }
         />
 
-        {/* Programas - Admin y docente (docente solo su programa) */}
+        {/* Programas - Admin, docente, jefe_talento_humano */}
         <Route
           path="/gestion/programas"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'jefe_talento_humano']}>
               <GestionProgramasPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Lotes - Admin, docente, trabajador */}
+        {/* Lotes - Admin, docente, trabajador, jefe_talento_humano */}
         <Route
           path="/gestion/lotes"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'trabajador', 'jefe_talento_humano']}>
               <GestionLotesPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Cultivos - Admin y docente */}
+        {/* Cultivos - Admin, docente, jefe_talento_humano */}
         <Route
           path="/gestion/cultivos"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'jefe_talento_humano']}>
               <GestionCultivosPage />
             </ProtectedRoute>
           }
@@ -182,31 +182,31 @@ function AppContent() {
           }
         />
 
-        {/* Tablero de labores - Admin, docente, talento_humano, trabajador */}
+        {/* Tablero de labores - Admin, docente, talento_humano, jefe_talento_humano, trabajador */}
         <Route
           path="/tablero"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'talento_humano', 'trabajador']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'talento_humano', 'jefe_talento_humano', 'trabajador']}>
               <TableroLaboresPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Gestión de labores - Admin, docente, talento_humano, trabajador, asesor */}
+        {/* Gestión de labores - Admin, docente, talento_humano, jefe_talento_humano, trabajador, asesor */}
         <Route
           path="/gestion/labores"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'docente', 'talento_humano', 'trabajador', 'asesor']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente', 'talento_humano', 'jefe_talento_humano', 'trabajador', 'asesor']}>
               <GestionLaboresPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Usuarios - Admin (todos) y talento_humano (solo trabajadores) - La lógica de filtrado va en el componente */}
+        {/* Usuarios - Admin (todos), talento_humano y jefe_talento_humano (trabajadores) */}
         <Route
           path="/gestion/usuarios"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'talento_humano']}>
+            <ProtectedRoute allowedRoles={['admin', 'talento_humano', 'jefe_talento_humano']}>
               <GestionUsuariosPage />
             </ProtectedRoute>
           }

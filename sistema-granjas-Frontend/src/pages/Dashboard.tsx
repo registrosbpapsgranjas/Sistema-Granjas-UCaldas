@@ -119,8 +119,21 @@ const ROLE_PROFILES: Record<string, RoleProfile> = {
     headline: 'Gestión del personal',
     summary: 'Tu función es coordinar el equipo de trabajo. Puedes asignar labores, registrar personal y hacer seguimiento de las actividades en campo.',
     capabilities: [
+      { icon: 'fa-th-large', color: 'bg-orange-500', title: 'Tablero de labores', description: 'Visualiza el estado de todas las labores asignadas al personal.', path: '/tablero' },
       { icon: 'fa-calendar-check', color: 'bg-green-500', title: 'Asignar labores', description: 'Crea y asigna labores al personal trabajador según las necesidades del campo.', path: '/gestion/labores' },
       { icon: 'fa-users', color: 'bg-purple-500', title: 'Gestionar personal', description: 'Administra los usuarios trabajadores: crea cuentas y controla el acceso.', path: '/gestion/usuarios' },
+    ],
+  },
+  jefe_talento_humano: {
+    headline: 'Jefatura de Talento Humano',
+    summary: 'Tienes acceso completo al personal y las labores de todas las granjas. Puedes asignar, supervisar y completar labores, gestionar usuarios y consultar programas y lotes.',
+    capabilities: [
+      { icon: 'fa-th-large', color: 'bg-orange-500', title: 'Tablero de labores', description: 'Visualiza el estado de todas las labores de todas las granjas.', path: '/tablero' },
+      { icon: 'fa-calendar-check', color: 'bg-green-500', title: 'Labores', description: 'Crea, asigna y completa labores del personal en todas las granjas.', path: '/gestion/labores' },
+      { icon: 'fa-users', color: 'bg-purple-500', title: 'Gestionar personal', description: 'Administra los usuarios trabajadores de todas las granjas.', path: '/gestion/usuarios' },
+      { icon: 'fa-clipboard-list', color: 'bg-blue-500', title: 'Programas', description: 'Consulta los programas agrícolas activos.', path: '/gestion/programas' },
+      { icon: 'fa-tractor', color: 'bg-yellow-500', title: 'Lotes', description: 'Navega por los lotes de todas las granjas.', path: '/gestion/lotes' },
+      { icon: 'fa-leaf', color: 'bg-teal-500', title: 'Cultivos', description: 'Consulta los cultivos registrados en el sistema.', path: '/gestion/cultivos' },
     ],
   },
 };
@@ -161,8 +174,15 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { label: 'Labores',    icon: 'fa-calendar-check',  path: '/gestion/labores', color: 'bg-green-500' },
   ],
   talento_humano: [
-    { label: 'Asignar labores', icon: 'fa-calendar-check', path: '/gestion/labores',   color: 'bg-green-500' },
-    { label: 'Personal',        icon: 'fa-users',           path: '/gestion/usuarios',  color: 'bg-purple-500' },
+    { label: 'Tablero',   icon: 'fa-th-large',        path: '/tablero',           color: 'bg-orange-500' },
+    { label: 'Labores',   icon: 'fa-calendar-check',  path: '/gestion/labores',   color: 'bg-green-500' },
+    { label: 'Personal',  icon: 'fa-users',            path: '/gestion/usuarios',  color: 'bg-purple-500' },
+  ],
+  jefe_talento_humano: [
+    { label: 'Tablero',   icon: 'fa-th-large',        path: '/tablero',           color: 'bg-orange-500' },
+    { label: 'Labores',   icon: 'fa-calendar-check',  path: '/gestion/labores',   color: 'bg-green-500' },
+    { label: 'Personal',  icon: 'fa-users',            path: '/gestion/usuarios',  color: 'bg-purple-500' },
+    { label: 'Programas', icon: 'fa-clipboard-list',   path: '/gestion/programas', color: 'bg-blue-500' },
   ],
 };
 

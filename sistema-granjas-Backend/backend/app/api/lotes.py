@@ -18,7 +18,7 @@ from app.db.models import Lote, LoteCultivo, CultivoEspecie
 
 router = APIRouter(prefix="/lotes", tags=["Lotes"])
 
-role_required = Depends(require_any_role(["admin", "docente", "asesor", "talento_humano", "estudiante", "trabajador"]))
+role_required = Depends(require_any_role(["admin", "docente", "asesor", "talento_humano", "jefe_talento_humano", "estudiante", "trabajador"]))
 
 
 # 🔹 FUNCIÓN AUXILIAR PARA NO REPETIR CÓDIGO

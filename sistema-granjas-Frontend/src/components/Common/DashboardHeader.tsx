@@ -93,8 +93,17 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 { name: 'Inventario', path: '/gestion/inventario', icon: 'fa-boxes', description: 'Gestionar inventario' },
             ],
             talento_humano: [
+                { name: 'Tablero', path: '/tablero', icon: 'fa-th-large', description: 'Tablero de labores' },
                 { name: 'Usuarios', path: '/gestion/usuarios', icon: 'fa-users', description: 'Gestionar personal' },
                 { name: 'Labores', path: '/gestion/labores', icon: 'fa-calendar-check', description: 'Asignar labores' }
+            ],
+            jefe_talento_humano: [
+                { name: 'Tablero', path: '/tablero', icon: 'fa-th-large', description: 'Tablero de labores' },
+                { name: 'Usuarios', path: '/gestion/usuarios', icon: 'fa-users', description: 'Gestionar personal' },
+                { name: 'Labores', path: '/gestion/labores', icon: 'fa-calendar-check', description: 'Asignar labores' },
+                { name: 'Programas', path: '/gestion/programas', icon: 'fa-clipboard-list', description: 'Ver programas' },
+                { name: 'Lotes', path: '/gestion/lotes', icon: 'fa-tractor', description: 'Ver lotes' },
+                { name: 'Cultivos', path: '/gestion/cultivos', icon: 'fa-leaf', description: 'Ver cultivos' },
             ],
             estudiante: [
                 { name: 'Diagnósticos', path: '/gestion/diagnosticos', icon: 'fa-stethoscope', description: 'Realizar diagnósticos' },
@@ -115,6 +124,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             asesor: 'fa-chart-line',
             docente: 'fa-chalkboard-teacher',
             talento_humano: 'fa-user-tie',
+            jefe_talento_humano: 'fa-briefcase',
             estudiante: 'fa-user-graduate',
             trabajador: 'fa-hard-hat'
         };

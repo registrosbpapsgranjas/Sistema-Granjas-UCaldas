@@ -54,16 +54,16 @@ def listar_usuarios(
 @router.get("/trabajadores", response_model=List[UsuarioResponse])
 def listar_trabajadores(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_any_role(["admin", "talento_humano", "docente", "asesor"]))
+    current_user: Usuario = Depends(require_any_role(["admin", "talento_humano", "jefe_talento_humano", "docente", "asesor"]))
 ):
     """
     Retorna únicamente usuarios con rol 'trabajador'.
-    - admin: todos los trabajadores
+    - admin / jefe_talento_humano: todos los trabajadores
     - docente / asesor / talento_humano: solo los trabajadores que pertenecen
       a al menos uno de los programas del usuario actual.
     """
     rol = current_user.rol.nombre
-    if rol == "admin":
+    if rol in ("admin", "jefe_talento_humano"):
         trabajadores = get_trabajadores(db, programa_ids=None)
     else:
         programa_ids = [p.id for p in current_user.programas]

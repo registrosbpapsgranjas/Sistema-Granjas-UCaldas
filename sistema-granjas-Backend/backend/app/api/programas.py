@@ -29,7 +29,7 @@ def listar_programas(
     limit: int = Query(100, ge=1, le=1000),
     incluir_inactivos: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "talento_humano", "trabajador"]))
+    current_user: dict = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "talento_humano", "jefe_talento_humano", "trabajador"]))
 ):
     """Listar programas. Docentes y asesores solo ven sus propios programas."""
     rol = current_user.rol.nombre
@@ -44,7 +44,7 @@ def listar_programas(
 def obtener_programa(
     programa_id: int, 
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "talento_humano", "trabajador"]))
+    current_user: dict = Depends(require_any_role(["admin", "docente", "asesor", "estudiante", "talento_humano", "jefe_talento_humano", "trabajador"]))
 ):
     """Obtener un programa por su ID"""
     programa = get_programa(db, programa_id)
