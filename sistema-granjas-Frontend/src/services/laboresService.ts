@@ -1,7 +1,6 @@
 // src/services/laboresService.ts
 import type {
     Labor,
-    TipoLabor,
     CreateLaborDto,
     UpdateLaborDto,
     LaborFilters,
@@ -381,14 +380,6 @@ export const laborService = {
             headers: getHeaders()
         });
         return handleResponse(response);
-    },
-
-    async obtenerTiposLabor(): Promise<TipoLabor[]> {
-        const response = await fetch(`${API_BASE_URL}/tipos-labor`, {
-            headers: getHeaders()
-        });
-        const data = await handleResponse(response);
-        return Array.isArray(data) ? data : (data.items || []);
     },
 
     async obtenerLaboresPorTrabajador(trabajadorId: number, filtros?: LaborFilters): Promise<{ items: Labor[], total: number, paginas: number }> {

@@ -123,18 +123,6 @@ class Lote(Base):
     recomendaciones = relationship("Recomendacion", back_populates="lote")
     plantas = relationship("Planta", back_populates="lote", cascade="all, delete-orphan")
 
-class TipoRecomendacion(Base):
-    __tablename__ = "tipos_recomendacion"
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(100), nullable=False)
-    descripcion = Column(String(255), nullable=True)
-
-class TipoLabor(Base):
-    __tablename__ = "tipos_labor"
-    id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(100), nullable=False)
-    descripcion = Column(String(255))
-    labores = relationship("Labor", back_populates="tipo_labor")
 
 class Recomendacion(Base):
     __tablename__ = "recomendaciones"
@@ -182,7 +170,7 @@ class Labor(Base):
     __tablename__ = "labores"
     id = Column(Integer, primary_key=True, index=True)
     estado = Column(String(50), default="pendiente")
-    tipo_labor_id = Column(Integer, ForeignKey("tipos_labor.id"), nullable=False)
+    tipo_labor_id = Column(Integer, nullable=True)
     avance_porcentaje = Column(Integer, default=0)
     comentario = Column(Text, nullable=True)
     fecha_asignacion = Column(DateTime, default=colombia_now)
@@ -199,7 +187,6 @@ class Labor(Base):
     trabajador = relationship("Usuario", back_populates="labores_asignadas")
     lote = relationship("Lote", back_populates="labores")
     evidencias = relationship("Evidencia", back_populates="labor")
-    tipo_labor = relationship("TipoLabor", back_populates="labores")
     inventario_item = relationship("ItemInventarioPrograma", foreign_keys=[inventario_item_id])
     productos = relationship("ProductoLabor", back_populates="labor", cascade="all, delete-orphan")
 

@@ -1,7 +1,7 @@
 // src/components/Labores/LaborForm.tsx
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import type { Labor, TipoLabor } from '../../types/laboresTypes';
+import type { Labor } from '../../types/laboresTypes';
 import {
     diagnosticoDinamicoService,
     type CampoLabor,
@@ -11,7 +11,7 @@ interface LaborFormProps {
     labor?: Labor;
     onSubmit: (data: any) => void;
     onCancel: () => void;
-    tiposLabor: TipoLabor[];
+    tiposLabor: { id: number; nombre: string; descripcion?: string }[];
     trabajadores: any[];
     lotes: any[];
     recomendaciones: any[];

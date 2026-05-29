@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from app.db.models import (
     Labor, Usuario, Recomendacion, Lote,
-    Evidencia, TipoLabor, Granja, Programa, usuario_programa, ItemInventarioPrograma, ProductoLabor
+    Evidencia, Granja, Programa, usuario_programa, ItemInventarioPrograma, ProductoLabor
 )
 from app.schemas.labor_schema import (
     LaborCreate, LaborUpdate, AsignacionHerramientaRequest,
@@ -22,11 +22,6 @@ def crear_labor_crud(db: Session, data: LaborCreate, usuario: Usuario):
         recomendacion = db.query(Recomendacion).filter(Recomendacion.id == data.recomendacion_id).first()
         if not recomendacion:
             raise HTTPException(404, "Recomendación no encontrada")
-    
-    # Verificar tipo de labor
-    tipo_labor = db.query(TipoLabor).filter(TipoLabor.id == data.tipo_labor_id).first()
-    if not tipo_labor:
-        raise HTTPException(404, "Tipo de labor no encontrado")
     
     # Solo verificar trabajador si se proporciona
     if data.trabajador_id:
@@ -163,10 +158,6 @@ def obtener_labor_objeto(db: Session, id: int, usuario: Usuario = None):
         labor.lote_nombre = labor.lote.nombre
         if labor.lote.granja:
             labor.granja_nombre = labor.lote.granja.nombre
-    if labor.tipo_labor:
-        labor.tipo_labor_nombre = labor.tipo_labor.nombre
-        labor.tipo_labor_descripcion = labor.tipo_labor.descripcion
-    
     # Verificar permisos
     if usuario:
         if usuario.rol.nombre == "trabajador" and labor.trabajador_id != usuario.id:
@@ -218,12 +209,6 @@ def actualizar_labor_crud(db: Session, labor: Labor, data: LaborUpdate, usuario:
             if not trabajador_programa_ids.intersection(usuario_programa_ids):
                 raise HTTPException(403, "Solo puede asignar labores a trabajadores de su programa")
 
-    # Si se actualiza tipo_labor_id, verificar que existe
-    if 'tipo_labor_id' in update_data and update_data['tipo_labor_id']:
-        tipo_labor = db.query(TipoLabor).filter(TipoLabor.id == update_data['tipo_labor_id']).first()
-        if not tipo_labor:
-            raise HTTPException(404, "Tipo de labor no encontrado")
-    
     # Si se completa la labor, establecer fecha de finalización
     if update_data.get("estado") == "completada" and not labor.fecha_finalizacion:
         update_data["fecha_finalizacion"] = (datetime.utcnow() - timedelta(hours=5)) 

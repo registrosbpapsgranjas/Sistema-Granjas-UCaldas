@@ -35,11 +35,6 @@ export interface Labor {
     insumos_utilizados?: InsumoUtilizado[];
 }
 
-export interface TipoLabor {
-    id: number;
-    nombre: string;
-    descripcion: string;
-}
 
 export interface HerramientaAsignada {
     id: number;

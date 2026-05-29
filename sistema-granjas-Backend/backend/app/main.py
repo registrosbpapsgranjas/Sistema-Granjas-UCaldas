@@ -10,8 +10,6 @@ from app.api import (
     lotes,
     tipo_lotes,
     cultivos_especies,
-    tipo_labores,
-    tipo_recomendaciones,
     diagnosticos,
     recomendaciones,
     labores,
@@ -329,8 +327,6 @@ app.include_router(programas.router, prefix="/api")
 app.include_router(lotes.router, prefix="/api")
 app.include_router(tipo_lotes.router, prefix="/api")
 app.include_router(cultivos_especies.router, prefix="/api")
-app.include_router(tipo_labores.router, prefix="/api")
-app.include_router(tipo_recomendaciones.router, prefix="/api")
 app.include_router(diagnosticos.router, prefix="/api")
 app.include_router(recomendaciones.router, prefix="/api")
 app.include_router(labores.router, prefix="/api")
