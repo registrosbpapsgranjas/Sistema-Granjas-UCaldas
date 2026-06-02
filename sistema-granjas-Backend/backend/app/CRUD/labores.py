@@ -17,6 +17,30 @@ from app.schemas.labor_schema import (
 # han sido eliminados. La funcionalidad de inventario será reemplazada por el nuevo sistema de
 # inventario dinámico. Las funciones de asignación de recursos serán migradas posteriormente.
 
+
+# ========== FUNCIÓN AUXILIAR PARA OBTENER PROGRAMAS DEL USUARIO ==========
+
+def _obtener_programas_usuario(usuario: Usuario) -> set:
+    """
+    Obtiene todos los IDs de programas a los que el usuario tiene acceso.
+    Para talento_humano: obtiene programas desde las granjas asignadas en usuario_granja.
+    Para otros roles: obtiene programas directamente desde usuario.programas.
+    """
+    if usuario.rol.nombre == "talento_humano":
+        # Para talento_humano, obtener programas desde las granjas asignadas
+        programas_ids = set()
+        for granja in usuario.granjas:
+            # Asumiendo que Granja tiene relación con Programa
+            for programa in granja.programas:
+                programas_ids.add(programa.id)
+        return programas_ids
+    else:
+        # Para otros roles (docente, asesor, admin, etc.)
+        return {p.id for p in usuario.programas}
+
+
+# ========== FUNCIONES PRINCIPALES ==========
+
 def crear_labor_crud(db: Session, data: LaborCreate, usuario: Usuario):
     if data.recomendacion_id:
         recomendacion = db.query(Recomendacion).filter(Recomendacion.id == data.recomendacion_id).first()
@@ -31,7 +55,8 @@ def crear_labor_crud(db: Session, data: LaborCreate, usuario: Usuario):
         
         if usuario.rol.nombre in ("talento_humano", "docente", "asesor"):
             trabajador_programa_ids = {p.id for p in trabajador.programas}
-            usuario_programa_ids = {p.id for p in usuario.programas}
+            # ✅ Usar la función auxiliar
+            usuario_programa_ids = _obtener_programas_usuario(usuario)
             if not trabajador_programa_ids.intersection(usuario_programa_ids):
                 raise HTTPException(403, "Solo puede asignar labores a trabajadores de su programa")
     
@@ -73,6 +98,7 @@ def crear_labor_crud(db: Session, data: LaborCreate, usuario: Usuario):
     
     return _labor_a_dict_con_recursos(labor)
 
+
 def listar_labores_crud(
     db: Session, 
     skip: int = 0, 
@@ -105,6 +131,7 @@ def listar_labores_crud(
         query = query.outerjoin(Recomendacion, Labor.recomendacion_id == Recomendacion.id)\
                      .filter(Recomendacion.docente_id == usuario.id)
     elif usuario.rol.nombre == "talento_humano":
+        # ✅ Correcto: usa granjas asignadas
         granja_ids = [g.id for g in usuario.granjas]
         if granja_ids:
             lote_ids_subq = db.query(Lote.id).filter(Lote.granja_id.in_(granja_ids)).subquery()
@@ -130,6 +157,7 @@ def listar_labores_crud(
         "paginas": (total + limit - 1) // limit
     }
 
+
 # ========== FUNCIONES SEPARADAS PARA OBJETO Y DICCIONARIO ==========
 
 def obtener_labor_objeto(db: Session, id: int, usuario: Usuario = None):
@@ -153,6 +181,7 @@ def obtener_labor_objeto(db: Session, id: int, usuario: Usuario = None):
         labor.lote_nombre = labor.lote.nombre
         if labor.lote.granja:
             labor.granja_nombre = labor.lote.granja.nombre
+    
     # Verificar permisos
     if usuario:
         if usuario.rol.nombre == "trabajador" and labor.trabajador_id != usuario.id:
@@ -162,6 +191,7 @@ def obtener_labor_objeto(db: Session, id: int, usuario: Usuario = None):
             if not recomendacion or recomendacion.docente_id != usuario.id:
                 return None
         elif usuario.rol.nombre == "talento_humano":
+            # ✅ Correcto: usa granjas asignadas
             usuario_granja_ids = {g.id for g in usuario.granjas}
             lote = labor.lote
             if not lote or lote.granja_id not in usuario_granja_ids:
@@ -169,6 +199,7 @@ def obtener_labor_objeto(db: Session, id: int, usuario: Usuario = None):
         # jefe_talento_humano y admin ven todo (sin restricción adicional)
     
     return labor
+
 
 def obtener_labor_dict(db: Session, id: int, usuario: Usuario = None):
     """Obtiene la labor como diccionario (para respuestas API)"""
@@ -178,6 +209,7 @@ def obtener_labor_dict(db: Session, id: int, usuario: Usuario = None):
     
     _cargar_recursos_labor(db, labor)
     return _labor_a_dict_con_recursos(labor)
+
 
 # ========== FUNCIONES DE ACTUALIZACIÓN ==========
 
@@ -195,7 +227,8 @@ def actualizar_labor_crud(db: Session, labor: Labor, data: LaborUpdate, usuario:
             raise HTTPException(400, "El usuario seleccionado no existe o no tiene el rol de trabajador")
         if usuario.rol.nombre in ("talento_humano", "docente", "asesor"):
             trabajador_programa_ids = {p.id for p in nuevo_trabajador.programas}
-            usuario_programa_ids = {p.id for p in usuario.programas}
+            # ✅ Usar la función auxiliar
+            usuario_programa_ids = _obtener_programas_usuario(usuario)
             if not trabajador_programa_ids.intersection(usuario_programa_ids):
                 raise HTTPException(403, "Solo puede asignar labores a trabajadores de su programa")
 
@@ -214,6 +247,7 @@ def actualizar_labor_crud(db: Session, labor: Labor, data: LaborUpdate, usuario:
     
     return _labor_a_dict_con_recursos(labor)
 
+
 def eliminar_labor_crud(db: Session, labor: Labor, usuario: Usuario):
     """Elimina una labor"""
     _verificar_permisos_labor(labor, usuario, "eliminar")
@@ -227,6 +261,7 @@ def eliminar_labor_crud(db: Session, labor: Labor, usuario: Usuario):
     db.delete(labor)
     db.commit()
 
+
 # === FUNCIONES DE ASIGNACIÓN DE RECURSOS (MIGRACIÓN PENDIENTE) ===
 
 def asignar_herramienta_crud(db: Session, labor: Labor, data: AsignacionHerramientaRequest, usuario: Usuario):
@@ -236,12 +271,13 @@ def asignar_herramienta_crud(db: Session, labor: Labor, data: AsignacionHerramie
     """
     raise HTTPException(501, "La asignación de herramientas está siendo migrada. Próximamente disponible en el nuevo módulo de inventario dinámico.")
 
+
 def asignar_insumo_crud(db: Session, labor: Labor, data: AsignacionInsumoRequest, usuario: Usuario):
     """
     ⚠️ FUNCIONALIDAD DESCONTINUADA: La gestión de herramientas e insumos será migrada al nuevo sistema de inventario dinámico.
-    Por favor, utiliza la nueva API de inventario dinámico (/api/inventario-dinamico) para gestionar recursos.
     """
     raise HTTPException(501, "La asignación de insumos está siendo migrada. Próximamente disponible en el nuevo módulo de inventario dinámico.")
+
 
 def registrar_avance_crud(db: Session, labor: Labor, data: RegistroAvanceRequest, usuario: Usuario):
     rol = usuario.rol.nombre
@@ -278,6 +314,7 @@ def registrar_avance_crud(db: Session, labor: Labor, data: RegistroAvanceRequest
     _cargar_recursos_labor(db, labor)
     
     return _labor_a_dict_con_recursos(labor)
+
 
 def completar_labor_crud(db: Session, labor: Labor, usuario: Usuario, data=None):
     _verificar_permisos_labor(labor, usuario, "completar")
@@ -318,17 +355,20 @@ def completar_labor_crud(db: Session, labor: Labor, usuario: Usuario, data=None)
     
     return _labor_a_dict_con_recursos(labor)
 
+
 def devolver_herramienta_crud(db: Session, labor: Labor, movimiento_id: int, cantidad: int, usuario: Usuario):
     """
     ⚠️ FUNCIONALIDAD DESCONTINUADA: La gestión de herramientas e insumos será migrada al nuevo sistema de inventario dinámico.
     """
     raise HTTPException(501, "La devolución de herramientas está siendo migrada. Próximamente disponible en el nuevo módulo de inventario dinámico.")
 
+
 def devolver_insumo_crud(db: Session, labor: Labor, movimiento_id: int, cantidad: float, usuario: Usuario):
     """
     ⚠️ FUNCIONALIDAD DESCONTINUADA: La gestión de herramientas e insumos será migrada al nuevo sistema de inventario dinámico.
     """
     raise HTTPException(501, "La devolución de insumos está siendo migrada. Próximamente disponible en el nuevo módulo de inventario dinámico.")
+
 
 # === FUNCIONES ADICIONALES ===
 
@@ -358,6 +398,7 @@ def listar_labores_por_trabajador(db: Session, trabajador_id: int, skip: int = 0
         "paginas": (total + limit - 1) // limit
     }
 
+
 def listar_labores_por_recomendacion(db: Session, recomendacion_id: int, skip: int = 0, limit: int = 100, usuario: Usuario = None):
     query = db.query(Labor).filter(Labor.recomendacion_id == recomendacion_id)
     
@@ -382,6 +423,7 @@ def listar_labores_por_recomendacion(db: Session, recomendacion_id: int, skip: i
         "total": total,
         "paginas": (total + limit - 1) // limit
     }
+
 
 def _nombre_item_labor(item: ItemInventarioPrograma) -> str:
     v = item.valores or {}
@@ -466,7 +508,8 @@ def obtener_estadisticas_labores_crud(db: Session, usuario: Usuario):
         query = query.outerjoin(Recomendacion, Labor.recomendacion_id == Recomendacion.id)\
                      .filter(Recomendacion.docente_id == usuario.id)
     elif usuario.rol.nombre == "talento_humano":
-        programa_ids = [programa.id for programa in usuario.programas]
+        # ✅ Usar la función auxiliar para obtener programas
+        programa_ids = list(_obtener_programas_usuario(usuario))
         
         if programa_ids:
             query = query.join(Usuario, Labor.trabajador_id == Usuario.id)\
@@ -492,6 +535,7 @@ def obtener_estadisticas_labores_crud(db: Session, usuario: Usuario):
         "promedio_avance": round(float(promedio_avance), 2)
     }
 
+
 # === FUNCIONES AUXILIARES ===
 
 def _verificar_permisos_labor(labor: Labor, usuario: Usuario, accion: str):
@@ -506,9 +550,9 @@ def _verificar_permisos_labor(labor: Labor, usuario: Usuario, accion: str):
             if not trabajador:
                 raise HTTPException(403, f"No tiene permisos para {accion} esta labor")
             
-            # CORREGIDO: Verificar que comparten al menos un programa
             trabajador_programa_ids = {programa.id for programa in trabajador.programas}
-            usuario_programa_ids = {programa.id for programa in usuario.programas}
+            # ✅ Usar la función auxiliar
+            usuario_programa_ids = _obtener_programas_usuario(usuario)
             
             if not trabajador_programa_ids.intersection(usuario_programa_ids):
                 raise HTTPException(403, f"Solo puede {accion} labores de su programa")
@@ -530,6 +574,7 @@ def _verificar_permisos_labor(labor: Labor, usuario: Usuario, accion: str):
     
     raise HTTPException(403, f"No tiene permisos para {accion} esta labor")
 
+
 def _cargar_relaciones_labor(labor: Labor):
     if labor.trabajador:
         labor.trabajador_nombre = labor.trabajador.nombre
@@ -539,6 +584,7 @@ def _cargar_relaciones_labor(labor: Labor):
         labor.lote_nombre = labor.lote.nombre
         if labor.lote.granja:
             labor.granja_nombre = labor.lote.granja.nombre
+
 
 def _cargar_recursos_labor(db: Session, labor: Labor):
     """
@@ -590,6 +636,7 @@ def _cargar_recursos_labor(db: Session, labor: Labor):
     labor.insumos_resumen = []
     labor.herramientas_asignadas_info = []
     labor.insumos_asignados_info = []
+
 
 def _labor_a_dict_con_recursos(labor: Labor):
     # Enriquecer con info del item de inventario si existe
