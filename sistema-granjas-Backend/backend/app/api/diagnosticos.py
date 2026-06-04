@@ -77,8 +77,6 @@ def _cargar_plantas(db: Session, diagnostico: Diagnostico) -> List[PlantaSimpleR
         for p in plantas
     ]
 
-
-# ── NUEVO ENDPOINT: GENERAR PLANTAS ALEATORIAS ──────────────────────────────
 @router.post("/generar-plantas", response_model=GenerarPlantasResponse)
 def generar_plantas_aleatorias(
     data: GenerarPlantasRequest,
@@ -173,7 +171,11 @@ def generar_plantas_aleatorias(
             advertencias=advertencias
         )
 
-    # ── Lógica estándar: 10% aleatorio ───────────────────────────────────────
+    # ── Lógica estándar: 10% de plantas productivas (IGNORA data.cantidad) ────
+    # Calcular el 10% real de las plantas productivas, mínimo 1
+    cantidad_real = max(1, int(productivas * 0.1))
+    advertencias.append(f"Generando {cantidad_real} plantas ({10}% de {productivas} plantas productivas)")
+
     hace_un_mes = datetime.utcnow() - timedelta(days=30)
 
     subquery = db.query(diagnostico_planta.c.planta_id).join(
@@ -190,14 +192,15 @@ def generar_plantas_aleatorias(
     )
 
     elegibles = query.count()
-    plantas_elegibles = query.order_by(func.random()).limit(data.cantidad).all()
+    plantas_elegibles = query.order_by(func.random()).limit(cantidad_real).all()
 
-    if elegibles < data.cantidad:
-        advertencias.append(f"Solo se encontraron {elegibles} plantas que cumplen los criterios. Se generarán {len(plantas_elegibles)}.")
+    if elegibles == 0 and productivas > 0:
+        advertencias.append("Todas las plantas productivas ya han sido evaluadas con este diagnóstico en el último mes.")
+    elif elegibles < cantidad_real:
+        advertencias.append(f"Solo se encontraron {elegibles} plantas que cumplen los criterios. Se generarán {len(plantas_elegibles)} de las {cantidad_real} deseadas.")
+    
     if productivas == 0:
         advertencias.append("No hay plantas productivas en este lote.")
-    elif elegibles == 0 and productivas > 0:
-        advertencias.append("Todas las plantas productivas ya han sido evaluadas con este diagnóstico en el último mes.")
 
     return GenerarPlantasResponse(
         plantas=[PlantaGenerada(id=p.id, codigo=p.codigo, surco=p.surco, numero=p.numero, lote_id=p.lote_id) for p in plantas_elegibles],
