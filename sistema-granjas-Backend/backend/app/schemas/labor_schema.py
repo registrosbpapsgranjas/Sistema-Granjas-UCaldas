@@ -55,8 +55,9 @@ class LaborBase(BaseModel):
 
     @validator("comentario")
     def validar_comentario(cls, v):
+        # Permitir None o string vacío, convertir string vacío a None
         if v is not None and not v.strip():
-            raise ValueError("El comentario no puede estar vacío")
+            return None  # Convertir string vacío a None
         return v.strip() if v else v
 
 
