@@ -411,7 +411,7 @@ const FormularioDinamicoSection: React.FC<Props> = ({
                           campo.nombre_campo,
                           valorMatriz
                         )}
-                      </tr>
+                      </td>
                     ))}
                   </tr>
                 ))}
