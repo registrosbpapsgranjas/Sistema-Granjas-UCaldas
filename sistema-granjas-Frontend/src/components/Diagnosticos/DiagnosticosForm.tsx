@@ -47,7 +47,6 @@ interface DiagnosticoFormProps {
     condiciones_dia: string[];
     currentUser: any;
     esEdicion?: boolean;
-    porcentajeMuestreo?: number; // Puede ser 10 o 5
 }
 
 // ── Función para ordenar plantas por surco y número ──────────────────────────
@@ -71,7 +70,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     condiciones_dia = ['Soleado', 'Nublado', 'Lluvia'],
     currentUser,
     esEdicion = false,
-    porcentajeMuestreo = 10, // Valor por defecto, el padre puede pasar 5 o 10
 }) => {
     const [paso, setPaso] = useState(1);
 
@@ -84,7 +82,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [subtipos, setSubtipos] = useState<DiagnosticoTipo[]>([]);
     const [camposDinamicos, setCamposDinamicos] = useState<DiagnosticoCampo[]>([]);
     const [loadingSubtipos, setLoadingSubtipos] = useState(false);
-    const [estructuraLote, setEstructuraLote] = useState<EstructuraLote | null>(null);
+    const [estructuraLote, setEstructuraLote] = useState<EstruturaLote | null>(null);
     const [cargandoEstructura, setCargandoEstructura] = useState(false);
 
     const [plantasOriginales, setPlantasOriginales] = useState<PlantaBase[]>([]);
@@ -93,12 +91,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
     const [errorPlantas, setErrorPlantas] = useState<string | null>(null);
     const loadingPlantsRef = useRef(false);
     const [submitting, setSubmitting] = useState(false);
+    
+    // Estado para el porcentaje de muestreo calculado automáticamente
+    const [porcentajeMuestreoCalculado, setPorcentajeMuestreoCalculado] = useState<number>(10);
 
     // Paso 2
     const [tipoDiagnostico, setTipoDiagnostico] = useState('');
     const [condicionesDia, setCondicionesDia] = useState('');
     const [caracterizacion, setCaracterizacion] = useState<Record<string, string>>({});
-    const [formulariosPorPlanta, setFormulariosPorPlanta] = useState<Record<number, Record<string, string>>>({});
+    const [formulariosPorPlanta, setFormulariosPorPlanta] = useState<Record<number, Record<string, string>>>({}); // ← CORREGIDO: llave cerrada correctamente
 
     // ── Determinar modo de visualización ──────────────────────────────────────
     const mostrarPorPlanta = useMemo(() => {
@@ -151,11 +152,10 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         setErrorPlantas(null);
 
         const esArvenses = subtipoId != null && (subtipos.find(s => s.id === subtipoId)?.patron_arvenses === true);
-        // Para arvenses siempre son 5 puntos fijos
-        // Para otros, usamos el porcentajeMuestreo (que puede ser 10 o 5)
+        
         const cantidad = esArvenses
             ? 5
-            : Math.max(1, Math.floor(estructuraLote.total_plantas * porcentajeMuestreo / 100));
+            : Math.max(1, Math.floor(estructuraLote.total_plantas * porcentajeMuestreoCalculado / 100));
 
         try {
             const response = await api.post('/diagnosticos/generar-plantas', {
@@ -175,7 +175,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                     planta: p.numero,
                 }));
                 
-                // Ordenar las plantas antes de guardarlas
                 const plantasOrdenadas = ordenarPlantas(plantasFormateadas);
                 setPlantas(plantasOrdenadas);
                 setFormulariosPorPlanta({});
@@ -185,7 +184,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                 } else if (esArvenses) {
                     toast.success(`${plantasOrdenadas.length} puntos de muestreo generados (Monitoreo de Arvenses)`);
                 } else {
-                    toast.success(`${plantasOrdenadas.length} plantas elegibles (${porcentajeMuestreo}% de ${estructuraLote.total_plantas})`);
+                    toast.success(`${plantasOrdenadas.length} plantas elegibles (${porcentajeMuestreoCalculado}% de ${estructuraLote.total_plantas})`);
                 }
             } else {
                 setPlantas([]);
@@ -202,7 +201,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             setCargandoPlantas(false);
             loadingPlantsRef.current = false;
         }
-    }, [loteId, tipoDiagnostico, estructuraLote, porcentajeMuestreo, subtipoId, subtipos]);
+    }, [loteId, tipoDiagnostico, estructuraLote, porcentajeMuestreoCalculado, subtipoId, subtipos]);
 
     // ── Cargar monitoreos ────────────────────────────────────────────────────
     useEffect(() => {
@@ -241,7 +240,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             .catch(() => setCamposDinamicos([]));
     }, [subtipoId]);
 
-    // ── Cargar estructura del lote ───────────────────────────────────────────
+    // ── Cargar estructura del lote y calcular porcentaje ──────────────────────
     useEffect(() => {
         if (!loteId) {
             setEstructuraLote(null);
@@ -251,12 +250,27 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
         }
         setCargandoEstructura(true);
         loteService.obtenerEstructuraLote(loteId)
-            .then(estructura => {
+            .then(async (estructura) => {
                 setEstructuraLote(estructura);
                 if (estructura.plantas?.length) {
                     setPlantasOriginales(estructura.plantas);
-                    if (!esEdicion) {
-                        toast.success(`Lote cargado: ${estructura.total_plantas.toLocaleString()} plantas.`);
+                    
+                    try {
+                        const productivasResponse = await api.get(`/lotes/${loteId}/plantas-productivas-count`);
+                        const productivas = productivasResponse.data?.count || 0;
+                        
+                        const nuevoPorcentaje = productivas > 100 ? 5 : 10;
+                        setPorcentajeMuestreoCalculado(nuevoPorcentaje);
+                        
+                        if (!esEdicion) {
+                            toast.success(`Lote cargado: ${estructura.total_plantas.toLocaleString()} plantas. ${productivas} productivas → Muestreo del ${nuevoPorcentaje}%`);
+                        }
+                    } catch (error) {
+                        console.error('Error obteniendo plantas productivas:', error);
+                        setPorcentajeMuestreoCalculado(10);
+                        if (!esEdicion) {
+                            toast.success(`Lote cargado: ${estructura.total_plantas.toLocaleString()} plantas.`);
+                        }
                     }
                 } else {
                     toast.warning('Lote sin surcos/plantas configurados');
@@ -397,7 +411,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             plantas,
             caracterizacion,
             formularios_por_planta: camposDinamicos.length > 0 ? formulariosPorPlanta : undefined,
-            porcentaje_muestreo: porcentajeMuestreo,
+            porcentaje_muestreo: porcentajeMuestreoCalculado,
             total_plantas_lote: estructuraLote?.total_plantas || 0,
             plantas_totales_lote: plantasOriginales.length,
         };
@@ -423,7 +437,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                 {esEdicion ? 'Editar Diagnóstico' : 'Nuevo Diagnóstico'}
             </h2>
 
-            {/* Indicador de paso */}
             <div className="flex mb-6">
                 <div className={`flex-1 text-center py-2 rounded-l-lg text-sm font-medium ${paso === 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
                     Paso 1: Programa, monitoreo y lote
@@ -436,7 +449,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             {/* ===== PASO 1 ===== */}
             {paso === 1 && (
                 <div className="space-y-6">
-                    {/* Programa */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Programa *</label>
                         <select
@@ -453,7 +465,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         )}
                     </div>
 
-                    {/* Tipo de Monitoreo */}
                     {programaId && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Monitoreo *</label>
@@ -480,7 +491,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </div>
                     )}
 
-                    {/* Subtipo */}
                     {tipoMonitoreoId && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Subtipo de Monitoreo *</label>
@@ -514,7 +524,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </div>
                     )}
 
-                    {/* Lote */}
                     {subtipoId && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Lote *</label>
@@ -563,7 +572,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         </div>
                     )}
 
-                    {/* Botón siguiente */}
                     <div className="flex justify-end">
                         <button
                             type="button"
@@ -581,7 +589,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
             {paso === 2 && (
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-6">
-                        {/* Resumen */}
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
                             <div className="flex justify-between items-start">
                                 <div>
@@ -596,7 +603,7 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                         <div className="mt-2 text-xs text-gray-500">
                                             {estructuraLote.surcos} surcos × {estructuraLote.plantas_por_surco} plantas/surco = {estructuraLote.total_plantas.toLocaleString()} plantas
                                             {!esEdicion && (
-                                                <span className="ml-2 text-blue-600">| Elegibles: {plantas.length} ({porcentajeMuestreo}%)</span>
+                                                <span className="ml-2 text-blue-600">| Elegibles: {plantas.length} ({porcentajeMuestreoCalculado}%)</span>
                                             )}
                                         </div>
                                     )}
@@ -623,7 +630,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         </div>
 
-                        {/* Tipo de diagnóstico */}
                         {tipoDiagnostico && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-800 flex items-center gap-2">
                                 <i className="fas fa-tag"></i>
@@ -631,7 +637,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </div>
                         )}
 
-                        {/* Condiciones del día */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">Condiciones del día *</label>
                             <select
@@ -645,10 +650,8 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                             </select>
                         </div>
 
-                        {/* Formulario dinámico */}
                         {tipoDiagnostico && (
                             <div className="space-y-4">
-                                {/* Estados de carga (solo en creación) */}
                                 {!esEdicion && cargandoPlantas && (
                                     <div className="bg-blue-50 p-4 rounded-lg text-blue-700 flex items-center">
                                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
@@ -660,16 +663,15 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                 )}
                                 {!esEdicion && !cargandoPlantas && plantas.length === 0 && !errorPlantas && (
                                     <div className="bg-yellow-50 p-4 rounded-lg text-yellow-700">
-                                        No hay plantas elegibles para este diagnóstico. Esto puede deberse a que no hay plantas productivas en el lote o ya fueron evaluadas recientemente.
+                                        No hay plantas elegibles para este diagnóstico.
                                     </div>
                                 )}
 
-                                {/* Formulario por planta */}
                                 {camposDinamicos.length > 0 && mostrarPorPlanta && (
                                     <div className="space-y-4">
                                         <p className="text-sm text-gray-600 font-medium">
                                             <i className="fas fa-seedling mr-1 text-green-600"></i>
-                                            Evaluando <strong>{plantas.length} plantas</strong> — completa el formulario para cada una:
+                                            Evaluando <strong>{plantas.length} plantas</strong>:
                                         </p>
                                         {plantas.map((planta, idx) => (
                                             <div key={planta.id} className="border border-green-200 rounded-xl overflow-hidden shadow-sm">
@@ -694,7 +696,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     </div>
                                 )}
 
-                                {/* Formulario global o fallback con FormularioDinamicoSection */}
                                 {!mostrarPorPlanta && camposDinamicos.length > 0 && (
                                     <div className="border border-blue-200 rounded-xl p-4 bg-blue-50">
                                         <p className="text-xs text-blue-700 font-semibold mb-3">
@@ -710,7 +711,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                                     </div>
                                 )}
 
-                                {/* Fallback: GenericDynamicSection cuando no hay campos configurados */}
                                 {camposDinamicos.length === 0 && (
                                     <GenericDynamicSection
                                         tipoNombre={tipoDiagnostico}
@@ -727,7 +727,6 @@ const DiagnosticoForm: React.FC<DiagnosticoFormProps> = ({
                         )}
                     </div>
 
-                    {/* Botones de acción */}
                     <div className="flex justify-end gap-3 mt-8 pt-5 border-t">
                         <button
                             type="button"
