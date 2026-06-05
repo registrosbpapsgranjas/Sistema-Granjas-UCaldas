@@ -29,7 +29,7 @@ const FormularioDinamicoSection: React.FC<Props> = ({
   };
 
   // Obtener el contexto completo para un campo (breadcrumb SOLO con valores, sin etiquetas)
-  const getCampoContexto = (campo: DiagnosticoCampo): string => {
+  const getCampoContexto = (campo: DiagnosticoCampo, valorEspecifico?: string): string => {
     const breadcrumb: string[] = [];
     let current: DiagnosticoCampo | undefined = campo;
     let visited = new Set<number>();
@@ -46,9 +46,12 @@ const FormularioDinamicoSection: React.FC<Props> = ({
       
       const valorPadre = getValorCampo(padre.nombre_campo);
       if (valorPadre && valorPadre !== '') {
-        // Solo mostrar el valor, no la etiqueta
-        const valorStr = Array.isArray(valorPadre) ? valorPadre.join(', ') : String(valorPadre);
-        breadcrumb.push(valorStr);
+        // Si el padre es multiselect y tenemos un valor específico, usar ese
+        if (Array.isArray(valorPadre) && valorEspecifico && padre.id === campo.campo_padre_id) {
+          breadcrumb.push(valorEspecifico);
+        } else if (!Array.isArray(valorPadre)) {
+          breadcrumb.push(String(valorPadre));
+        }
       }
       current = padre;
     }
@@ -201,29 +204,96 @@ const FormularioDinamicoSection: React.FC<Props> = ({
     }
   };
 
-  const renderCampo = (campo: DiagnosticoCampo) => {
-    const valor = valores[campo.nombre_campo] ?? '';
+  // Renderizar campos hijos para un valor específico de multiselect
+  const renderHijosParaValor = (campo: DiagnosticoCampo, valorSeleccionado: string, nivel: number = 0): React.ReactNode => {
+    const hijos = campos.filter(c => c.campo_padre_id === campo.id);
+    if (hijos.length === 0) return null;
+    
+    const margenIzquierdo = nivel > 0 ? 'ml-6' : 'ml-4';
+    
+    return (
+      <div className={`${margenIzquierdo} pl-4 border-l-2 border-blue-200 mt-3 space-y-3`}>
+        {hijos.map(hijo => {
+          // Verificar si el hijo debe ser visible para este valor
+          const esVisible = !hijo.opciones_padre || hijo.opciones_padre.includes(valorSeleccionado);
+          if (!esVisible) return null;
+          
+          const valorHijo = getValorCampo(hijo.nombre_campo);
+          const etiquetaConContexto = getCampoContexto(hijo, valorSeleccionado);
+          
+          // Si el hijo también es multiselect, recursión
+          if (hijo.tipo_dato === 'multiselect') {
+            const valoresHijoSeleccionados = Array.isArray(valorHijo) ? valorHijo : [];
+            return (
+              <div key={hijo.id} className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {etiquetaConContexto}
+                  {hijo.requerido && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                <div className="space-y-1.5">
+                  {(Array.isArray(hijo.opciones) ? hijo.opciones : []).map((op: string) => (
+                    <label key={op} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={valoresHijoSeleccionados.includes(op)}
+                        onChange={e => {
+                          const nuevo = e.target.checked
+                            ? [...valoresHijoSeleccionados, op]
+                            : valoresHijoSeleccionados.filter(v => v !== op);
+                          handleChange(hijo, nuevo);
+                        }}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span className="text-sm">{op}</span>
+                    </label>
+                  ))}
+                </div>
+                {/* Recursión para hijos del multiselect */}
+                {valoresHijoSeleccionados.map(valorHijoSeleccionado => (
+                  <div key={`${hijo.id}_${valorHijoSeleccionado}`}>
+                    {renderHijosParaValor(hijo, valorHijoSeleccionado, nivel + 1)}
+                  </div>
+                ))}
+              </div>
+            );
+          }
+          
+          // Para campos normales
+          return (
+            <div key={hijo.id}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {etiquetaConContexto}
+                {hijo.requerido && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              {renderCampoSimple(hijo, valorHijo, etiquetaConContexto)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Renderizar campo simple (no multiselect)
+  const renderCampoSimple = (campo: DiagnosticoCampo, valor: any, etiqueta: string) => {
     const baseClass = "w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
-    const etiquetaConContexto = getCampoContexto(campo);
 
     switch (campo.tipo_dato) {
       case 'textarea':
         return (
           <textarea
-            value={valor}
+            value={valor || ''}
             onChange={e => handleChange(campo, e.target.value)}
             className={baseClass}
             rows={3}
-            placeholder={etiquetaConContexto}
+            placeholder={etiqueta}
             required={campo.requerido}
           />
         );
-
       case 'number':
         return (
           <input
             type="number"
-            value={valor}
+            value={valor || ''}
             onChange={e => handleChange(campo, e.target.value)}
             className={baseClass}
             placeholder="0"
@@ -231,22 +301,20 @@ const FormularioDinamicoSection: React.FC<Props> = ({
             step="any"
           />
         );
-
       case 'date':
         return (
           <input
             type="date"
-            value={valor}
+            value={valor || ''}
             onChange={e => handleChange(campo, e.target.value)}
             className={baseClass}
             required={campo.requerido}
           />
         );
-
       case 'select':
         return (
           <select
-            value={Array.isArray(valor) ? '' : valor}
+            value={valor || ''}
             onChange={e => handleChange(campo, e.target.value)}
             className={baseClass}
             required={campo.requerido}
@@ -257,36 +325,10 @@ const FormularioDinamicoSection: React.FC<Props> = ({
             ))}
           </select>
         );
-
-      case 'multiselect': {
-        const seleccionados: string[] = Array.isArray(valor) ? valor : [];
-        const opciones = Array.isArray(campo.opciones) ? campo.opciones : [];
-        return (
-          <div className="space-y-1.5">
-            {opciones.map((op: string) => (
-              <label key={op} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={seleccionados.includes(op)}
-                  onChange={e => {
-                    const nuevo = e.target.checked
-                      ? [...seleccionados, op]
-                      : seleccionados.filter(v => v !== op);
-                    handleChange(campo, nuevo);
-                  }}
-                  className="w-4 h-4 rounded"
-                />
-                <span className="text-sm">{op}</span>
-              </label>
-            ))}
-          </div>
-        );
-      }
-
       case 'boolean':
         return (
           <select
-            value={valor}
+            value={valor || ''}
             onChange={e => handleChange(campo, e.target.value)}
             className={baseClass}
             required={campo.requerido}
@@ -296,7 +338,6 @@ const FormularioDinamicoSection: React.FC<Props> = ({
             <option value="false">No</option>
           </select>
         );
-
       case 'matrix': {
         const matrixData = campo.opciones as { filas: string[]; columnas: string[]; tipo_celda: string } | null;
         if (!matrixData || !matrixData.filas || !matrixData.columnas) {
@@ -342,7 +383,7 @@ const FormularioDinamicoSection: React.FC<Props> = ({
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                    {etiquetaConContexto}
+                    {etiqueta}
                   </th>
                   {columnas.map((col, idx) => (
                     <th key={idx} className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
@@ -370,7 +411,7 @@ const FormularioDinamicoSection: React.FC<Props> = ({
                           campo.nombre_campo,
                           valorMatriz
                         )}
-                      </td>
+                      </tr>
                     ))}
                   </tr>
                 ))}
@@ -379,19 +420,82 @@ const FormularioDinamicoSection: React.FC<Props> = ({
           </div>
         );
       }
-
       default:
         return (
           <input
             type="text"
-            value={valor}
+            value={valor || ''}
             onChange={e => handleChange(campo, e.target.value)}
             className={baseClass}
-            placeholder={etiquetaConContexto}
+            placeholder={etiqueta}
             required={campo.requerido}
           />
         );
     }
+  };
+
+  // Renderizar campo principal
+  const renderCampo = (campo: DiagnosticoCampo) => {
+    const valor = valores[campo.nombre_campo] ?? '';
+    const etiquetaConContexto = getCampoContexto(campo);
+
+    // Para campos multiselect: mostrar checkboxes y luego expandir hijos por cada selección
+    if (campo.tipo_dato === 'multiselect') {
+      const seleccionados: string[] = Array.isArray(valor) ? valor : [];
+      const opciones = Array.isArray(campo.opciones) ? campo.opciones : [];
+      
+      return (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {etiquetaConContexto}
+            {campo.requerido && <span className="text-red-500 ml-1">*</span>}
+          </label>
+          <div className="space-y-1.5">
+            {opciones.map((op: string) => (
+              <label key={op} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={seleccionados.includes(op)}
+                  onChange={e => {
+                    const nuevo = e.target.checked
+                      ? [...seleccionados, op]
+                      : seleccionados.filter(v => v !== op);
+                    handleChange(campo, nuevo);
+                  }}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-sm">{op}</span>
+              </label>
+            ))}
+          </div>
+          
+          {/* Expandir hijos por cada valor seleccionado */}
+          {seleccionados.length > 0 && (
+            <div className="mt-3 space-y-4">
+              {seleccionados.map(valorSeleccionado => (
+                <div key={`${campo.nombre_campo}_${valorSeleccionado}`}>
+                  <div className="text-xs text-blue-600 font-medium mb-1">
+                    {contexto ? `${contexto} → ` : ''}{valorSeleccionado}
+                  </div>
+                  {renderHijosParaValor(campo, valorSeleccionado)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Para campos normales
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {etiquetaConContexto}
+          {campo.requerido && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        {renderCampoSimple(campo, valor, etiquetaConContexto)}
+      </div>
+    );
   };
 
   // Campos visibles ordenados
@@ -408,18 +512,11 @@ const FormularioDinamicoSection: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
-      {camposVisibles.map(campo => {
-        const etiquetaConContexto = getCampoContexto(campo);
-        return (
-          <div key={campo.id}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {etiquetaConContexto}
-              {campo.requerido && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {renderCampo(campo)}
-          </div>
-        );
-      })}
+      {camposVisibles.map(campo => (
+        <div key={campo.id}>
+          {renderCampo(campo)}
+        </div>
+      ))}
     </div>
   );
 };
