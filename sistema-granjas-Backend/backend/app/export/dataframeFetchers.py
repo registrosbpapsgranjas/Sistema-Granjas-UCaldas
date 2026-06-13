@@ -169,12 +169,13 @@ class DataframeFetchers:
             )
 
             if self._is_estudiante():
-                # Solo sus propios diagnósticos
+                # Solo sus propios diagnósticos (filtro directo, sin JOIN)
                 query = query.filter(Diagnostico.usuario_id == self.usuario.id)
             else:
-                # Docente / admin: filtrar por programas asignados (None = sin filtro)
+                # Docente / admin: subconsulta por programas asignados
                 program_ids = self._get_program_ids()
                 if program_ids is not None:
+                    # programa_id es columna directa — no hay conflicto con joinedload
                     query = query.filter(Diagnostico.programa_id.in_(program_ids))
 
             diagnosticos = query.all()
@@ -224,22 +225,26 @@ class DataframeFetchers:
             )
 
             if self._is_estudiante():
-                # Solo recomendaciones cuyo diagnóstico pertenece al estudiante
-                query = (
-                    query
-                    .join(Recomendacion.diagnostico)
+                # Subconsulta: IDs de diagnósticos propios del estudiante
+                diag_ids = (
+                    self.db.query(Diagnostico.id)
                     .filter(Diagnostico.usuario_id == self.usuario.id)
+                    .subquery()
                 )
+                query = query.filter(Recomendacion.diagnostico_id.in_(diag_ids))
             elif self._is_docente():
-                # Solo las recomendaciones que él mismo generó
+                # Solo las recomendaciones que él mismo creó (filtro directo, sin JOIN)
                 query = query.filter(Recomendacion.docente_id == self.usuario.id)
             else:
-                # Admin: opcionalmente restringir por programas (None = sin filtro)
+                # Admin: subconsulta por lotes de sus programas
                 program_ids = self._get_program_ids()
                 if program_ids is not None:
-                    query = query.join(Recomendacion.lote).filter(
-                        Lote.programa_id.in_(program_ids)
+                    lotes_ids = (
+                        self.db.query(Lote.id)
+                        .filter(Lote.programa_id.in_(program_ids))
+                        .subquery()
                     )
+                    query = query.filter(Recomendacion.lote_id.in_(lotes_ids))
 
             recomendaciones = query.all()
 
