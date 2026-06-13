@@ -172,9 +172,9 @@ def _construir_contexto_por_rol(db: Session, usuario, pregunta: str) -> str:
                     )
 
     elif rol in ("docente", "asesor", "estudiante"):
+        from sqlalchemy import func as sqlfunc
         programas_usuario = usuario.programas
         nombres_programas = [p.nombre for p in programas_usuario]
-        ids_programas = [p.id for p in programas_usuario]
         contexto_partes.append(f"\nProgramas asignados: {', '.join(nombres_programas) if nombres_programas else 'Ninguno'}")
 
         for prog in programas_usuario:
@@ -182,28 +182,53 @@ def _construir_contexto_por_rol(db: Session, usuario, pregunta: str) -> str:
             lotes = db.query(Lote).filter(Lote.programa_id == prog.id).all()
             contexto_partes.append(f"  Lotes ({len(lotes)}): {', '.join([l.nombre for l in lotes[:10]])}")
 
+            # Conteos reales por estado (sin límite)
+            total_diags = (db.query(sqlfunc.count(Diagnostico.id))
+                           .filter(Diagnostico.programa_id == prog.id)
+                           .scalar() or 0)
+            estados_count = (db.query(Diagnostico.estado_revision, sqlfunc.count(Diagnostico.id))
+                             .filter(Diagnostico.programa_id == prog.id)
+                             .group_by(Diagnostico.estado_revision)
+                             .all())
+            estados_dict = {e: c for e, c in estados_count}
+
+            contexto_partes.append(f"\n  Diagnósticos — TOTAL REAL: {total_diags}")
+            contexto_partes.append(f"  Conteo por estado: {json.dumps(estados_dict, ensure_ascii=False)}")
+
+            # Muestra reciente (referencial, no exhaustiva)
             diags = (db.query(Diagnostico)
                      .filter(Diagnostico.programa_id == prog.id)
                      .order_by(Diagnostico.fecha_creacion.desc())
-                     .limit(15).all())
+                     .limit(20).all())
             if diags:
-                contexto_partes.append(f"\n  Diagnósticos recientes ({len(diags)}):")
+                contexto_partes.append(f"  Últimos {len(diags)} diagnósticos (muestra):")
                 for d in diags:
                     contexto_partes.append(
                         f"    - #{d.id} | {d.tipo_diagnostico} | {d.estado_revision} | {d.fecha_creacion.strftime('%d/%m/%Y') if d.fecha_creacion else '—'}"
                     )
-                estados = {}
-                for d in diags:
-                    estados[d.estado_revision] = estados.get(d.estado_revision, 0) + 1
-                contexto_partes.append(f"  Resumen estados: {json.dumps(estados, ensure_ascii=False)}")
+
+            # Conteos reales de recomendaciones
+            total_recs = (db.query(sqlfunc.count(Recomendacion.id))
+                          .join(Lote, Recomendacion.lote_id == Lote.id)
+                          .filter(Lote.programa_id == prog.id)
+                          .scalar() or 0)
+            estados_recs = (db.query(Recomendacion.estado, sqlfunc.count(Recomendacion.id))
+                            .join(Lote, Recomendacion.lote_id == Lote.id)
+                            .filter(Lote.programa_id == prog.id)
+                            .group_by(Recomendacion.estado)
+                            .all())
+            estados_recs_dict = {e: c for e, c in estados_recs}
+
+            contexto_partes.append(f"\n  Recomendaciones — TOTAL REAL: {total_recs}")
+            contexto_partes.append(f"  Conteo por estado: {json.dumps(estados_recs_dict, ensure_ascii=False)}")
 
             recs = (db.query(Recomendacion)
                     .join(Lote, Recomendacion.lote_id == Lote.id)
                     .filter(Lote.programa_id == prog.id)
                     .order_by(Recomendacion.fecha_creacion.desc())
-                    .limit(15).all())
+                    .limit(20).all())
             if recs:
-                contexto_partes.append(f"\n  Recomendaciones recientes ({len(recs)}):")
+                contexto_partes.append(f"  Últimas {len(recs)} recomendaciones (muestra):")
                 for r in recs:
                     contexto_partes.append(
                         f"    - #{r.id} | {r.titulo[:60]} | Estado: {r.estado}"
@@ -232,6 +257,7 @@ Ayudas a {usuario.nombre} con rol '{rol}'.
 REGLAS IMPORTANTES:
 - Solo puedes responder sobre la información contenida en el CONTEXTO DEL SISTEMA.
 - Si te preguntan sobre granjas, programas o datos a los que este usuario NO tiene acceso, responde amablemente que no tienes acceso a esa información.
+- Para cantidades y totales SIEMPRE usa los valores etiquetados como "TOTAL REAL" y "Conteo por estado" del contexto. NO cuentes los registros de muestra individuales, ya que son solo una muestra reciente y no el total.
 - Puedes hacer cálculos estadísticos, comparaciones y análisis sobre los datos del contexto.
 - Responde siempre en español, de forma clara y estructurada.
 - Si la información no está en el contexto, dilo claramente. No inventes datos.
