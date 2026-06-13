@@ -273,11 +273,16 @@ class DataframeFetchers:
             return pd.DataFrame({"Error": [f"No se pudieron obtener recomendaciones: {str(e)}"]})
 
     # ------------------------------------------------------------------
-    # Labores  ← CORREGIDO (elimina tipo_labor rel, uso_insumos, uso_herramientas)
+    # Labores  ← CORREGIDO + filtrado por rol/programa
     # ------------------------------------------------------------------
 
     def get_labores_dataframe(self) -> pd.DataFrame:
-        """Obtener DataFrame de labores bien formateado"""
+        """Obtener DataFrame de labores bien formateado.
+
+        Reglas:
+          - Admin / Coordinador : todas las labores.
+          - Docente / resto      : solo labores de sus programas asignados.
+        """
         from app.db.models import Labor, Lote
 
         try:
@@ -290,9 +295,13 @@ class DataframeFetchers:
 
             program_ids = self._get_program_ids()
             if program_ids is not None:
-                query = query.join(Labor.lote).filter(
-                    Lote.programa_id.in_(program_ids)
+                # Subconsulta para evitar conflicto con el joinedload de lote
+                lotes_del_programa = (
+                    self.db.query(Lote.id)
+                    .filter(Lote.programa_id.in_(program_ids))
+                    .subquery()
                 )
+                query = query.filter(Labor.lote_id.in_(lotes_del_programa))
 
             labores = query.all()
 
