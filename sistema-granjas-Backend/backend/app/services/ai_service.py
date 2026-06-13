@@ -16,7 +16,7 @@ def _get_gemini_model():
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurada")
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-1.5-flash")
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 
 def generar_resumen_diagnostico(db: Session, diagnostico_id: int, usuario) -> str:
