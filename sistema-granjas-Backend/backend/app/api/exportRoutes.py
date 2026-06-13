@@ -53,7 +53,7 @@ async def export_lotes(
 async def export_diagnosticos(
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user),
-    _ = Depends(require_any_role(["admin", "docente", "asesor"]))
+    _ = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
     try:
         return ExportService(db, usuario).export_diagnosticos_excel()
@@ -67,7 +67,7 @@ async def export_recomendaciones(
     tipo: str = Query(None),
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user),
-    _ = Depends(require_any_role(["admin", "docente", "asesor"]))
+    _ = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
     try:
         filtros = {}
