@@ -257,7 +257,7 @@ const AIChatbot: React.FC = () => {
   /* Botón flotante = 56px alto + 24px bottom + 8px gap = 88px */
   const BUTTON_AREA = 88;
   /* Panel no puede superar: viewport - header - botón_flotante - 8px padding */
-  const maxPanelHeight = `calc(110vh - ${HEADER_H + BUTTON_AREA + 8}px)`;
+  const maxPanelHeight = `calc(80vh - ${HEADER_H + BUTTON_AREA + 8}px)`;
 
   return (
     <>
