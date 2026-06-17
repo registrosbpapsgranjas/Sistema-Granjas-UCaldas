@@ -25,6 +25,7 @@ const ESTADOS = [
   { value: "productivo", label: "Productivo", color: "green" },
   { value: "para_eliminar", label: "Para Eliminar", color: "red" },
   { value: "punto_vacio", label: "Punto Vacío", color: "gray" },
+  { value: "observacion", label: "Observación", color: "blue" },
 ];
 
 const PlantaForm: React.FC<PlantaFormProps> = ({

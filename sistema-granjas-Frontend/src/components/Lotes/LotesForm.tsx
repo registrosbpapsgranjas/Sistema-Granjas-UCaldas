@@ -174,8 +174,7 @@ const LoteForm: React.FC<LoteFormProps> = ({
     const estados = [
         { value: 'activo', label: 'Activo' },
         { value: 'inactivo', label: 'Inactivo' },
-        { value: 'pendiente', label: 'Pendiente' },
-        { value: 'completado', label: 'Completado' }
+        { value: 'pendiente', label: 'En descanso' }
     ];
 
     // Manejar envío del formulario

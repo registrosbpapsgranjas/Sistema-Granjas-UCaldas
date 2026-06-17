@@ -31,6 +31,8 @@ const PlantasTable: React.FC<PlantasTableProps> = ({
         return 'bg-red-100 text-red-800';
       case 'punto_vacio':
         return 'bg-gray-300 text-gray-700';  // Gris claro
+      case 'observacion':
+        return 'bg-blue-100 text-blue-800';  // Azul claro para observación
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -42,6 +44,7 @@ const PlantasTable: React.FC<PlantasTableProps> = ({
       case 'productivo': return 'Productivo';
       case 'para_eliminar': return 'Para Eliminar';
       case 'punto_vacio': return 'Punto Vacío';
+      case 'observacion': return 'Observación';
       default: return estado || 'Desconocido';
     }
   };
