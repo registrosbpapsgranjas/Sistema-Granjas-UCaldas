@@ -194,37 +194,99 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 👇 DETERMINAR ROL Y PROGRAMAS DEL USUARIO
+  const esAdmin = user?.rol_id === 1;
+  const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+  const programasUsuario = useMemo(
+    () => user?.programas?.map((p: any) => p.id) || [],
+    [user?.id, user?.programas]
+  );
+
   const cargarEstadisticas = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [granjasR, programasR, lotesR, cultivosR] = await Promise.allSettled([
-        granjaService.obtenerGranjas(),
-        programaService.obtenerProgramas(),
-        loteService.obtenerLotes(),
-        cultivoService.obtenerCultivos(),
-      ]);
-      const get = (r: PromiseSettledResult<any>) =>
-        r.status === 'fulfilled' ? normalizarArray(r.value) : [];
-      setStats({
-        granjas:  get(granjasR).length,
-        programas: get(programasR).length,
-        lotes:    get(lotesR).length,
-        cultivos: get(cultivosR).length,
-      });
-    } catch {
+
+      // Si es docente, cargar datos filtrados por sus programas
+      if (esDocente && programasUsuario.length > 0) {
+        // 👇 Cargar programas (solo los del docente)
+        const programasResponse = await programaService.obtenerProgramas();
+        const todosProgramas = normalizarArray(programasResponse);
+        const programasDocente = todosProgramas.filter((p: any) => 
+          programasUsuario.includes(p.id)
+        );
+        
+        // 👇 Obtener granjas de los programas del docente
+        const granjasSet = new Set<number>();
+        const lotesSet = new Set<number>();
+        const cultivosSet = new Set<number>();
+
+        // Para cada programa del docente, obtener sus lotes
+        for (const programa of programasDocente) {
+          try {
+            const lotesResponse = await loteService.obtenerLotesPorPrograma(programa.id);
+            const lotesArray = normalizarArray(lotesResponse);
+            
+            lotesArray.forEach((lote: any) => {
+              lotesSet.add(lote.id);
+              if (lote.granja_id) granjasSet.add(lote.granja_id);
+              if (lote.cultivos_ids && Array.isArray(lote.cultivos_ids)) {
+                lote.cultivos_ids.forEach((cid: number) => cultivosSet.add(cid));
+              }
+            });
+          } catch (error) {
+            console.error(`Error cargando lotes del programa ${programa.id}:`, error);
+          }
+        }
+
+        setStats({
+          granjas: granjasSet.size,
+          programas: programasDocente.length,
+          lotes: lotesSet.size,
+          cultivos: cultivosSet.size,
+        });
+      } else {
+        // Admin y otros roles: cargar todos los datos
+        const [granjasR, programasR, lotesR, cultivosR] = await Promise.allSettled([
+          granjaService.obtenerGranjas(),
+          programaService.obtenerProgramas(),
+          loteService.obtenerLotes(),
+          cultivoService.obtenerCultivos(),
+        ]);
+        const get = (r: PromiseSettledResult<any>) =>
+          r.status === 'fulfilled' ? normalizarArray(r.value) : [];
+        setStats({
+          granjas: get(granjasR).length,
+          programas: get(programasR).length,
+          lotes: get(lotesR).length,
+          cultivos: get(cultivosR).length,
+        });
+      }
+    } catch (err) {
+      console.error('Error cargando estadísticas:', err);
       setError('No se pudieron cargar las estadísticas');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [esDocente, programasUsuario, esAdmin]);
 
-  useEffect(() => { cargarEstadisticas(); }, [cargarEstadisticas]);
+  useEffect(() => { 
+    if (user) {
+      cargarEstadisticas(); 
+    }
+  }, [cargarEstadisticas, user]);
 
   const rol = user?.rol ?? '';
   const badge = getRoleBadge(rol);
   const quickActions = QUICK_ACTIONS[rol] ?? [];
   const roleProfile = ROLE_PROFILES[rol];
+
+  // 👇 Obtener nombres de programas del docente para mostrar
+  const programasDocenteNombres = useMemo(() => {
+    if (!esDocente || programasUsuario.length === 0) return '';
+    // Nota: los nombres no están disponibles aquí, se podrían cargar por separado
+    return programasUsuario.length > 0 ? `${programasUsuario.length} programa(s)` : '';
+  }, [esDocente, programasUsuario]);
 
   if (loading) {
     return (
@@ -270,6 +332,18 @@ const Dashboard: React.FC = () => {
                 <i className={`fas ${badge.icon} text-[10px]`}></i>
                 {getRoleLabel(rol)}
               </span>
+              {esDocente && programasUsuario.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 mt-2 ml-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white">
+                  <i className="fas fa-chalkboard-teacher"></i>
+                  {programasUsuario.length} programa(s) asignado(s)
+                </span>
+              )}
+              {esDocente && programasUsuario.length === 0 && (
+                <span className="inline-flex items-center gap-1.5 mt-2 ml-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/30 text-white">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  Sin programas asignados
+                </span>
+              )}
             </div>
             {/* Stats */}
             <div className="grid grid-cols-4 gap-2 sm:gap-3">
