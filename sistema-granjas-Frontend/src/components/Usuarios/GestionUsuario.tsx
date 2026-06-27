@@ -356,34 +356,6 @@ export default function GestionUsuarios() {
                 </button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatsCard
-                    title="Total Usuarios"
-                    value={estadisticas.total}
-                    icon="fa-users"
-                    color="blue"
-                />
-                <StatsCard
-                    title="Usuarios Activos"
-                    value={estadisticas.activos}
-                    icon="fa-user-check"
-                    color="green"
-                />
-                <StatsCard
-                    title="Usuarios Inactivos"
-                    value={estadisticas.inactivos}
-                    icon="fa-user-slash"
-                    color="red"
-                />
-                <StatsCard
-                    title="Roles Disponibles"
-                    value={roles.length}
-                    icon="fa-tags"
-                    color="purple"
-                />
-            </div>
-
             {/* Distribución por Roles */}
             {Object.keys(estadisticas.porRol).length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
