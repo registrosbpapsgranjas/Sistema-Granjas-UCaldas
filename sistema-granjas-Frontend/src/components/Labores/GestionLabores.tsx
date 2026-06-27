@@ -1,5 +1,5 @@
 // src/pages/Labores/GestionLaboresPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import laborService from '../../services/laboresService';
 import usuarioService from '../../services/usuarioService';
@@ -44,16 +44,52 @@ const GestionLaboresPage: React.FC = () => {
 
     // Datos para formularios
     const [lotes, setLotes] = useState<any[]>([]);
+    const [lotesFiltrados, setLotesFiltrados] = useState<any[]>([]);
     const [trabajadores, setTrabajadores] = useState<any[]>([]);
+    const [trabajadoresFiltrados, setTrabajadoresFiltrados] = useState<any[]>([]);
     const [recomendaciones, setRecomendaciones] = useState<any[]>([]);
     const [tiposLabor, setTiposLabor] = useState<any[]>([]);
 
     const [filtros, setFiltros] = useState<LaborFilters>({});
 
-
     // Verificar si el usuario es Talento Humano o Jefe Talento Humano
     const esTalentoHumano = user?.rol_id === 6 || user?.rol_id === 7 || user?.rol === 'jefe_talento_humano';
 
+    // 👇 DETERMINAR ROL Y PROGRAMAS DEL USUARIO
+    const esAdmin = user?.rol_id === 1;
+    const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+    const programasUsuario = useMemo(
+        () => user?.programas?.map((p: any) => p.id) || [],
+        [user?.id]
+    );
+
+    // 👇 FUNCIÓN PARA FILTRAR LOTES POR PROGRAMAS DEL DOCENTE
+    const filtrarLotesPorDocente = useCallback((lotesArray: any[]) => {
+        if (esAdmin) {
+            return lotesArray; // Admin ve todos
+        }
+        if (esDocente) {
+            if (programasUsuario.length === 0) {
+                return []; // Docente sin programas no ve lotes
+            }
+            return lotesArray.filter(lote => programasUsuario.includes(lote.programa_id));
+        }
+        return lotesArray; // Otros roles ven todos
+    }, [esAdmin, esDocente, programasUsuario]);
+
+    // 👇 FUNCIÓN PARA FILTRAR TRABAJADORES (solo docentes con programas)
+    const filtrarTrabajadores = useCallback((trabajadoresArray: any[]) => {
+        if (esAdmin) {
+            return trabajadoresArray; // Admin ve todos
+        }
+        if (esDocente) {
+            if (programasUsuario.length === 0) {
+                return []; // Docente sin programas no ve trabajadores
+            }
+            return trabajadoresArray; // Docente con programas ve todos los trabajadores
+        }
+        return trabajadoresArray; // Otros roles ven todos
+    }, [esAdmin, esDocente, programasUsuario]);
 
     useEffect(() => {
         cargarDatos();
@@ -69,7 +105,7 @@ const GestionLaboresPage: React.FC = () => {
             const laboresData = Array.isArray(data) ? data : (data?.items || data || []);
             setLabores(laboresData);
 
-            // Cargar lotes si no se han cargado
+            // Cargar lotes y filtrar según rol
             if (lotes.length === 0) {
                 try {
                     const lotesData = await loteService.obtenerLotes();
@@ -101,20 +137,33 @@ const GestionLaboresPage: React.FC = () => {
                     );
 
                     setLotes(lotesArray);
+                    
+                    // 👇 Filtrar lotes según rol
+                    const lotesFiltradosPorRol = filtrarLotesPorDocente(lotesArray);
+                    setLotesFiltrados(lotesFiltradosPorRol);
+                    
                 } catch (loteError) {
                     console.error('Error cargando lotes:', loteError);
                     toast.error('Error al cargar los lotes');
                     setLotes([]);
+                    setLotesFiltrados([]);
                 }
             }
 
+            // Cargar trabajadores y filtrar según rol
             if (trabajadores.length === 0) {
                 try {
                     const trabajadoresData = await usuarioService.obtenerTrabajadores();
                     setTrabajadores(trabajadoresData);
+                    
+                    // 👇 Filtrar trabajadores según rol
+                    const trabajadoresFiltradosPorRol = filtrarTrabajadores(trabajadoresData);
+                    setTrabajadoresFiltrados(trabajadoresFiltradosPorRol);
+                    
                 } catch (userError) {
                     console.error('Error cargando trabajadores:', userError);
                     setTrabajadores([]);
+                    setTrabajadoresFiltrados([]);
                 }
             }
 
@@ -126,6 +175,18 @@ const GestionLaboresPage: React.FC = () => {
                 } catch (recError) {
                     console.error('Error cargando recomendaciones:', recError);
                     setRecomendaciones([]);
+                }
+            }
+
+            // Cargar tipos de labor
+            if (tiposLabor.length === 0) {
+                try {
+                    // Intentar cargar tipos de labor desde el servicio
+                    const tipos = await laborService.obtenerTiposLabor?.() || [];
+                    setTiposLabor(tipos);
+                } catch (error) {
+                    console.error('Error cargando tipos de labor:', error);
+                    setTiposLabor([]);
                 }
             }
 
@@ -322,7 +383,7 @@ const GestionLaboresPage: React.FC = () => {
                                 onChange={(e) => setFiltros({ ...filtros, trabajador_id: e.target.value ? parseInt(e.target.value) : undefined })}
                             >
                                 <option value="">Todos los trabajadores</option>
-                                {Array.isArray(trabajadores) && trabajadores.map(trab => (
+                                {Array.isArray(trabajadoresFiltrados) && trabajadoresFiltrados.map(trab => (
                                     <option key={trab.id} value={trab.id}>
                                         {trab.nombre}
                                     </option>
@@ -335,7 +396,7 @@ const GestionLaboresPage: React.FC = () => {
                                 onChange={(e) => setFiltros({ ...filtros, lote_id: e.target.value ? parseInt(e.target.value) : undefined })}
                             >
                                 <option value="">Todos los lotes</option>
-                                {Array.isArray(lotes) && lotes.map(lote => (
+                                {Array.isArray(lotesFiltrados) && lotesFiltrados.map(lote => (
                                     <option key={lote.id} value={lote.id}>
                                         {lote.nombre} ({lote.granja_nombre || 'Sin granja'})
                                     </option>
@@ -349,6 +410,21 @@ const GestionLaboresPage: React.FC = () => {
                                 Limpiar Filtros
                             </button>
                         </div>
+                        {/* 👇 Mensaje informativo para docentes */}
+                        {esDocente && (
+                            <div className="mt-3 flex items-center justify-between">
+                                <span className="text-xs text-gray-500">
+                                    <i className="fas fa-info-circle mr-1"></i>
+                                    Mostrando {lotesFiltrados.length} lote(s) de tus programas asignados
+                                </span>
+                                {programasUsuario.length === 0 && (
+                                    <span className="text-xs text-red-500">
+                                        <i className="fas fa-exclamation-triangle mr-1"></i>
+                                        No tienes programas asignados
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -400,8 +476,8 @@ const GestionLaboresPage: React.FC = () => {
                     onSubmit={handleCrearLabor}
                     onCancel={() => setShowCrearModal(false)}
                     tiposLabor={tiposLabor}
-                    trabajadores={trabajadores}
-                    lotes={lotes}
+                    trabajadores={trabajadoresFiltrados}
+                    lotes={lotesFiltrados}
                     recomendaciones={recomendaciones}
                     currentUser={user}
                 />
@@ -415,8 +491,8 @@ const GestionLaboresPage: React.FC = () => {
                         onSubmit={(data) => handleActualizarLabor(selectedLabor.id, data)}
                         onCancel={() => setShowEditarModal(false)}
                         tiposLabor={tiposLabor}
-                        trabajadores={trabajadores}
-                        lotes={lotes}
+                        trabajadores={trabajadoresFiltrados}
+                        lotes={lotesFiltrados}
                         recomendaciones={recomendaciones}
                         currentUser={user}
                         esEdicion={true}
