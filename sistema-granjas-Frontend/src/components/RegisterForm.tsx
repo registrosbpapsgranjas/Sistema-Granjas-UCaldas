@@ -21,6 +21,9 @@ type FieldErrors = {
 // Expresión regular para validar el nombre (misma que en el backend)
 const NAME_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-'.]+$/;
 
+// 👇 ROLES PERMITIDOS PARA REGISTRO (excluyendo admin y asesor)
+const ROLES_PERMITIDOS_REGISTRO = ["estudiante", "docente", "talento_humano", "trabajador"];
+
 export default function RegisterForm({ roles, onSwitch }: Props) {
     const [nombre, setNombre] = useState("");
     const [apellido, setApellido] = useState("");
@@ -31,24 +34,20 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
     const [loading, setLoading] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+    // 👇 FILTRAR ROLES PERMITIDOS PARA REGISTRO
+    const rolesFiltrados = roles.filter(rol => 
+        ROLES_PERMITIDOS_REGISTRO.includes(rol.nombre.toLowerCase())
+    );
+
     const clearFieldError = (field: keyof FieldErrors) => {
         if (fieldErrors[field]) {
             setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
         }
     };
 
-    // Validación del nombre en tiempo real
-    const validateNombre = (value: string) => {
-        if (value && !NAME_REGEX.test(value)) {
-            return "El nombre solo puede contener letras, espacios, guiones, apóstrofes y puntos.";
-        }
-        return "";
-    };
-
     const handleNombreChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
         const value = e.target.value;
         setter(value);
-        // Limpiar error del backend si el usuario corrige
         if (fieldErrors.nombre) {
             setFieldErrors((prev) => ({ ...prev, nombre: undefined }));
         }
@@ -99,11 +98,10 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
             toast.success("Registro exitoso. Ya puedes iniciar sesión.");
             onSwitch();
         } catch (err: any) {
-            // Manejo de errores del backend (422 Validation Error)
             if (err.response?.data?.detail && Array.isArray(err.response.data.detail)) {
                 const backendErrors: FieldErrors = {};
                 err.response.data.detail.forEach((error: any) => {
-                    const field = error.loc?.[1]; // "nombre", "email", etc.
+                    const field = error.loc?.[1];
                     if (field === "nombre") {
                         backendErrors.nombre = error.msg;
                     } else if (field === "email") {
@@ -127,6 +125,24 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
         }
     };
 
+    // 👇 Si no hay roles disponibles para registro, mostrar mensaje
+    if (rolesFiltrados.length === 0) {
+        return (
+            <div className="space-y-5">
+                <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800 border border-yellow-200">
+                    <i className="fas fa-exclamation-triangle mr-2"></i>
+                    No hay roles disponibles para registro. Contacta al administrador.
+                </div>
+                <button
+                    onClick={onSwitch}
+                    className="w-full rounded-lg bg-gray-200 py-2 font-medium text-gray-700 hover:bg-gray-300 transition"
+                >
+                    Volver al inicio de sesión
+                </button>
+            </div>
+        );
+    }
+
     return (
         <form onSubmit={handleRegister} className="space-y-5">
             {fieldErrors.general && (
@@ -140,13 +156,20 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
                     Tipo de Usuario
                 </label>
                 <RoleSelector
-                    roles={roles}
+                    roles={rolesFiltrados}
                     selectedRole={selectedRole}
                     onSelect={setSelectedRole}
                 />
                 {fieldErrors.role_id && (
                     <p className="mt-1 text-sm text-red-600">{fieldErrors.role_id}</p>
                 )}
+                <p className="mt-1 text-xs text-gray-400">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Solo están disponibles los roles que pueden registrarse desde esta página.
+                    {roles.length > rolesFiltrados.length && (
+                        <span className="text-amber-600"> Admin y Asesor no están disponibles para registro.</span>
+                    )}
+                </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
