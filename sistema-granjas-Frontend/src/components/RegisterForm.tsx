@@ -164,13 +164,6 @@ export default function RegisterForm({ roles, onSwitch }: Props) {
                 {fieldErrors.role_id && (
                     <p className="mt-1 text-sm text-red-600">{fieldErrors.role_id}</p>
                 )}
-                <p className="mt-1 text-xs text-gray-400">
-                    <i className="fas fa-info-circle mr-1"></i>
-                    Solo están disponibles los roles que pueden registrarse desde esta página.
-                    {roles.length > rolesFiltrados.length && (
-                        <span className="text-amber-600"> Admin y Asesor no están disponibles para registro.</span>
-                    )}
-                </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
