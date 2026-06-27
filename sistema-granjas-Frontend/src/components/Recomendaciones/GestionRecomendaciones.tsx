@@ -53,6 +53,7 @@ const GestionRecomendaciones: React.FC = () => {
     const [recomendacionAAprobarTitulo, setRecomendacionAAprobarTitulo] = useState<string>('');
 
     const [lotes, setLotes] = useState<any[]>([]);
+    const [lotesFiltradosParaDocente, setLotesFiltradosParaDocente] = useState<any[]>([]);
     const [docentes, setDocentes] = useState<any[]>([]);
     const [programas, setProgramas] = useState<any[]>([]);
     const [filtros, setFiltros] = useState<RecomendacionFilters>({});
@@ -71,6 +72,55 @@ const GestionRecomendaciones: React.FC = () => {
     const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
     const esEstudiante = user?.rol_id === 4;
 
+    // ── FUNCIÓN PARA FILTRAR LOTES POR PROGRAMAS DEL DOCENTE ──────────────────
+    const filtrarLotesPorDocente = useCallback((lotesArray: any[]) => {
+        if (esAdmin) {
+            return lotesArray; // Admin ve todos
+        }
+        if (esDocente) {
+            if (programasUsuario.length === 0) {
+                return []; // Docente sin programas no ve lotes
+            }
+            return lotesArray.filter(lote => programasUsuario.includes(lote.programa_id));
+        }
+        return lotesArray; // Otros roles ven todos
+    }, [esAdmin, esDocente, programasUsuario]);
+
+    // ── FUNCIÓN PARA OBTENER LOTES CON NOMBRE DE GRANJA ──────────────────────
+    const obtenerLotesConGranja = useCallback(async () => {
+        try {
+            const lotesData = await loteService.obtenerLotes();
+            let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
+            
+            // Enriquecer con nombre de granja
+            lotesArray = await Promise.all(
+                lotesArray.map(async (lote: any) => {
+                    try {
+                        if (lote.granja_id) {
+                            const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
+                            return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
+                        }
+                        return { ...lote, granja_nombre: 'Sin granja' };
+                    } catch {
+                        return { ...lote, granja_nombre: 'Error al cargar' };
+                    }
+                })
+            );
+            
+            // Filtrar lotes según rol del usuario
+            const lotesFiltrados = filtrarLotesPorDocente(lotesArray);
+            
+            setLotes(lotesArray); // Todos los lotes (para referencia)
+            setLotesFiltradosParaDocente(lotesFiltrados); // Solo los permitidos
+            
+            return lotesFiltrados;
+        } catch {
+            setLotes([]);
+            setLotesFiltradosParaDocente([]);
+            return [];
+        }
+    }, [filtrarLotesPorDocente]);
+
     // Load programs + check URL params on mount
     useEffect(() => {
         const cargarProgramas = async () => {
@@ -82,6 +132,9 @@ const GestionRecomendaciones: React.FC = () => {
             }
         };
         cargarProgramas();
+
+        // Cargar lotes filtrados para el filtro
+        obtenerLotesConGranja();
 
         const diagId = searchParams.get('diagnostico_id');
         const loteId = searchParams.get('lote_id');
@@ -152,7 +205,6 @@ const GestionRecomendaciones: React.FC = () => {
         }
     }, [tabActivo, cargarPendientes]);
 
-
     useEffect(() => {
         cargarDatos();
     }, [filtros]);
@@ -187,25 +239,9 @@ const GestionRecomendaciones: React.FC = () => {
             // Para estudiantes, no filtramos aquí (lo haremos en la tabla con los diagnósticos)
             setRecomendaciones(recomendacionesData);
 
+            // Cargar lotes si no existen
             if (lotes.length === 0) {
-                try {
-                    const lotesData = await loteService.obtenerLotes();
-                    let lotesArray = Array.isArray(lotesData) ? lotesData : (lotesData?.items || []);
-                    lotesArray = await Promise.all(
-                        lotesArray.map(async (lote: any) => {
-                            try {
-                                if (lote.granja_id) {
-                                    const granja = await granjaService.obtenerGranjaPorId(lote.granja_id);
-                                    return { ...lote, granja_nombre: granja.nombre || 'Sin nombre' };
-                                }
-                                return { ...lote, granja_nombre: 'Sin granja' };
-                            } catch {
-                                return { ...lote, granja_nombre: 'Error al cargar' };
-                            }
-                        })
-                    );
-                    setLotes(lotesArray);
-                } catch { setLotes([]); }
+                await obtenerLotesConGranja();
             }
 
             if (docentes.length === 0) {
@@ -384,14 +420,30 @@ const GestionRecomendaciones: React.FC = () => {
                             <select className="border rounded p-2 text-sm" value={filtros.lote_id || ''}
                                 onChange={e => setFiltros({ ...filtros, lote_id: e.target.value ? parseInt(e.target.value) : undefined })}>
                                 <option value="">Todos los lotes</option>
-                                {lotes.map(lote => (
+                                {lotesFiltradosParaDocente.map(lote => (
                                     <option key={lote.id} value={lote.id}>{lote.nombre} ({lote.granja_nombre || 'Sin granja'})</option>
                                 ))}
                             </select>
+                            {/* Mostrar mensaje informativo para docentes */}
+                            {esDocente && (
+                                <div className="col-span-2 flex items-center">
+                                    <span className="text-xs text-gray-500">
+                                        <i className="fas fa-info-circle mr-1"></i>
+                                        Mostrando {lotesFiltradosParaDocente.length} lote(s) de tus programas asignados
+                                    </span>
+                                </div>
+                            )}
                             <button onClick={() => setFiltros({})} className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm">
                                 Limpiar Filtros
                             </button>
                         </div>
+                        {esDocente && lotesFiltradosParaDocente.length === 0 && (
+                            <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-sm text-yellow-700">
+                                <i className="fas fa-exclamation-triangle mr-2"></i>
+                                No tienes lotes asignados en tus programas. 
+                                {programasUsuario.length === 0 && ' No tienes programas asignados.'}
+                            </div>
+                        )}
                     </div>
 
                     {loading ? (
@@ -502,7 +554,7 @@ const GestionRecomendaciones: React.FC = () => {
                 <RecomendacionFormSelector
                     onSubmit={handleCrearRecomendacion}
                     onCancel={closeCrearModal}
-                    lotes={lotes}
+                    lotes={lotesFiltradosParaDocente}
                     docentes={docentes}
                     currentUser={user}
                     programas={programas}
@@ -519,7 +571,7 @@ const GestionRecomendaciones: React.FC = () => {
                         recomendacion={selectedRecomendacion}
                         onSubmit={(data) => handleActualizarRecomendacion(selectedRecomendacion.id, data)}
                         onCancel={() => setShowEditarModal(false)}
-                        lotes={lotes}
+                        lotes={lotesFiltradosParaDocente}
                         docentes={docentes}
                         currentUser={user}
                         programas={programas}
