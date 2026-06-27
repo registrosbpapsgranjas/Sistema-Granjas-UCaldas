@@ -61,14 +61,20 @@ const GestionDiagnosticos: React.FC = () => {
 
   // ── Estado pestaña Tipos ───────────────────────────────────────────────────
   const [programas, setProgramas] = useState<any[]>([]);
-  const [monitoreos, setMonitoreos] = useState<any[]>([]);
+  const [monitoreosDisponibles, setMonitoreosDisponibles] = useState<any[]>([]);
   const [programaSeleccionado, setProgramaSeleccionado] = useState<number | null>(null);
   const [loadingTipos, setLoadingTipos] = useState(false);
 
-  // 👇 NUEVO ESTADO: Monitoreos filtrados para docentes
-  const [monitoreosFiltrados, setMonitoreosFiltrados] = useState<any[]>([]);
+  // ── FUNCIÓN PARA OBTENER MONITOREOS POR PROGRAMA ──────────────────────────
+  const obtenerMonitoreosPorPrograma = useCallback(async (programaId: number) => {
+    try {
+      return await monitoreoService.obtenerMonitoreosPorPrograma(programaId);
+    } catch {
+      return [];
+    }
+  }, []);
 
-  // ── Carga inicial de programas y monitoreos (para pestaña Tipos) ───────────
+  // ── Carga inicial de programas y monitoreos ───────────────────────────────
   const cargarDatosParaTipos = useCallback(async () => {
     if (!user) return;
     setLoadingTipos(true);
@@ -86,46 +92,17 @@ const GestionDiagnosticos: React.FC = () => {
         );
       }
       setProgramas(listaProgramas);
+      
+      // Seleccionar el primer programa automáticamente
       if (listaProgramas.length > 0) {
-        setProgramaSeleccionado(prev => prev ?? listaProgramas[0].id);
-      }
-
-      // 👇 Cargar monitoreos filtrados por programas del docente
-      let monitoreosFiltradosList: any[] = [];
-      if (esDocente && programasDocente.length > 0) {
-        // Obtener monitoreos solo de los programas del docente
-        const monitoreosPorPrograma = await Promise.all(
-          programasDocente.map(async (pid: number) => {
-            try {
-              return await monitoreoService.obtenerMonitoreosPorPrograma(pid);
-            } catch {
-              return [];
-            }
-          })
-        );
-        const mapaUnicos = new Map<number, any>();
-        monitoreosPorPrograma.flat().forEach((m: any) => {
-          if (!mapaUnicos.has(m.id)) mapaUnicos.set(m.id, m);
-        });
-        monitoreosFiltradosList = Array.from(mapaUnicos.values());
-        setMonitoreosFiltrados(monitoreosFiltradosList);
-        setMonitoreos(monitoreosFiltradosList);
+        const primerPrograma = listaProgramas[0].id;
+        setProgramaSeleccionado(primerPrograma);
+        
+        // Cargar monitoreos del primer programa
+        const monit = await obtenerMonitoreosPorPrograma(primerPrograma);
+        setMonitoreosDisponibles(Array.isArray(monit) ? monit : []);
       } else {
-        const todos = await monitoreoService.obtenerMonitoreos();
-        const todosList = Array.isArray(todos) ? todos : (todos?.items || []);
-        setMonitoreosFiltrados(todosList);
-        setMonitoreos(todosList);
-      }
-
-      // 👇 Si el filtro de monitoreo no está en los monitoreos del docente, limpiarlo
-      if (filtros.tipo_monitoreo_id) {
-        const existeEnMonitoreos = monitoreosFiltradosList.some(
-          m => m.id === filtros.tipo_monitoreo_id
-        );
-        if (!existeEnMonitoreos) {
-          setFiltros(prev => ({ ...prev, tipo_monitoreo_id: undefined, diagnostico_tipo_id: undefined }));
-          setSubtiposFiltro([]);
-        }
+        setMonitoreosDisponibles([]);
       }
 
     } catch (err) {
@@ -134,12 +111,29 @@ const GestionDiagnosticos: React.FC = () => {
     } finally {
       setLoadingTipos(false);
     }
-  }, [user?.id, esDocente, programasDocente]);
+  }, [user?.id, esDocente, programasDocente, obtenerMonitoreosPorPrograma]);
 
   // Cargar datos para tipos cuando el usuario esté disponible
   useEffect(() => {
     if (user) cargarDatosParaTipos();
   }, [user?.id]);
+
+  // ── Cargar monitoreos cuando cambia el programa seleccionado ──────────────
+  useEffect(() => {
+    if (!programaSeleccionado || !user) return;
+    
+    const cargarMonitoreos = async () => {
+      try {
+        const monit = await obtenerMonitoreosPorPrograma(programaSeleccionado);
+        setMonitoreosDisponibles(Array.isArray(monit) ? monit : []);
+      } catch (error) {
+        console.error('Error cargando monitoreos:', error);
+        setMonitoreosDisponibles([]);
+      }
+    };
+    
+    cargarMonitoreos();
+  }, [programaSeleccionado, user?.id, obtenerMonitoreosPorPrograma]);
 
   // ── Carga de diagnósticos ──────────────────────────────────────────────────
   const cargarDiagnosticos = useCallback(async () => {
@@ -195,13 +189,49 @@ const GestionDiagnosticos: React.FC = () => {
     }
   }, [filtros, tabActivo, user?.id]);
 
+  // ── Cargar monitoreos para el filtro de diagnósticos ──────────────────────
+  const [monitoreosFiltro, setMonitoreosFiltro] = useState<any[]>([]);
+
+  useEffect(() => {
+    const cargarMonitoreosFiltro = async () => {
+      if (esDocente && programasDocente.length > 0) {
+        // Docente: cargar monitoreos de todos sus programas
+        const todosMonitoreos: any[] = [];
+        for (const pid of programasDocente) {
+          try {
+            const monit = await monitoreoService.obtenerMonitoreosPorPrograma(pid);
+            if (Array.isArray(monit)) {
+              todosMonitoreos.push(...monit);
+            }
+          } catch {}
+        }
+        // Eliminar duplicados por ID
+        const mapaUnicos = new Map();
+        todosMonitoreos.forEach(m => {
+          if (!mapaUnicos.has(m.id)) mapaUnicos.set(m.id, m);
+        });
+        setMonitoreosFiltro(Array.from(mapaUnicos.values()));
+      } else if (esAdmin || esAsesor) {
+        // Admin: todos los monitoreos
+        const todos = await monitoreoService.obtenerMonitoreos();
+        setMonitoreosFiltro(Array.isArray(todos) ? todos : (todos?.items || []));
+      } else {
+        setMonitoreosFiltro([]);
+      }
+    };
+
+    if (user && tabActivo === 'diagnosticos') {
+      cargarMonitoreosFiltro();
+    }
+  }, [user, esDocente, esAdmin, esAsesor, programasDocente, tabActivo]);
+
   // 👇 Subtipos para filtro (solo de monitoreos permitidos para docentes)
   useEffect(() => {
     const monitoreoId = filtros.tipo_monitoreo_id;
     if (!monitoreoId) { setSubtiposFiltro([]); return; }
 
     // 👇 Verificar que el monitoreo esté en los permitidos
-    if (esDocente && !monitoreosFiltrados.some(m => m.id === monitoreoId)) {
+    if (esDocente && !monitoreosFiltro.some(m => m.id === monitoreoId)) {
       setSubtiposFiltro([]);
       setFiltros(prev => ({ ...prev, tipo_monitoreo_id: undefined, diagnostico_tipo_id: undefined }));
       toast.warning('No tienes acceso a este monitoreo');
@@ -212,8 +242,8 @@ const GestionDiagnosticos: React.FC = () => {
     diagnosticoDinamicoService
       .listarSubtiposPorMonitoreo(monitoreoId)
       .then(data => {
-        // 👇 Filtrar subtipos por programa del docente si es necesario
         let subtipos = data.filter(s => s.activo);
+        // Filtrar subtipos por programa del docente
         if (esDocente && programasDocente.length > 0) {
           subtipos = subtipos.filter(s => programasDocente.includes(s.programa_id));
         }
@@ -221,7 +251,7 @@ const GestionDiagnosticos: React.FC = () => {
       })
       .catch(() => setSubtiposFiltro([]))
       .finally(() => setCargandoSubtipos(false));
-  }, [filtros.tipo_monitoreo_id, esDocente, programasDocente, monitoreosFiltrados]);
+  }, [filtros.tipo_monitoreo_id, esDocente, programasDocente, monitoreosFiltro]);
 
   // ── Handlers CRUD ──────────────────────────────────────────────────────────
   const handleCrearDiagnostico = async (formData: FormData) => {
@@ -348,7 +378,7 @@ const GestionDiagnosticos: React.FC = () => {
                 })}
               >
                 <option value="">Todos los tipos de monitoreo</option>
-                {monitoreosFiltrados.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                {monitoreosFiltro.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
               </select>
 
               <select
@@ -391,7 +421,7 @@ const GestionDiagnosticos: React.FC = () => {
               {esDocente && (
                 <span className="text-xs text-gray-500">
                   <i className="fas fa-info-circle mr-1"></i>
-                  Mostrando monitoreos y subtipos de tus programas asignados
+                  Mostrando solo monitoreos de tus programas asignados
                 </span>
               )}
               <button
@@ -448,17 +478,30 @@ const GestionDiagnosticos: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Seleccionar Programa</label>
                 <select
                   value={programaSeleccionado || ''}
-                  onChange={e => setProgramaSeleccionado(e.target.value ? parseInt(e.target.value) : null)}
+                  onChange={e => {
+                    const nuevoPrograma = e.target.value ? parseInt(e.target.value) : null;
+                    setProgramaSeleccionado(nuevoPrograma);
+                    // Limpiar filtros de diagnóstico cuando cambia el programa
+                    setFiltros({});
+                    setSubtiposFiltro([]);
+                  }}
                   className="border rounded-lg p-2.5 text-sm w-full md:w-auto min-w-[260px]"
                 >
                   {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
+                {esDocente && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Mostrando solo los tipos de diagnóstico de tu programa seleccionado
+                  </p>
+                )}
               </div>
               {programaSeleccionado && (
                 <GestionTiposDiagnostico
+                  key={programaSeleccionado}
                   programaId={programaSeleccionado}
                   programaNombre={programas.find(p => p.id === programaSeleccionado)?.nombre}
-                  monitoreosIniciales={monitoreosFiltrados}
+                  monitoreosIniciales={monitoreosDisponibles}
                 />
               )}
             </>
@@ -474,7 +517,7 @@ const GestionDiagnosticos: React.FC = () => {
             onCancel={() => setShowCrearModal(false)}
             lotes={lotes}
             programas={programas}
-            monitoreos={monitoreosFiltrados}
+            monitoreos={monitoreosFiltro}
             condiciones_dia={['Soleado', 'Nublado', 'Lluvia']}
             currentUser={user}
           />
@@ -489,7 +532,7 @@ const GestionDiagnosticos: React.FC = () => {
             onCancel={() => setShowEditarModal(false)}
             lotes={lotes}
             programas={programas}
-            monitoreos={monitoreosFiltrados}
+            monitoreos={monitoreosFiltro}
             condiciones_dia={['Soleado', 'Nublado', 'Lluvia']}
             currentUser={user}
             esEdicion
