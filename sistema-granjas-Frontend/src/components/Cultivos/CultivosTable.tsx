@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CultivoEspecie } from '../../types/cultivoTypes';
 import granjaService from '../../services/granjaService';
+import { useAuth } from '../../hooks/useAuth';
+import loteService from '../../services/loteService';
 
 interface CultivosTableProps {
     cultivos: CultivoEspecie[];
@@ -17,20 +19,83 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
     canWrite = true,
 }) => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [granjasMap, setGranjasMap] = useState<Record<number, string>>({});
     const [cargando, setCargando] = useState(false);
+    const [cultivosFiltradosIds, setCultivosFiltradosIds] = useState<Set<number>>(new Set());
+    const [cargandoFiltros, setCargandoFiltros] = useState(false);
 
-    // 👇 ORDENAR CULTIVOS POR ID (de menor a mayor)
-    const cultivosOrdenados = useMemo(() => {
+    // 👇 DETERMINAR ROL Y PROGRAMAS DEL USUARIO
+    const esAdmin = user?.rol_id === 1;
+    const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
+    const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+
+    // 👇 FILTRAR CULTIVOS SEGÚN ROL
+    const cultivosFiltrados = useMemo(() => {
+        if (esAdmin) {
+            // Administradores ven todos los cultivos
+            return [...cultivos].sort((a, b) => a.id - b.id);
+        }
+
+        if (esDocente) {
+            // Docentes solo ven cultivos de sus programas
+            return [...cultivos]
+                .filter(cultivo => cultivosFiltradosIds.has(cultivo.id))
+                .sort((a, b) => a.id - b.id);
+        }
+
+        // Otros roles ven todos los cultivos
         return [...cultivos].sort((a, b) => a.id - b.id);
-    }, [cultivos]);
+    }, [cultivos, esAdmin, esDocente, cultivosFiltradosIds]);
+
+    // 👇 OBTENER CULTIVOS DE LOS PROGRAMAS DEL DOCENTE
+    useEffect(() => {
+        const obtenerCultivosDeProgramas = async () => {
+            if (!esDocente || programasDocente.length === 0) {
+                setCultivosFiltradosIds(new Set());
+                return;
+            }
+
+            setCargandoFiltros(true);
+            const idsSet = new Set<number>();
+
+            try {
+                // Para cada programa del docente, obtener sus lotes y cultivos
+                for (const programaId of programasDocente) {
+                    try {
+                        const lotes = await loteService.obtenerLotesPorPrograma(programaId);
+                        
+                        if (Array.isArray(lotes)) {
+                            lotes.forEach((lote: any) => {
+                                if (lote.cultivos_ids && Array.isArray(lote.cultivos_ids)) {
+                                    lote.cultivos_ids.forEach((cultivoId: number) => {
+                                        idsSet.add(cultivoId);
+                                    });
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`Error obteniendo lotes del programa ${programaId}:`, error);
+                    }
+                }
+
+                setCultivosFiltradosIds(idsSet);
+            } catch (error) {
+                console.error('Error obteniendo cultivos de programas:', error);
+            } finally {
+                setCargandoFiltros(false);
+            }
+        };
+
+        obtenerCultivosDeProgramas();
+    }, [esDocente, programasDocente]);
 
     useEffect(() => {
         const cargarNombresGranjas = async () => {
-            if (cultivos.length === 0) return;
+            if (cultivosFiltrados.length === 0) return;
             
             const granjaIds = Array.from(
-                new Set(cultivos.map(c => c.granja_id).filter(Boolean))
+                new Set(cultivosFiltrados.map(c => c.granja_id).filter(Boolean))
             ) as number[];
             
             if (granjaIds.length === 0) return;
@@ -60,7 +125,7 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
         };
         
         cargarNombresGranjas();
-    }, [cultivos]);
+    }, [cultivosFiltrados]);
 
     const verLotesConCultivo = (e: React.MouseEvent, cultivoId: number, cultivoNombre: string) => {
         e.stopPropagation();
@@ -84,9 +149,15 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
         }
     };
 
-    // Logs para depuración (opcional)
-    console.log('📋 Cultivos originales:', cultivos);
-    console.log('📋 Cultivos ordenados:', cultivosOrdenados);
+    // 👇 OBTENER NOMBRES DE PROGRAMAS DEL DOCENTE PARA MOSTRAR
+    const programasDocenteNombres = useMemo(() => {
+        if (!esDocente || programasDocente.length === 0) return '';
+        // Nota: Los nombres de programas no están disponibles aquí, se podrían pasar como prop
+        return programasDocente.join(', ');
+    }, [esDocente, programasDocente]);
+
+    // 👇 CONTAR CULTIVOS ENCONTRADOS PARA DOCENTE
+    const totalCultivosEncontrados = cultivosFiltradosIds.size;
 
     return (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -95,10 +166,23 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                     <div>
                         <h3 className="text-lg font-medium text-gray-900">Lista de Cultivos/Especies</h3>
                         <p className="text-sm text-gray-500">
-                            Mostrando {cultivos.length} registros
+                            Mostrando {cultivosFiltrados.length} registros
                             {cargando && <span className="ml-2 text-blue-500">(Cargando granjas...)</span>}
+                            {cargandoFiltros && <span className="ml-2 text-purple-500">(Filtrando cultivos...)</span>}
                         </p>
                     </div>
+                    {esDocente && (
+                        <div className="bg-blue-50 text-blue-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-1">
+                            <i className="fas fa-chalkboard-teacher"></i>
+                            {programasDocente.length > 0 ? (
+                                <span>
+                                    Mostrando cultivos de {totalCultivosEncontrados} cultivo(s) en tus programas
+                                </span>
+                            ) : (
+                                <span>Sin programas asignados</span>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -124,7 +208,7 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {cultivosOrdenados.map((cultivo) => (
+                        {cultivosFiltrados.map((cultivo) => (
                             <tr key={cultivo.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div>
@@ -184,11 +268,27 @@ const CultivosTable: React.FC<CultivosTableProps> = ({
                     </tbody>
                 </table>
 
-                {cultivos.length === 0 && (
+                {cultivosFiltrados.length === 0 && (
                     <div className="text-center py-12 text-gray-500">
                         <i className="fas fa-leaf text-4xl mb-4 text-gray-300"></i>
-                        <p className="text-lg mb-2">No hay cultivos registrados</p>
-                        <p className="text-sm">Crea tu primer cultivo usando el botón "Nuevo Cultivo"</p>
+                        <p className="text-lg mb-2">
+                            {esDocente && programasDocente.length === 0 ? (
+                                'No tienes programas asignados'
+                            ) : esDocente ? (
+                                'No hay cultivos en tus programas asignados'
+                            ) : (
+                                'No hay cultivos registrados'
+                            )}
+                        </p>
+                        <p className="text-sm">
+                            {esDocente && programasDocente.length === 0 ? (
+                                'Contacta con un administrador para que te asigne programas'
+                            ) : esDocente ? (
+                                'Los cultivos aparecerán aquí cuando estén asociados a tus programas'
+                            ) : (
+                                'Crea tu primer cultivo usando el botón "Nuevo Cultivo"'
+                            )}
+                        </p>
                     </div>
                 )}
             </div>
