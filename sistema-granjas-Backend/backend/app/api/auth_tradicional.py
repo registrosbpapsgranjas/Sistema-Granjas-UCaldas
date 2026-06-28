@@ -164,15 +164,15 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
         ).first()
 
         if not usuario:
-            return SuccessMessage(
-                message="Si el correo está registrado, recibirás el código en breve.",
-                detail="Revisá tu bandeja de entrada."
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No existe una cuenta registrada con este correo. Asegúrate de escribirlo correctamente."
             )
 
         if usuario.auth_provider and usuario.auth_provider != "traditional":
-            return SuccessMessage(
-                message="Si el correo está registrado, recibirás el código en breve.",
-                detail="Revisá tu bandeja de entrada."
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta cuenta usa inicio de sesión con Google. No es posible restablecer la contraseña por este medio."
             )
 
         code = generate_reset_code(data.email)

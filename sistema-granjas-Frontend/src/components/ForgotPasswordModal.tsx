@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
   forgotPassword,
@@ -21,8 +21,30 @@ export default function ForgotPasswordModal({ onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
 
   const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const startResendTimer = () => {
+    setResendTimer(60);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +53,7 @@ export default function ForgotPasswordModal({ onClose }: Props) {
       await forgotPassword(email);
       toast.success("Código enviado. Revisa tu correo electrónico.");
       setStep("code");
+      startResendTimer();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al enviar el código";
       toast.error(msg);
@@ -103,14 +126,17 @@ export default function ForgotPasswordModal({ onClose }: Props) {
   };
 
   const handleResendCode = async () => {
+    if (resendTimer > 0) return;
     setLoading(true);
     try {
       await forgotPassword(email);
       setCode(["", "", "", "", ""]);
       toast.success("Nuevo código enviado. Revisa tu correo.");
+      startResendTimer();
       codeRefs.current[0]?.focus();
-    } catch {
-      toast.error("No se pudo reenviar el código");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo reenviar el código";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -220,20 +246,39 @@ export default function ForgotPasswordModal({ onClose }: Props) {
               >
                 {loading ? "Verificando..." : "Verificar código"}
               </button>
-              <p className="text-center text-sm text-gray-500">
-                ¿No recibiste el código?{" "}
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  disabled={loading}
-                  className="text-green-700 font-semibold hover:underline disabled:opacity-50"
-                >
-                  Reenviar
-                </button>
-              </p>
-              <p className="text-center text-xs text-gray-400">
-                El código expira en 10 minutos
-              </p>
+              <div className="text-center space-y-1">
+                <p className="text-sm text-gray-500">
+                  ¿No recibiste el código?{" "}
+                  {resendTimer > 0 ? (
+                    <span className="text-gray-400 font-medium">
+                      Reenviar en{" "}
+                      <span className="text-green-700 font-bold tabular-nums">
+                        {resendTimer}s
+                      </span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleResendCode}
+                      disabled={loading}
+                      className="text-green-700 font-semibold hover:underline disabled:opacity-50"
+                    >
+                      Reenviar
+                    </button>
+                  )}
+                </p>
+                {resendTimer > 0 && (
+                  <div className="mx-auto w-40 h-1 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-600 rounded-full transition-all duration-1000"
+                      style={{ width: `${(resendTimer / 60) * 100}%` }}
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-400">
+                  El código expira en 10 minutos
+                </p>
+              </div>
             </form>
           )}
 
