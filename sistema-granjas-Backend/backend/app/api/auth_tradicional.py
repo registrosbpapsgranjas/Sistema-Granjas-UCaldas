@@ -3,14 +3,18 @@ from sqlalchemy.orm import Session
 from typing import List
 import re
 from app.db.database import get_db
-from app.core.security import verify_token
+from app.core.security import verify_token, get_password_hash
 from app.schemas.auth_schema import (
     LoginRequest, 
     RegisterRequest, 
     LogoutRequest, 
     TokenResponse, 
     UserVerification,
-    SuccessMessage
+    SuccessMessage,
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    VerifyResetCodeRequest,
+    ResetPasswordRequest,
 )
 from app.schemas.rol_schema import RolParaRegistro
 from app.CRUD.roles import get_roles_para_registro
@@ -55,14 +59,12 @@ def register_tradicional(data: RegisterRequest, db: Session = Depends(get_db)):
     try:
         logger.info(f"Intentando registro tradicional para: {data.email}")
         
-        # 👇 VALIDAR DOMINIO DEL CORREO
         if not UCLADAS_EMAIL_REGEX.match(data.email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Solo se permiten correos institucionales @ucaldas.edu.co"
             )
         
-        # Llama al servicio para manejar toda la lógica
         response = AuthService.register_user(db, data)
         return response 
         
@@ -75,6 +77,201 @@ def register_tradicional(data: RegisterRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno del servidor durante el registro."
         )
+
+# 👇 NUEVO ENDPOINT PARA CAMBIAR CONTRASEÑA
+@router.post("/change-password", response_model=SuccessMessage)
+def change_password(
+    data: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Cambia la contraseña del usuario autenticado.
+    Requiere la contraseña actual y la nueva contraseña.
+    """
+    try:
+        # Verificar que la contraseña actual sea correcta
+        from app.core.security import verify_password
+        if not verify_password(data.current_password, current_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La contraseña actual es incorrecta"
+            )
+        
+        # Validar que la nueva contraseña sea diferente
+        if data.current_password == data.new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La nueva contraseña debe ser diferente a la actual"
+            )
+        
+        # Validar longitud de la nueva contraseña
+        if len(data.new_password) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La nueva contraseña debe tener al menos 6 caracteres"
+            )
+        
+        if len(data.new_password) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La nueva contraseña no puede tener más de 100 caracteres"
+            )
+        
+        # Validar que la nueva contraseña tenga al menos una letra
+        if not any(c.isalpha() for c in data.new_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La nueva contraseña debe contener al menos una letra"
+            )
+        
+        # Hashear y guardar la nueva contraseña
+        current_user.password_hash = get_password_hash(data.new_password)
+        db.commit()
+        
+        logger.info(f"Contraseña actualizada para usuario: {current_user.email}")
+        return SuccessMessage(
+            message="Contraseña actualizada exitosamente",
+            detail="La contraseña ha sido cambiada correctamente"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al cambiar contraseña: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor al cambiar la contraseña"
+        )
+
+@router.post("/forgot-password", response_model=SuccessMessage)
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Solicita un código de recuperación de contraseña.
+    Envía un código de 5 dígitos al correo si el usuario existe.
+    """
+    from app.db.models import Usuario
+    from app.services.password_reset_service import generate_reset_code
+    from app.services.email_service import send_reset_code_email
+
+    try:
+        usuario = db.query(Usuario).filter(
+            Usuario.email == data.email,
+            Usuario.activo == True
+        ).first()
+
+        if not usuario:
+            return SuccessMessage(
+                message="Si el correo está registrado, recibirás el código en breve.",
+                detail="Revisá tu bandeja de entrada."
+            )
+
+        if usuario.auth_provider and usuario.auth_provider != "traditional":
+            return SuccessMessage(
+                message="Si el correo está registrado, recibirás el código en breve.",
+                detail="Revisá tu bandeja de entrada."
+            )
+
+        code = generate_reset_code(data.email)
+        sent = send_reset_code_email(data.email, usuario.nombre, code)
+
+        if not sent:
+            logger.error(f"No se pudo enviar el correo de recuperación a {data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No se pudo enviar el correo. Verifica la configuración del servidor de correo."
+            )
+
+        logger.info(f"Código de recuperación enviado a {data.email}")
+        return SuccessMessage(
+            message="Código enviado exitosamente.",
+            detail="Revisá tu bandeja de entrada. El código expira en 10 minutos."
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en forgot-password: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
+
+
+@router.post("/verify-reset-code", response_model=SuccessMessage)
+def verify_reset_code(data: VerifyResetCodeRequest):
+    """
+    Verifica que el código de recuperación sea válido.
+    """
+    from app.services.password_reset_service import verify_reset_code as _verify
+
+    try:
+        valid, message = _verify(data.email, data.code)
+        if not valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
+            )
+        return SuccessMessage(message="Código válido", detail=message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en verify-reset-code: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
+
+
+@router.post("/reset-password", response_model=SuccessMessage)
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Restablece la contraseña usando el código verificado.
+    """
+    from app.db.models import Usuario
+    from app.services.password_reset_service import is_code_verified, consume_reset_code
+
+    try:
+        if not is_code_verified(data.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El código no ha sido verificado o ha expirado. Solicita uno nuevo."
+            )
+
+        usuario = db.query(Usuario).filter(
+            Usuario.email == data.email,
+            Usuario.activo == True
+        ).first()
+
+        if not usuario:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado"
+            )
+
+        usuario.password_hash = get_password_hash(data.new_password)
+        db.commit()
+
+        consume_reset_code(data.email)
+
+        logger.info(f"Contraseña restablecida para {data.email}")
+        return SuccessMessage(
+            message="Contraseña restablecida exitosamente.",
+            detail="Ya puedes iniciar sesión con tu nueva contraseña."
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en reset-password: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
+
 
 @router.post("/logout", response_model=SuccessMessage)
 def logout(data: LogoutRequest = Depends(LogoutRequest)):

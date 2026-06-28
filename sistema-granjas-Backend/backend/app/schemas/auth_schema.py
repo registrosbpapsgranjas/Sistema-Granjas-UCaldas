@@ -10,7 +10,7 @@ class TokenResponse(BaseModel):
     rol: str
     rol_id: int
     email: EmailStr
-    programas: Optional[List[Dict[str, Any]]] = []  # 👈 NUEVO: lista de programas
+    programas: Optional[List[Dict[str, Any]]] = []
     message: str | None = None 
 
 class LoginRequest(BaseModel):
@@ -67,7 +67,7 @@ class RegisterRequest(BaseModel):
     @model_validator(mode='after')
     def validar_email_dominio_registro(cls, values):
         email = values.email
-        dominios_permitidos = ['gmail.com','ucaldas.edu.co', 'estudiantes.ucaldas.edu.co']
+        dominios_permitidos = ['gmail.com', 'ucaldas.edu.co', 'estudiantes.ucaldas.edu.co']
         dominio = email.split('@')[-1]
         
         if dominio not in dominios_permitidos:
@@ -86,8 +86,8 @@ class LogoutRequest(BaseModel):
 
 class UserVerification(BaseModel):
     valid: bool
-    user: Optional[Dict[str, Any]] = None  # 👈 NUEVO: incluir programas aquí también
-    
+    user: Optional[Dict[str, Any]] = None
+
 class SuccessMessage(BaseModel):
     message: str
     detail: Optional[str] = None
@@ -108,3 +108,80 @@ class RoleInfo(BaseModel):
 
 class RolesAvailableResponse(BaseModel):
     roles: List[RoleInfo]
+
+# 👇 SCHEMA PARA CAMBIO DE CONTRASEÑA (CORREGIDO)
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyResetCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+    @field_validator('code')
+    def validar_code(cls, v):
+        v = v.strip()
+        if len(v) != 5 or not v.isdigit():
+            raise ValueError('El código debe ser de 5 dígitos numéricos')
+        return v
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+    confirm_password: str
+
+    @field_validator('code')
+    def validar_code(cls, v):
+        v = v.strip()
+        if len(v) != 5 or not v.isdigit():
+            raise ValueError('El código debe ser de 5 dígitos numéricos')
+        return v
+
+    @field_validator('new_password')
+    def validate_new_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('La contraseña debe tener al menos 6 caracteres')
+        if len(v) > 100:
+            raise ValueError('La contraseña no puede tener más de 100 caracteres')
+        if not any(c.isalpha() for c in v):
+            raise ValueError('La contraseña debe contener al menos una letra')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('La contraseña debe contener al menos un número')
+        return v
+
+    @model_validator(mode='after')
+    def validate_passwords_match(cls, values):
+        if values.new_password != values.confirm_password:
+            raise ValueError('Las contraseñas no coinciden')
+        return values
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+    @field_validator('new_password')
+    def validate_new_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('La nueva contraseña debe tener al menos 6 caracteres')
+        if len(v) > 100:
+            raise ValueError('La nueva contraseña no puede tener más de 100 caracteres')
+        if not any(c.isalpha() for c in v):
+            raise ValueError('La nueva contraseña debe contener al menos una letra')
+        return v
+
+    @model_validator(mode='after')
+    def validate_passwords_match(cls, values):
+        new_password = values.new_password
+        confirm_password = values.confirm_password
+        
+        if new_password != confirm_password:
+            raise ValueError('Las contraseñas no coinciden')
+        
+        if new_password == values.current_password:
+            raise ValueError('La nueva contraseña debe ser diferente a la actual')
+        
+        return values

@@ -115,6 +115,32 @@ export async function loginWithGoogle(token: string): Promise<LoginResponse> {
   return response;
 }
 
+export async function forgotPassword(email: string): Promise<{ message: string; detail?: string }> {
+  return request(`${AUTH_URL}/forgot-password`, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyResetCode(email: string, code: string): Promise<{ message: string; detail?: string }> {
+  return request(`${AUTH_URL}/verify-reset-code`, {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export async function resetPassword(
+  email: string,
+  code: string,
+  new_password: string,
+  confirm_password: string
+): Promise<{ message: string; detail?: string }> {
+  return request(`${AUTH_URL}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ email, code, new_password, confirm_password }),
+  });
+}
+
 export async function logout() {
   await request(`${AUTH_URL}/logout`, { method: "POST" });
   clearAuthData();
