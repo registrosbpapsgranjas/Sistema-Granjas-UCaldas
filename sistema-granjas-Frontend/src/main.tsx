@@ -1,11 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
 import './index.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'placeholder-google-client-id';
 
 // Configuración para PWA
 const registerServiceWorker = async () => {
@@ -52,8 +49,6 @@ window.addEventListener('load', () => {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <App />
-    </GoogleOAuthProvider>
+    <App />
   </React.StrictMode>,
 );

@@ -101,17 +101,31 @@ export async function register(
   return response;
 }
 
-export async function loginWithGoogle(token: string): Promise<LoginResponse> {
-  const response = await request<LoginResponse>(`${AUTH_URL}/google/login`, {
+export async function sendVerificationEmail(
+  nombre: string,
+  email: string,
+  password: string,
+  rol_id: number
+): Promise<{ message: string; detail?: string }> {
+  return request(`${AUTH_URL}/send-verification-email`, {
     method: "POST",
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ nombre, email, password, rol_id }),
   });
-  
-  // Guardar programas en localStorage después del login con Google
+}
+
+export async function verifyRegistrationCode(
+  email: string,
+  code: string
+): Promise<LoginResponse> {
+  const response = await request<LoginResponse>(`${AUTH_URL}/verify-registration-code`, {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+
   if (response.programas) {
     localStorage.setItem('user_programas', JSON.stringify(response.programas));
   }
-  
+
   return response;
 }
 

@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     granjas, 
-    oauth_google, 
     auth_tradicional,
     usuarios,
     sync,
@@ -343,7 +342,6 @@ async def debug_auth_check(token: str = None):
         return {"error": str(e)}
 
 # ========== INCLUIR ROUTERS ==========
-app.include_router(oauth_google.router, prefix="/api")
 app.include_router(auth_tradicional.router, prefix="/api")
 app.include_router(usuarios.router, prefix="/api")
 app.include_router(granjas.router, prefix="/api")

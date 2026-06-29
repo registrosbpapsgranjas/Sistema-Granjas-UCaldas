@@ -92,15 +92,6 @@ class SuccessMessage(BaseModel):
     message: str
     detail: Optional[str] = None
 
-class GoogleLoginRequest(BaseModel):
-    token: str
-
-    @field_validator('token')
-    def validar_token_google(cls, v):
-        if not v or len(v.strip()) == 0:
-            raise ValueError('El token de Google es requerido')
-        return v
-
 class RoleInfo(BaseModel):
     id: int
     nombre: str
@@ -109,7 +100,7 @@ class RoleInfo(BaseModel):
 class RolesAvailableResponse(BaseModel):
     roles: List[RoleInfo]
 
-# 👇 SCHEMA PARA CAMBIO DE CONTRASEÑA (CORREGIDO)
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -156,6 +147,53 @@ class ResetPasswordRequest(BaseModel):
         if values.new_password != values.confirm_password:
             raise ValueError('Las contraseñas no coinciden')
         return values
+
+
+class SendVerificationEmailRequest(BaseModel):
+    nombre: str
+    email: EmailStr
+    password: str
+    rol_id: int
+
+    @field_validator('nombre')
+    def validar_nombre(cls, v):
+        if len(v.strip()) < 3:
+            raise ValueError('El nombre debe tener al menos 3 caracteres')
+        if len(v) > 100:
+            raise ValueError('El nombre no puede tener más de 100 caracteres')
+        if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.]+$', v):
+            raise ValueError('El nombre solo puede contener letras, espacios y los caracteres: - \' .')
+        return v.strip()
+
+    @field_validator('password')
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('La contraseña debe tener al menos 6 caracteres')
+        if len(v) > 100:
+            raise ValueError('La contraseña no puede tener más de 100 caracteres')
+        if not any(char.isdigit() for char in v):
+            raise ValueError('La contraseña debe contener al menos un número')
+        if not any(char.isalpha() for char in v):
+            raise ValueError('La contraseña debe contener al menos una letra')
+        return v
+
+    @field_validator('rol_id')
+    def validar_rol_id(cls, v):
+        if v < 1:
+            raise ValueError('El rol_id debe ser un número positivo')
+        return v
+
+
+class VerifyRegistrationCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+    @field_validator('code')
+    def validar_code(cls, v):
+        v = v.strip()
+        if len(v) != 5 or not v.isdigit():
+            raise ValueError('El código debe ser de 5 dígitos numéricos')
+        return v
 
 
 class ChangePasswordRequest(BaseModel):

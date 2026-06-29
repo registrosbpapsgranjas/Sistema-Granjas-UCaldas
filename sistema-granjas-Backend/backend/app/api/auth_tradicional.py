@@ -15,6 +15,8 @@ from app.schemas.auth_schema import (
     ForgotPasswordRequest,
     VerifyResetCodeRequest,
     ResetPasswordRequest,
+    SendVerificationEmailRequest,
+    VerifyRegistrationCodeRequest,
 )
 from app.schemas.rol_schema import RolParaRegistro
 from app.CRUD.roles import get_roles_para_registro
@@ -78,6 +80,131 @@ def register_tradicional(data: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno del servidor durante el registro."
+        )
+
+
+@router.post("/send-verification-email", response_model=SuccessMessage)
+def send_verification_email(data: SendVerificationEmailRequest, db: Session = Depends(get_db)):
+    """
+    Paso 1 del registro verificado: valida los datos, envía un código de 5 dígitos al correo.
+    La cuenta NO se crea hasta que el código sea verificado.
+    """
+    from app.db.models import Usuario
+    from app.services.email_verification_service import generate_verification_code
+    from app.services.email_service import send_registration_verification_email
+
+    try:
+        if not UCLADAS_EMAIL_REGEX.match(data.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo se permiten correos institucionales @ucaldas.edu.co"
+            )
+
+        usuario_existente = db.query(Usuario).filter(
+            Usuario.email == data.email.lower()
+        ).first()
+        if usuario_existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ya existe una cuenta registrada con este correo electrónico."
+            )
+
+        password_hash = get_password_hash(data.password)
+
+        pending_data = {
+            "nombre": data.nombre,
+            "password_hash": password_hash,
+            "rol_id": data.rol_id,
+        }
+
+        code = generate_verification_code(data.email, pending_data)
+        sent = send_registration_verification_email(data.email, data.nombre, code)
+
+        if not sent:
+            logger.error(f"No se pudo enviar el correo de verificación a {data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No se pudo enviar el correo de verificación. Verifica la configuración del servidor de correo."
+            )
+
+        logger.info(f"Código de verificación de registro enviado a {data.email}")
+        return SuccessMessage(
+            message="Código enviado exitosamente.",
+            detail="Revisá tu bandeja de entrada. El código expira en 10 minutos."
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en send-verification-email: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
+
+
+@router.post("/verify-registration-code", response_model=TokenResponse)
+def verify_registration_code(data: VerifyRegistrationCodeRequest, db: Session = Depends(get_db)):
+    """
+    Paso 2 del registro verificado: verifica el código y crea la cuenta del usuario.
+    """
+    from app.db.models import Usuario
+    from app.services.email_verification_service import (
+        verify_registration_code as _verify,
+        get_pending_registration,
+        consume_verification_code,
+    )
+    from app.CRUD.usuarios import create_usuario
+    from app.schemas.usuario_schema import UsuarioCreate
+
+    try:
+        valid, message = _verify(data.email, data.code)
+        if not valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
+            )
+
+        pending = get_pending_registration(data.email)
+        if not pending:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Los datos de registro han expirado. Inicia el proceso nuevamente."
+            )
+
+        usuario_existente = db.query(Usuario).filter(
+            Usuario.email == data.email.lower()
+        ).first()
+        if usuario_existente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ya existe una cuenta registrada con este correo electrónico."
+            )
+
+        usuario_data = UsuarioCreate(
+            nombre=pending["nombre"],
+            email=data.email,
+            rol_id=pending["rol_id"]
+        )
+        usuario = create_usuario(db, usuario_data)
+        usuario.password_hash = pending["password_hash"]
+        usuario.auth_provider = "traditional"
+        db.commit()
+        db.refresh(usuario)
+
+        consume_verification_code(data.email)
+
+        logger.info(f"Registro verificado y cuenta creada para: {data.email}")
+        return AuthService._create_token_response(usuario, "Registro exitoso")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en verify-registration-code: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor durante la creación de la cuenta."
         )
 
 # 👇 NUEVO ENDPOINT PARA CAMBIAR CONTRASEÑA
@@ -169,10 +296,10 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
                 detail="No existe una cuenta registrada con este correo. Asegúrate de escribirlo correctamente."
             )
 
-        if usuario.auth_provider and usuario.auth_provider != "traditional":
+        if usuario.auth_provider and usuario.auth_provider not in ("traditional", "both"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Esta cuenta usa inicio de sesión con Google. No es posible restablecer la contraseña por este medio."
+                detail="Esta cuenta no tiene contraseña configurada. No es posible restablecer la contraseña por este medio."
             )
 
         code = generate_reset_code(data.email)

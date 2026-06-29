@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login as loginAPI } from "../api/auth";
 import { useAuth } from "../hooks/useAuth";
-import GoogleLoginButton from "./GoogleLoginButtom";
 import ForgotPasswordModal from "./ForgotPasswordModal";
 import toast from "react-hot-toast";
 
@@ -85,12 +84,6 @@ export default function LoginForm({ onSwitch }: Props) {
         >
           {loading ? "Ingresando..." : "Iniciar Sesión"}
         </button>
-
-        {/* Google Login - SOLO para usuarios registrados */}
-        <div className="mt-4">
-          <p className="text-center text-gray-600 mb-2">o inicia sesión con</p>
-          <GoogleLoginButton />
-        </div>
 
         <p className="text-center text-sm text-gray-600 mt-4">
           ¿No tienes cuenta?{" "}
