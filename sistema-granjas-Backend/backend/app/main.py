@@ -161,6 +161,7 @@ app = FastAPI(
 # CORS - Configuración completa para desarrollo y producción
 allow_origins = [
     "https://sistemagranjasucaldas-production.up.railway.app",  # Producción frontend
+    "https://sistema-granjas-ucaldas-production-2364.up.railway.app",
     "http://localhost:3000",  # Desarrollo local React/Vite
     "http://localhost:5173",  # Alternativa de Vite
     "http://localhost:5000",  # Vite en Replit
