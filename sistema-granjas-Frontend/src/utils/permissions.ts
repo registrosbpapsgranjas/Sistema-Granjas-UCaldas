@@ -19,7 +19,7 @@ export const ESCRITURA_POR_MODULO: Record<string, Rol[]> = {
   inventario:      ['admin', 'docente'],
   diagnosticos:    ['admin', 'docente', 'asesor', 'estudiante'],
   recomendaciones: ['admin', 'docente', 'asesor'],
-  estadisticas:    ['admin'],
+  estadisticas:    ['admin', 'docente'],
 };
 
 /**
@@ -39,7 +39,7 @@ export const ACCESO_POR_RUTA: Record<string, Rol[]> = {
   '/gestion/inventario':      ['admin', 'docente', 'asesor'],
   '/gestion/diagnosticos':    ['admin', 'docente', 'asesor', 'estudiante'],
   '/gestion/recomendaciones': ['admin', 'docente', 'asesor', 'estudiante'],
-  '/gestion/estadisticas':    ['admin'],
+  '/gestion/estadisticas':    ['admin', 'docente'],
 };
 
 /** Verifica si el rol puede realizar escritura en un módulo */

@@ -244,11 +244,11 @@ function AppContent() {
           }
         />
 
-        {/* Estadísticas - Solo admin */}
+        {/* Estadísticas - Admin y Docente */}
         <Route
           path="/gestion/estadisticas"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'docente']}>
               <GestionEstadisticasPage />
             </ProtectedRoute>
           }

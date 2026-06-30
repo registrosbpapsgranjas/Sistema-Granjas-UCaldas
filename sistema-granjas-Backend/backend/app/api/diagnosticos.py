@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from app.db.database import get_db
 from app.db.models import (
@@ -670,17 +670,218 @@ def obtener_datos_mapa(
     return {"lote_id": lote_id, "plants": list(plant_data.values())}
 
 
+def _apply_diag_scope(query, user: Usuario, programa_id: Optional[int],
+                      fecha_inicio: Optional[date], fecha_fin: Optional[date]):
+    """Aplica filtros de alcance, programa y rango de fechas a una query de Diagnostico."""
+    rol = user.rol.nombre
+    if rol == "estudiante":
+        query = query.filter(Diagnostico.usuario_id == user.id)
+    elif rol == "docente":
+        prog_ids = [p.id for p in user.programas]
+        if programa_id:
+            if programa_id in prog_ids:
+                query = query.filter(Diagnostico.programa_id == programa_id)
+            else:
+                query = query.filter(Diagnostico.id == -1)
+        elif prog_ids:
+            query = query.filter(Diagnostico.programa_id.in_(prog_ids))
+        else:
+            query = query.filter(Diagnostico.id == -1)
+        return query
+    if programa_id and rol != "docente":
+        query = query.filter(Diagnostico.programa_id == programa_id)
+    if fecha_inicio:
+        query = query.filter(Diagnostico.fecha_creacion >= datetime.combine(fecha_inicio, datetime.min.time()))
+    if fecha_fin:
+        query = query.filter(Diagnostico.fecha_creacion <= datetime.combine(fecha_fin, datetime.max.time()))
+    return query
+
+
+def _apply_diag_scope_full(query, user: Usuario, programa_id: Optional[int],
+                           fecha_inicio: Optional[date], fecha_fin: Optional[date]):
+    """Versión completa que aplica programa + fechas incluso para docente."""
+    rol = user.rol.nombre
+    if rol == "estudiante":
+        query = query.filter(Diagnostico.usuario_id == user.id)
+    elif rol == "docente":
+        prog_ids = [p.id for p in user.programas]
+        if programa_id:
+            if programa_id in prog_ids:
+                query = query.filter(Diagnostico.programa_id == programa_id)
+            else:
+                query = query.filter(Diagnostico.id == -1)
+        elif prog_ids:
+            query = query.filter(Diagnostico.programa_id.in_(prog_ids))
+        else:
+            query = query.filter(Diagnostico.id == -1)
+    else:
+        if programa_id:
+            query = query.filter(Diagnostico.programa_id == programa_id)
+    if fecha_inicio:
+        query = query.filter(Diagnostico.fecha_creacion >= datetime.combine(fecha_inicio, datetime.min.time()))
+    if fecha_fin:
+        query = query.filter(Diagnostico.fecha_creacion <= datetime.combine(fecha_fin, datetime.max.time()))
+    return query
+
+
+@router.get("/estadisticas/subtipos")
+def estadisticas_por_subtipo(
+    programa_id: Optional[int] = None,
+    fecha_inicio: Optional[date] = None,
+    fecha_fin: Optional[date] = None,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
+):
+    """Retorna estadísticas de diagnósticos agrupadas por subtipo (DiagnosticoTipo)."""
+    from app.db.models import DiagnosticoTipo
+
+    query_tipos = db.query(DiagnosticoTipo).filter(DiagnosticoTipo.activo == True)
+
+    # Para docente: restringir a sus programas
+    if user.rol.nombre == "docente":
+        prog_ids = [p.id for p in user.programas]
+        if programa_id:
+            if programa_id in prog_ids:
+                query_tipos = query_tipos.filter(DiagnosticoTipo.programa_id == programa_id)
+            else:
+                return []
+        elif prog_ids:
+            query_tipos = query_tipos.filter(DiagnosticoTipo.programa_id.in_(prog_ids))
+        else:
+            return []
+    elif programa_id:
+        query_tipos = query_tipos.filter(DiagnosticoTipo.programa_id == programa_id)
+
+    tipos = query_tipos.order_by(DiagnosticoTipo.orden).all()
+
+    resultado = []
+    for tipo in tipos:
+        diag_query = db.query(Diagnostico).filter(Diagnostico.diagnostico_tipo_id == tipo.id)
+        diag_query = _apply_diag_scope_full(diag_query, user, programa_id, fecha_inicio, fecha_fin)
+        total = diag_query.count()
+        resultado.append({
+            "id": tipo.id,
+            "nombre": tipo.nombre,
+            "descripcion": tipo.descripcion,
+            "monitoreo_nombre": tipo.monitoreo.nombre if tipo.monitoreo else None,
+            "programa_nombre": tipo.programa.nombre if tipo.programa else None,
+            "total": total,
+            "num_campos": len(tipo.campos),
+        })
+
+    resultado.sort(key=lambda x: x["total"], reverse=True)
+    return resultado
+
+
+@router.get("/estadisticas/subtipos/{subtipo_id}/items")
+def estadisticas_items_subtipo(
+    subtipo_id: int,
+    programa_id: Optional[int] = None,
+    fecha_inicio: Optional[date] = None,
+    fecha_fin: Optional[date] = None,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
+):
+    """Retorna estadísticas por campo del formulario para un subtipo específico."""
+    from app.db.models import DiagnosticoTipo
+
+    tipo = db.query(DiagnosticoTipo).filter(DiagnosticoTipo.id == subtipo_id).first()
+    if not tipo:
+        raise HTTPException(404, "Subtipo no encontrado")
+
+    diag_query = db.query(Diagnostico).filter(Diagnostico.diagnostico_tipo_id == subtipo_id)
+    diag_query = _apply_diag_scope_full(diag_query, user, programa_id, fecha_inicio, fecha_fin)
+
+    diagnosticos_list = diag_query.all()
+    total = len(diagnosticos_list)
+
+    campos_stats = []
+    for campo in sorted(tipo.campos, key=lambda c: c.orden):
+        nombre = campo.nombre_campo
+        etiqueta = campo.etiqueta
+        tipo_dato = campo.tipo_dato
+        opciones = campo.opciones
+
+        valores = []
+        for diag in diagnosticos_list:
+            formulario = diag.formulario or {}
+            val = formulario.get(nombre)
+            if val is not None and val != "":
+                valores.append(val)
+
+        stat: Dict[str, Any] = {
+            "nombre_campo": nombre,
+            "etiqueta": etiqueta,
+            "tipo_dato": tipo_dato,
+            "opciones": opciones,
+            "total_respuestas": len(valores),
+        }
+
+        if tipo_dato in ("select", "radio"):
+            distribucion: Dict[str, int] = {}
+            if opciones and isinstance(opciones, list):
+                for op in opciones:
+                    distribucion[str(op)] = 0
+            for v in valores:
+                key = str(v)
+                distribucion[key] = distribucion.get(key, 0) + 1
+            stat["distribucion"] = distribucion
+
+        elif tipo_dato in ("checkbox",):
+            distribucion = {}
+            for v in valores:
+                if isinstance(v, list):
+                    for item in v:
+                        k = str(item)
+                        distribucion[k] = distribucion.get(k, 0) + 1
+                else:
+                    k = str(v)
+                    distribucion[k] = distribucion.get(k, 0) + 1
+            stat["distribucion"] = distribucion
+
+        elif tipo_dato in ("number", "integer", "float"):
+            nums = []
+            for v in valores:
+                try:
+                    nums.append(float(v))
+                except (ValueError, TypeError):
+                    pass
+            if nums:
+                stat["promedio"] = round(sum(nums) / len(nums), 2)
+                stat["minimo"] = min(nums)
+                stat["maximo"] = max(nums)
+            else:
+                stat["promedio"] = None
+                stat["minimo"] = None
+                stat["maximo"] = None
+
+        elif tipo_dato == "boolean":
+            true_count = sum(1 for v in valores if v is True or str(v).lower() in ("true", "1", "si", "sí"))
+            stat["distribucion"] = {"Sí": true_count, "No": len(valores) - true_count}
+
+        campos_stats.append(stat)
+
+    return {
+        "subtipo_id": subtipo_id,
+        "subtipo_nombre": tipo.nombre,
+        "descripcion": tipo.descripcion,
+        "monitoreo_nombre": tipo.monitoreo.nombre if tipo.monitoreo else None,
+        "programa_nombre": tipo.programa.nombre if tipo.programa else None,
+        "total": total,
+        "campos": campos_stats,
+    }
+
+
 @router.get("/estadisticas/resumen", response_model=EstadisticasDiagnosticosResponse)
 def obtener_estadisticas(
     programa_id: Optional[int] = None,
+    fecha_inicio: Optional[date] = None,
+    fecha_fin: Optional[date] = None,
     db: Session = Depends(get_db),
     user: Usuario = Depends(require_any_role(["admin", "docente", "asesor", "estudiante"]))
 ):
     query = db.query(Diagnostico)
-    if user.rol.nombre == "estudiante":
-        query = query.filter(Diagnostico.usuario_id == user.id)
-    if programa_id:
-        query = query.filter(Diagnostico.programa_id == programa_id)
+    query = _apply_diag_scope_full(query, user, programa_id, fecha_inicio, fecha_fin)
 
     total = query.count()
 
