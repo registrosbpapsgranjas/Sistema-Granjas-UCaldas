@@ -7,7 +7,8 @@ from app.CRUD.usuarios import (
     get_usuarios, 
     get_usuario_by_id, 
     update_usuario, 
-    delete_usuario, 
+    delete_usuario,
+    hard_delete_usuario,
     cambiar_rol_usuario,
     search_usuarios,
     get_usuario_by_email,
@@ -283,16 +284,30 @@ def eliminar_usuario(
     current_user: Usuario = Depends(require_any_role("admin"))
 ):
     """
-    Eliminar (desactivar) un usuario (solo admin)
+    Elimina permanentemente un usuario de la base de datos (solo admin).
+    Si el usuario tiene recomendaciones, diagnósticos o evidencias asociadas,
+    la eliminación se bloquea y se devuelve un error 409.
     """
-    success = delete_usuario(db, usuario_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no encontrado"
-        )
-    
-    return {"message": "Usuario eliminado correctamente"}
+    result = hard_delete_usuario(db, usuario_id)
+
+    if not result['ok']:
+        if result['reason'] == 'not_found':
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado"
+            )
+        if result['reason'] == 'has_records':
+            registros = ", ".join(result['records'])
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"No se puede eliminar el usuario porque tiene registros asociados: "
+                    f"{registros}. Desactívalo en su lugar."
+                )
+            )
+
+    logger.info(f"Admin '{current_user.email}' eliminó permanentemente al usuario ID {usuario_id}")
+    return {"message": "Usuario eliminado permanentemente"}
 
 @router.get("/me/perfil", response_model=UsuarioResponse)
 def obtener_mi_perfil(current_user: Usuario = Depends(get_current_user)):

@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from app.db.models import Usuario
 from app.schemas.usuario_schema import UsuarioCreate, UsuarioUpdate
 from app.core.security import get_password_hash
@@ -49,13 +50,80 @@ def update_usuario(db: Session, usuario_id: int, usuario_update: UsuarioUpdate):
     return db_usuario
 
 def delete_usuario(db: Session, usuario_id: int):
-    # Usar get_usuario_by_id con incluir_inactivos=True para poder eliminar inactivos
+    """Soft-delete: desactiva el usuario sin eliminarlo de la BD."""
     db_usuario = get_usuario_by_id(db, usuario_id, incluir_inactivos=True)
     if db_usuario:
         db_usuario.activo = False
         db.commit()
         return True
     return False
+
+
+def hard_delete_usuario(db: Session, usuario_id: int) -> dict:
+    """
+    Elimina permanentemente el usuario de la BD.
+
+    Flujo:
+    1. Verifica que el usuario exista.
+    2. Comprueba si tiene registros en tablas con FK NOT NULL (recomendaciones,
+       diagnósticos, evidencias). Si los tiene, devuelve {'ok': False, 'reason': ...}.
+    3. Limpia relaciones muchos-a-muchos (granjas, programas) y nullifica
+       labores.trabajador_id (FK nullable).
+    4. Elimina el usuario (ChatSesion se elimina en cascada por ondelete=CASCADE).
+    """
+    from app.db.models import Recomendacion, Diagnostico, Evidencia, Labor
+
+    db_usuario = get_usuario_by_id(db, usuario_id, incluir_inactivos=True)
+    if not db_usuario:
+        return {'ok': False, 'reason': 'not_found'}
+
+    # Verificar registros bloqueantes
+    tiene_recomendaciones = db.query(Recomendacion).filter(
+        Recomendacion.docente_id == usuario_id
+    ).first()
+    tiene_diagnosticos = db.query(Diagnostico).filter(
+        Diagnostico.usuario_id == usuario_id
+    ).first()
+    tiene_evidencias = db.query(Evidencia).filter(
+        Evidencia.usuario_id == usuario_id
+    ).first()
+
+    bloqueantes = []
+    if tiene_recomendaciones:
+        bloqueantes.append("recomendaciones")
+    if tiene_diagnosticos:
+        bloqueantes.append("diagnósticos")
+    if tiene_evidencias:
+        bloqueantes.append("evidencias")
+
+    if bloqueantes:
+        return {
+            'ok': False,
+            'reason': 'has_records',
+            'records': bloqueantes,
+        }
+
+    # Limpiar relaciones muchos-a-muchos
+    db_usuario.granjas.clear()
+    db_usuario.programas.clear()
+
+    # Nullificar FK nullable en labores
+    db.query(Labor).filter(Labor.trabajador_id == usuario_id).update(
+        {'trabajador_id': None}, synchronize_session='fetch'
+    )
+
+    # Eliminar el usuario (ChatSesion se borra por CASCADE en la BD)
+    db.delete(db_usuario)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return {
+            'ok': False,
+            'reason': 'has_records',
+            'records': ['registros asociados'],
+        }
+    return {'ok': True}
 
 def cambiar_rol_usuario(db: Session, usuario_id: int, nuevo_rol_id: int):
     # Usar get_usuario_by_id con incluir_inactivos=True para poder cambiar rol de inactivos

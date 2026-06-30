@@ -24,7 +24,7 @@ const handleResponse = async (response: Response) => {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-            errorData.message || `Error ${response.status}: ${response.statusText}`
+            errorData.detail || errorData.message || `Error ${response.status}: ${response.statusText}`
         );
     }
     return response.json();
@@ -118,10 +118,10 @@ export const usuarioService = {
         return handleResponse(response);
     },
 
-    // ELIMINAR usuario
+    // ELIMINAR usuario (hard delete desde panel admin)
     async eliminarUsuario(id: number): Promise<void> {
         const url = `${API_BASE_URL}/usuarios/${id}`;
-        console.log('🗑️ Eliminando usuario:', url);
+        console.log('🗑️ Eliminando usuario permanentemente:', url);
 
         const response = await fetch(url, {
             method: 'DELETE',
@@ -129,7 +129,10 @@ export const usuarioService = {
         });
 
         if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+                errorData.detail || errorData.message || `Error ${response.status}: ${response.statusText}`
+            );
         }
     },
 

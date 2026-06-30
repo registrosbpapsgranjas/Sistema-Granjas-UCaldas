@@ -199,12 +199,18 @@ export default function GestionUsuarios() {
     };
 
     const manejarEliminar = async (id: number) => {
-        if (!confirm("¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.")) return;
+        const usuario = usuarios.find(u => u.id === id);
+        const nombre = usuario ? `"${usuario.nombre}"` : "este usuario";
+        if (!confirm(
+            `¿Eliminar permanentemente a ${nombre}?\n\n` +
+            `Esta acción borra el usuario de la base de datos y NO se puede deshacer.\n` +
+            `Si el usuario tiene diagnósticos, recomendaciones o evidencias registradas, la eliminación no será posible; usa "Desactivar" en ese caso.`
+        )) return;
 
         try {
             setError(null);
             await usuarioService.eliminarUsuario(id);
-            console.log('✅ Usuario eliminado');
+            console.log('✅ Usuario eliminado permanentemente');
 
             const nuevosUsuarios = usuarios.filter(u => u.id !== id);
             setUsuarios(nuevosUsuarios);
