@@ -221,7 +221,7 @@ def listar_labores_recomendacion(
 def obtener_estadisticas_labores(
     db: Session = Depends(get_db),
     usuario = Depends(get_current_user),
-    _ = Depends(require_any_role(["admin", "talento_humano", "jefe_talento_humano", "trabajador"]))
+    _ = Depends(require_any_role(["admin", "docente", "talento_humano", "jefe_talento_humano", "trabajador"]))
 ):
     return obtener_estadisticas_labores_crud(db, usuario)
 
