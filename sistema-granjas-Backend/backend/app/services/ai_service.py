@@ -251,8 +251,23 @@ def _construir_contexto_por_rol(db: Session, usuario, pregunta: str) -> str:
     nombre = usuario.nombre
     partes = [f"Sistema de Gestión de Granjas — Universidad de Caldas\nUsuario: {nombre} | Rol: {rol}\n"]
 
+    # ── ADMIN: ve todas las granjas (activas e inactivas) ─────────────────────
+    if rol == "admin":
+        granjas = db.query(Granja).all()  # todas, sin filtro
+        partes.append(f"Granjas totales: {len(granjas)}")
+        for granja in granjas:
+            partes.append(f"\n=== GRANJA: {granja.nombre} — {granja.ubicacion} (ID {granja.id}) ===")
+            partes.extend(_totales_granja(db, granja.id))
+            for prog in granja.programas:
+                partes.append(f"\n  Programa: {prog.nombre} ({prog.tipo}) — ID {prog.id}")
+                lotes = db.query(Lote).filter(Lote.programa_id == prog.id).all()
+                partes.append(f"  Total lotes: {len(lotes)}")
+                for lote in lotes:
+                    partes.extend(_contexto_lote(db, lote, ind="    "))
+                partes.extend(_contexto_inventario_programa(db, prog, ind="    "))
+
     # ── jefe_talento_humano : ve todas las granjas activas ───────────────────
-    if rol == "jefe_talento_humano":
+    elif rol == "jefe_talento_humano":
         granjas = db.query(Granja).filter(Granja.activo == True).all()
         partes.append(f"Granjas activas: {len(granjas)}")
         for granja in granjas:
@@ -320,15 +335,20 @@ def generar_resumen_diagnostico(db: Session, diagnostico_id: int, usuario) -> st
 
     rol = usuario.rol.nombre
     programas_usuario = [p.id for p in usuario.programas]
+    granjas_usuario = [g.id for g in usuario.granjas]
 
-    if rol in ("docente", "asesor", "estudiante"):
+    # ADMIN siempre tiene acceso
+    if rol == "admin":
+        pass
+    elif rol in ("docente", "asesor", "estudiante"):
         if diag.programa_id not in programas_usuario:
             raise PermissionError("No tienes acceso a este diagnóstico")
-    elif rol == "talento_humano":
-        granjas_usuario = [g.id for g in usuario.granjas]
+    elif rol == "talento_humano" or rol == "jefe_talento_humano":
         lote = db.query(Lote).filter(Lote.id == diag.lote_id).first()
         if not lote or lote.granja_id not in granjas_usuario:
             raise PermissionError("No tienes acceso a este diagnóstico")
+    else:
+        raise PermissionError("Tu rol no tiene acceso a esta función")
 
     programa_nombre = diag.programa.nombre if diag.programa else "—"
     lote_nombre     = diag.lote.nombre if diag.lote else "—"
@@ -371,7 +391,7 @@ Responde ÚNICAMENTE con el resumen estructurado, sin repetir los datos crudos.
 def responder_chat(db: Session, usuario, pregunta: str, historial: list) -> str:
     rol = usuario.rol.nombre
 
-    roles_permitidos = ("docente", "asesor", "talento_humano", "jefe_talento_humano", "admin")
+    roles_permitidos = ("admin", "docente", "asesor", "talento_humano", "jefe_talento_humano")
     if rol not in roles_permitidos:
         raise PermissionError("Tu rol no tiene acceso al asistente de IA")
 
