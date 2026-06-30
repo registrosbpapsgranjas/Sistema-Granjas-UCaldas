@@ -1,5 +1,5 @@
 // src/components/Lotes/GestionLote.tsx
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { puedeEscribir } from "../../utils/permissions";
@@ -33,7 +33,6 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
     const [nombrePrograma, setNombrePrograma] = useState<string>('');
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const cargandoRef = useRef(false); // 👈 Para evitar llamadas simultáneas
 
     // Modales
     const [modalCrear, setModalCrear] = useState(false);
@@ -58,7 +57,8 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
         cargarNombrePrograma();
     }, [programaId]);
 
-    // Formulario
+
+    // Formulario - AGREGADOS surcos, plantas_por_surco y cultivos_ids
     const [datosFormulario, setDatosFormulario] = useState({
         nombre: "",
         tipo_lote_id: 0,
@@ -71,18 +71,18 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
         cultivos_ids: [] as number[],
     });
 
-    // Memoizar cargarDatos para que sea estable
-    const cargarDatos = useCallback(async () => {
-        // Evitar llamadas simultáneas
-        if (cargandoRef.current) return;
-        cargandoRef.current = true;
+    useEffect(() => {
+        cargarDatos();
+    }, [programaId, cultivoId]);
 
+    const cargarDatos = async () => {
         try {
             setCargando(true);
             setError(null);
 
             const loadingToast = toast.loading('Cargando datos de lotes...');
 
+            // Obtener lotes según filtros
             let datosLotes;
             if (programaId) {
                 datosLotes = await loteService.obtenerLotesPorPrograma(Number(programaId));
@@ -92,6 +92,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 datosLotes = await loteService.obtenerLotes();
             }
 
+            // Asegurar que datosLotes sea un array
             const lotesArray = Array.isArray(datosLotes) ? datosLotes : (datosLotes?.items || []);
 
             const [datosTiposLote, datosGranjas, datosProgramas] = await Promise.all([
@@ -116,29 +117,8 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
             });
         } finally {
             setCargando(false);
-            cargandoRef.current = false;
         }
-    }, [programaId, cultivoId]); // dependencias estables
-
-    // Ejecutar cargarDatos cuando cambien las dependencias
-    useEffect(() => {
-        cargarDatos();
-    }, [cargarDatos]); // ahora cargarDatos es estable
-
-    // Resetear formulario
-    const resetFormulario = useCallback(() => {
-        setDatosFormulario({
-            nombre: "",
-            tipo_lote_id: 0,
-            granja_id: 0,
-            programa_id: programaId ? Number(programaId) : 0,
-            fecha_inicio: new Date().toISOString().split('T')[0],
-            estado: "activo",
-            surcos: null,
-            plantas_por_surco: null,
-            cultivos_ids: [],
-        });
-    }, [programaId]);
+    };
 
     const manejarCrear = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -150,6 +130,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 datosEnvio.programa_id = Number(programaId);
             }
             
+            // Convertir surcos y plantas_por_surco a números o null
             if (datosEnvio.surcos === '' || datosEnvio.surcos === undefined) datosEnvio.surcos = null;
             if (datosEnvio.plantas_por_surco === '' || datosEnvio.plantas_por_surco === undefined) datosEnvio.plantas_por_surco = null;
 
@@ -174,6 +155,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
     };
 
     const abrirEditar = (lote: any) => {
+        // Obtener los IDs de cultivos desde la relación lote_cultivo o cultivos_asignados
         const cultivosIds = lote.cultivos_ids || 
                            lote.cultivos_asignados?.map((lc: any) => lc.cultivo_id) || 
                            (lote.cultivos ? lote.cultivos.map((c: any) => c.id) : []);
@@ -216,6 +198,21 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
         }
     };
 
+    const resetFormulario = () => {
+        setDatosFormulario({
+            nombre: "",
+            tipo_lote_id: 0,
+            granja_id: 0,
+            programa_id: programaId ? Number(programaId) : 0,
+            fecha_inicio: new Date().toISOString().split('T')[0],
+            estado: "activo",
+            surcos: null,
+            plantas_por_surco: null,
+            cultivos_ids: [],
+        });
+    };
+
+    // Determinar título
     const titulo = cultivoNombre 
         ? `Lotes con cultivo: ${decodeURIComponent(cultivoNombre)}`
         : programaId 
@@ -237,6 +234,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
 
     return (
         <div className="p-6">
+            {/* Botones de acción */}
             <div className="mb-6 flex gap-4 items-center flex-wrap">
                 <ExportButton onExport={() => programaId ? exportService.exportarLotesPorPrograma(Number(programaId)) : exportService.exportarLotes()} />
                 {canWrite && (
@@ -264,6 +262,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 )}
             </div>
 
+            {/* Tabla de lotes */}
             <LotesTable
                 lotes={lotes}
                 onEditar={abrirEditar}
@@ -271,6 +270,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 canWrite={canWrite}
             />
 
+            {/* Modal de formulario */}
             <LoteForm
                 isOpen={modalCrear}
                 onClose={() => {
@@ -288,6 +288,7 @@ export default function GestionLotes({ programaId }: GestionLotesProps) {
                 programaIdFijo={programaId ? Number(programaId) : undefined}
             />
 
+            {/* Modal de tipos de lote */}
             <TiposLoteModal
                 isOpen={modalTiposLote}
                 onClose={() => setModalTiposLote(false)}

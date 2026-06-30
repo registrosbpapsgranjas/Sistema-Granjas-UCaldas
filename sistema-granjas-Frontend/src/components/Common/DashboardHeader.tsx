@@ -85,13 +85,12 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             docente: [
                 { name: 'Diagnósticos', path: '/gestion/diagnosticos', icon: 'fa-stethoscope', description: 'Evaluar diagnósticos' },
                 { name: 'Recomendaciones', path: '/gestion/recomendaciones', icon: 'fa-lightbulb', description: 'Aprobar recomendaciones' },
-                { name: 'Estadísticas', path: '/gestion/estadisticas', icon: 'fa-chart-bar', description: 'Ver estadísticas' },
-                { name: 'Labores', path: '/gestion/labores', icon: 'fa-calendar-check', description: 'Supervisar labores' },
                 { name: 'Programas', path: '/gestion/programas', icon: 'fa-clipboard-list', description: 'Gestionar programas' },
                 { name: 'Lotes', path: '/gestion/lotes', icon: 'fa-tractor', description: 'Gestionar lotes' },
                 { name: 'Cultivos', path: '/gestion/cultivos', icon: 'fa-leaf', description: 'Gestionar cultivos' },
                 { name: 'Plantas', path: '/gestion/plantas', icon: 'fa-seedling', description: 'Gestionar plantas' },
                 { name: 'Inventario', path: '/gestion/inventario', icon: 'fa-boxes', description: 'Gestionar inventario' },
+                { name: 'Estadísticas', path: '/gestion/estadisticas', icon: 'fa-chart-bar', description: 'Ver estadísticas' },
             ],
             talento_humano: [
                 { name: 'Tablero', path: '/tablero', icon: 'fa-th-large', description: 'Tablero de labores' },
