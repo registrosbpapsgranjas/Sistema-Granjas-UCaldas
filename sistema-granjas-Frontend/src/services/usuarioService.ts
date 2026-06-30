@@ -63,7 +63,7 @@ export const usuarioService = {
         return handleResponse(response);
     },
 
-    // CREAR usuario
+    // CREAR usuario (admin)
     async crearUsuario(datosUsuario: {
         nombre: string;
         email: string;
@@ -72,6 +72,24 @@ export const usuarioService = {
     }): Promise<Usuario> {
         const url = `${API_BASE_URL}/usuarios/`;
         console.log('📤 Creando usuario:', url);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(datosUsuario)
+        });
+        return handleResponse(response);
+    },
+
+    // CREAR usuario desde panel de administración (sin restricción de dominio)
+    async crearUsuarioAdmin(datosUsuario: {
+        nombre: string;
+        email: string;
+        password: string;
+        rol_id: number;
+    }): Promise<Usuario> {
+        const url = `${API_BASE_URL}/usuarios/`;
+        console.log('📤 Creando usuario (admin):', url);
 
         const response = await fetch(url, {
             method: 'POST',

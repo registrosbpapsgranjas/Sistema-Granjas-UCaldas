@@ -10,6 +10,7 @@ import { EditarUsuarioModal } from "./EditarUsuario";
 import { CambiarRolModal } from "./CambiarRol";
 import { AsignarProgramaModal } from "./AsignarProgramaModal";
 import { AsignarGranjaModal } from "./AsignarGranjaModal";
+import { CrearUsuarioModal } from "./CrearUsuarioModal";
 import UsuariosTable from "./UsuariosTable";
 import exportService from "../../services/exportService";
 
@@ -47,6 +48,7 @@ export default function GestionUsuarios() {
     });
 
     // Modales
+    const [modalCrear, setModalCrear] = useState(false);
     const [modalEditar, setModalEditar] = useState(false);
     const [modalCambiarRol, setModalCambiarRol] = useState(false);
     const [modalAsignarPrograma, setModalAsignarPrograma] = useState(false);
@@ -285,6 +287,24 @@ export default function GestionUsuarios() {
         }
     };
 
+    const manejarCrearUsuario = async (datos: {
+        nombre: string;
+        email: string;
+        password: string;
+        rol_id: number;
+    }) => {
+        const nuevoUsuario = await usuarioService.crearUsuarioAdmin(datos);
+        const nuevoRol = roles.find(r => r.id === nuevoUsuario.rol_id);
+        const usuarioConRol = {
+            ...nuevoUsuario,
+            rol_nombre: nuevoRol?.nombre ?? nuevoUsuario.rol_nombre ?? `Rol ${nuevoUsuario.rol_id}`,
+        };
+        const nuevosUsuarios = [usuarioConRol, ...usuarios];
+        setUsuarios(nuevosUsuarios);
+        calcularEstadisticas(nuevosUsuarios, roles);
+        setModalCrear(false);
+    };
+
     const cerrarModales = () => {
         setModalEditar(false);
         setModalCambiarRol(false);
@@ -346,14 +366,23 @@ export default function GestionUsuarios() {
                         Administra los usuarios del sistema, sus roles y asignaciones
                     </p>
                 </div>
-                <button
-                    onClick={handleExportUsuarios}
-                    disabled={exporting}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-                >
-                    <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-export'}`}></i>
-                    {exporting ? 'Exportando...' : 'Exportar'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setModalCrear(true)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                    >
+                        <i className="fas fa-user-plus"></i>
+                        Crear Usuario
+                    </button>
+                    <button
+                        onClick={handleExportUsuarios}
+                        disabled={exporting}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                    >
+                        <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-export'}`}></i>
+                        {exporting ? 'Exportando...' : 'Exportar'}
+                    </button>
+                </div>
             </div>
 
             {/* Distribución por Roles */}
@@ -470,6 +499,13 @@ export default function GestionUsuarios() {
             />
 
             {/* MODALES */}
+            <CrearUsuarioModal
+                isOpen={modalCrear}
+                onClose={() => setModalCrear(false)}
+                roles={roles}
+                onCreate={manejarCrearUsuario}
+            />
+
             <EditarUsuarioModal
                 isOpen={modalEditar}
                 onClose={cerrarModales}

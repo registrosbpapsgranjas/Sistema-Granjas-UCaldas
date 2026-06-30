@@ -3,6 +3,7 @@ from typing import Optional
 from datetime import datetime
 import re
 
+
 class UsuarioBase(BaseModel):
     nombre: str
     email: EmailStr
@@ -16,11 +17,10 @@ class UsuarioBase(BaseModel):
             raise ValueError('El nombre debe tener al menos 3 caracteres')
         if len(v) > 100:
             raise ValueError('El nombre no puede tener más de 100 caracteres')
-        
-        # Validar que solo contenga letras, espacios y algunos caracteres especiales
+
         if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.]+$', v):
-            raise ValueError('El nombre solo puede contener letras, espacios y los caracteres: - \' .')
-        
+            raise ValueError("El nombre solo puede contener letras, espacios y los caracteres: - ' .")
+
         return v.strip()
 
     @field_validator('rol_id')
@@ -30,6 +30,7 @@ class UsuarioBase(BaseModel):
         if v < 1:
             raise ValueError('El rol_id debe ser un número positivo')
         return v
+
 
 class UsuarioCreate(UsuarioBase):
     password: Optional[str] = None
@@ -41,12 +42,12 @@ class UsuarioCreate(UsuarioBase):
                 raise ValueError('La contraseña debe tener al menos 6 caracteres')
             if len(v) > 100:
                 raise ValueError('La contraseña no puede tener más de 100 caracteres')
-            # Validar fortaleza de contraseña
             if not any(char.isdigit() for char in v):
                 raise ValueError('La contraseña debe contener al menos un número')
             if not any(char.isalpha() for char in v):
                 raise ValueError('La contraseña debe contener al menos una letra')
         return v
+
 
 class UsuarioCreateWithPassword(UsuarioBase):
     password: str
@@ -57,28 +58,61 @@ class UsuarioCreateWithPassword(UsuarioBase):
             raise ValueError('La contraseña debe tener al menos 6 caracteres')
         if len(v) > 100:
             raise ValueError('La contraseña no puede tener más de 100 caracteres')
-        
-        # Validar fortaleza de contraseña
         if not any(char.isdigit() for char in v):
             raise ValueError('La contraseña debe contener al menos un número')
         if not any(char.isalpha() for char in v):
             raise ValueError('La contraseña debe contener al menos una letra')
         if not any(char in "!@#$%^&*()-_=+[]{}|;:,.<>?/" for char in v):
             raise ValueError('La contraseña debe contener al menos un carácter especial')
-        
         return v
 
     @model_validator(mode='after')
     def validar_email_dominio(cls, values):
         email = values.email
-        # Validar que el email sea del dominio de la universidad
         dominios_permitidos = ['ucaldas.edu.co', 'estudiantes.ucaldas.edu.co', 'gmail.com']
         dominio = email.split('@')[-1]
-        
         if dominio not in dominios_permitidos:
-            raise ValueError(f'El email debe ser del dominio de la Universidad de Caldas. Dominios permitidos: {", ".join(dominios_permitidos)}')
-        
+            raise ValueError(
+                f'El email debe ser del dominio de la Universidad de Caldas. '
+                f'Dominios permitidos: {", ".join(dominios_permitidos)}'
+            )
         return values
+
+
+class AdminCrearUsuarioRequest(BaseModel):
+    """
+    Schema para que el admin cree un usuario sin restricción de dominio,
+    con cualquier rol y contraseña mínima de 6 caracteres.
+    """
+    nombre: str
+    email: EmailStr
+    password: str
+    rol_id: int
+
+    @field_validator('nombre')
+    def validar_nombre_admin(cls, v):
+        if not v or len(v.strip()) < 3:
+            raise ValueError('El nombre debe tener al menos 3 caracteres')
+        if len(v) > 100:
+            raise ValueError('El nombre no puede tener más de 100 caracteres')
+        if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.]+$', v):
+            raise ValueError("El nombre solo puede contener letras, espacios y los caracteres: - ' .")
+        return v.strip()
+
+    @field_validator('password')
+    def validar_password_admin(cls, v):
+        if len(v) < 6:
+            raise ValueError('La contraseña debe tener al menos 6 caracteres')
+        if len(v) > 100:
+            raise ValueError('La contraseña no puede tener más de 100 caracteres')
+        return v
+
+    @field_validator('rol_id')
+    def validar_rol_id_admin(cls, v):
+        if v < 1:
+            raise ValueError('El rol_id debe ser un número positivo')
+        return v
+
 
 class UsuarioUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -94,16 +128,16 @@ class UsuarioUpdate(BaseModel):
             if len(v) > 100:
                 raise ValueError('El nombre no puede tener más de 100 caracteres')
             if not re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\-\'\.]+$', v):
-                raise ValueError('El nombre solo puede contener letras, espacios y los caracteres: - \' .')
+                raise ValueError("El nombre solo puede contener letras, espacios y los caracteres: - ' .")
         return v
 
     @field_validator('email')
     def validar_email_update(cls, v):
         if v is not None:
-            dominios_permitidos = ['gmail.com','ucaldas.edu.co', 'estudiantes.ucaldas.edu.co']
+            dominios_permitidos = ['gmail.com', 'ucaldas.edu.co', 'estudiantes.ucaldas.edu.co']
             dominio = v.split('@')[-1]
             if dominio not in dominios_permitidos:
-                raise ValueError(f'El email debe ser del dominio de la Universidad de Caldas')
+                raise ValueError('El email debe ser del dominio de la Universidad de Caldas')
         return v
 
     @field_validator('rol_id')
@@ -112,14 +146,16 @@ class UsuarioUpdate(BaseModel):
             raise ValueError('El rol_id debe ser un número positivo')
         return v
 
+
 class UsuarioResponse(UsuarioBase):
     id: int
     activo: bool
     fecha_creacion: datetime
     rol_nombre: str
-    
+
     class Config:
         from_attributes = True
+
 
 class Token(BaseModel):
     access_token: str
@@ -128,6 +164,7 @@ class Token(BaseModel):
     rol: str
     rol_id: int
     email: str
+
 
 class GoogleAuthRequest(BaseModel):
     token: str
@@ -139,6 +176,7 @@ class GoogleAuthRequest(BaseModel):
         if len(v) < 10:
             raise ValueError('El token de Google no es válido')
         return v
+
 
 class GoogleRegisterRequest(BaseModel):
     token: str

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -11,14 +11,80 @@ from app.CRUD.usuarios import (
     cambiar_rol_usuario,
     search_usuarios,
     get_usuario_by_email,
-    get_trabajadores
+    get_trabajadores,
+    create_usuario,
 )
 from app.CRUD.roles import get_rol_by_id
-from app.schemas.usuario_schema import UsuarioResponse, UsuarioUpdate
+from app.schemas.usuario_schema import UsuarioResponse, UsuarioUpdate, AdminCrearUsuarioRequest, UsuarioCreate
 from app.core.dependencies import get_current_user, require_any_role
 from app.db.models import Usuario
+from app.services.email_service import send_admin_created_user_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+
+
+@router.post("/", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
+def crear_usuario_admin(
+    datos: AdminCrearUsuarioRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_any_role("admin"))
+):
+    """
+    Crea un nuevo usuario desde el panel de administración.
+    - Cualquier dominio de correo permitido
+    - Cualquier rol disponible
+    - Contraseña mínima de 6 caracteres (sin restricciones adicionales)
+    - El usuario puede iniciar sesión inmediatamente (sin verificación de email)
+    - Se envía un correo de notificación con las credenciales al nuevo usuario
+    """
+    # Verificar que el email no esté en uso
+    usuario_existente = get_usuario_by_email(db, datos.email)
+    if usuario_existente:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ya existe un usuario con el correo {datos.email}"
+        )
+
+    # Verificar que el rol exista
+    rol = get_rol_by_id(db, datos.rol_id)
+    if not rol:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El rol especificado no existe"
+        )
+
+    # Crear el usuario en la BD
+    usuario_schema = UsuarioCreate(
+        nombre=datos.nombre,
+        email=datos.email,
+        rol_id=datos.rol_id,
+    )
+    nuevo_usuario = create_usuario(db, usuario_schema, password=datos.password, auth_provider="traditional")
+
+    # Enviar correo de bienvenida con credenciales en segundo plano
+    background_tasks.add_task(
+        send_admin_created_user_email,
+        to_email=datos.email,
+        user_name=datos.nombre,
+        password=datos.password,
+    )
+
+    logger.info(f"Admin '{current_user.email}' creó el usuario '{datos.email}' con rol '{rol.nombre}'")
+
+    return UsuarioResponse(
+        id=nuevo_usuario.id,
+        nombre=nuevo_usuario.nombre,
+        email=nuevo_usuario.email,
+        rol_id=nuevo_usuario.rol_id,
+        rol_nombre=rol.nombre,
+        activo=nuevo_usuario.activo,
+        fecha_creacion=nuevo_usuario.fecha_creacion
+    )
+
 
 # ✅ FORMA 1: Usando dependencies en el decorador (CORREGIDO)
 @router.get("/", response_model=List[UsuarioResponse], dependencies=[Depends(require_any_role(["admin","talento_humano","jefe_talento_humano","docente","asesor","estudiante","trabajador"]))])
