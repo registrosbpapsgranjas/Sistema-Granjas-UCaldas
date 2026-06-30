@@ -670,6 +670,54 @@ def obtener_datos_mapa(
     return {"lote_id": lote_id, "plants": list(plant_data.values())}
 
 
+def _extraer_valores_campo(formulario: dict, nombre_campo: str) -> list:
+    """
+    Extrae todos los valores de un campo desde el formulario de un diagnóstico.
+
+    Soporta dos estructuras:
+      1. Plana: formulario = {"campo": valor, ...}
+      2. Anidada: formulario = {"formularios_por_planta": {"1807": {"campo74": valor, ...}}}
+
+    Los nombres de clave en la estructura anidada pueden tener sufijos numéricos
+    concatenados directamente al nombre_campo (ej. "cuadrante74", "nmero_total...79").
+    Los valores pueden ser escalares o listas; las listas se aplanan.
+    """
+    import re
+    valores: list = []
+
+    # ── Estructura anidada (formularios_por_planta) ──────────────────────────
+    if "formularios_por_planta" in formulario:
+        # Patrón: nombre_campo exacto O nombre_campo + dígitos opcionales al final
+        pattern = re.compile(r'^' + re.escape(nombre_campo) + r'\d*$')
+        for planta_data in formulario["formularios_por_planta"].values():
+            if not isinstance(planta_data, dict):
+                continue
+            for key, val in planta_data.items():
+                if not pattern.match(key):
+                    continue
+                if val is None or val == "":
+                    continue
+                if isinstance(val, list):
+                    for item in val:
+                        if item is not None and item != "":
+                            valores.append(item)
+                else:
+                    valores.append(val)
+        return valores
+
+    # ── Estructura plana ─────────────────────────────────────────────────────
+    val = formulario.get(nombre_campo)
+    if val is None or val == "":
+        return valores
+    if isinstance(val, list):
+        for item in val:
+            if item is not None and item != "":
+                valores.append(item)
+    else:
+        valores.append(val)
+    return valores
+
+
 def _apply_diag_scope(query, user: Usuario, programa_id: Optional[int],
                       fecha_inicio: Optional[date], fecha_fin: Optional[date]):
     """Aplica filtros de alcance, programa y rango de fechas a una query de Diagnostico."""
@@ -805,9 +853,7 @@ def estadisticas_items_subtipo(
         valores = []
         for diag in diagnosticos_list:
             formulario = diag.formulario or {}
-            val = formulario.get(nombre)
-            if val is not None and val != "":
-                valores.append(val)
+            valores.extend(_extraer_valores_campo(formulario, nombre))
 
         stat: Dict[str, Any] = {
             "nombre_campo": nombre,
