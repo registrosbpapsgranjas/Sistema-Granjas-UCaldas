@@ -77,13 +77,13 @@ const ROLE_PROFILES: Record<string, RoleProfile> = {
   },
   docente: {
     headline: 'Docencia y gestión técnica',
-    summary: 'Puedes gestionar todo el ciclo técnico: desde los cultivos hasta los diagnósticos y recomendaciones. También supervisas labores, inventario y estadísticas de tus programas.',
+    summary: 'Puedes gestionar todo el ciclo técnico: desde los cultivos hasta los diagnósticos y recomendaciones. También supervisas el inventario y las estadísticas de tus programas.',
     capabilities: [
       { icon: 'fa-stethoscope', color: 'bg-teal-500', title: 'Diagnósticos', description: 'Registra observaciones de campo y documenta el estado fitosanitario de los cultivos.', path: '/gestion/diagnosticos' },
       { icon: 'fa-lightbulb', color: 'bg-yellow-500', title: 'Recomendaciones', description: 'Emite recomendaciones técnicas con productos específicos para cada situación.', path: '/gestion/recomendaciones' },
       { icon: 'fa-chart-bar', color: 'bg-rose-500', title: 'Estadísticas', description: 'Consulta reportes, gráficas y análisis de diagnósticos de tus programas.', path: '/gestion/estadisticas' },
-      { icon: 'fa-calendar-check', color: 'bg-green-500', title: 'Labores', description: 'Planifica y asigna actividades de campo al equipo de trabajadores.', path: '/gestion/labores' },
-      { icon: 'fa-boxes', color: 'bg-amber-500', title: 'Inventario', description: 'Consulta y gestiona los insumos y herramientas disponibles para las labores.', path: '/gestion/inventario' },
+      { icon: 'fa-boxes', color: 'bg-amber-500', title: 'Inventario', description: 'Consulta y gestiona los insumos y herramientas disponibles.', path: '/gestion/inventario' },
+      { icon: 'fa-clipboard-list', color: 'bg-blue-500', title: 'Programas', description: 'Gestiona y consulta los programas agrícolas asignados a tu perfil.', path: '/gestion/programas' },
       { icon: 'fa-tractor', color: 'bg-purple-500', title: 'Lotes y cultivos', description: 'Monitorea los lotes de producción y el avance de los cultivos registrados.', path: '/gestion/lotes' },
     ],
   },
@@ -157,7 +157,7 @@ const QUICK_ACTIONS: Record<string, QuickAction[]> = {
     { label: 'Diagnóstico',     icon: 'fa-stethoscope',    path: '/gestion/diagnosticos',    color: 'bg-teal-500' },
     { label: 'Recomendación',   icon: 'fa-lightbulb',      path: '/gestion/recomendaciones', color: 'bg-yellow-500' },
     { label: 'Estadísticas',    icon: 'fa-chart-bar',      path: '/gestion/estadisticas',    color: 'bg-rose-500' },
-    { label: 'Labores',         icon: 'fa-calendar-check', path: '/gestion/labores',         color: 'bg-green-500' },
+    { label: 'Programas',       icon: 'fa-clipboard-list', path: '/gestion/programas',       color: 'bg-blue-500' },
   ],
   asesor:         [
     { label: 'Diagnóstico',     icon: 'fa-stethoscope',    path: '/gestion/diagnosticos',    color: 'bg-teal-500' },
