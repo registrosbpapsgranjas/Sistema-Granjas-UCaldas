@@ -231,7 +231,6 @@ const LotesTable: React.FC<LotesTableProps> = ({
                         <h3 className="text-lg font-medium text-gray-900">Lista de Lotes</h3>
                         <p className="text-sm text-gray-500">
                             Mostrando {lotesFiltrados.length} {lotesFiltrados.length === 1 ? 'lote registrado' : 'lotes registrados'}
-                            {cargando && <span className="ml-2 text-blue-500">(Cargando datos...)</span>}
                         </p>
                     </div>
                     {esDocente && (
