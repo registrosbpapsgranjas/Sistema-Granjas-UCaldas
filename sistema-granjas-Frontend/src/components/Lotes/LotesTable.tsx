@@ -32,7 +32,11 @@ const LotesTable: React.FC<LotesTableProps> = ({
     // 👇 DETERMINAR ROL Y PROGRAMAS DEL USUARIO
     const esAdmin = user?.rol_id === 1;
     const esDocente = user?.rol_id === 2 || user?.rol_id === 5;
-    const programasDocente = user?.programas?.map((p: any) => p.id) || [];
+    const programasDocente = useMemo(
+        () => user?.programas?.map((p: any) => p.id) || [],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [user?.programas]
+    );
 
     // 👇 FILTRAR LOTES SEGÚN ROL
     const lotesFiltrados = useMemo(() => {
@@ -231,6 +235,7 @@ const LotesTable: React.FC<LotesTableProps> = ({
                         <h3 className="text-lg font-medium text-gray-900">Lista de Lotes</h3>
                         <p className="text-sm text-gray-500">
                             Mostrando {lotesFiltrados.length} {lotesFiltrados.length === 1 ? 'lote registrado' : 'lotes registrados'}
+                            {cargando && <span className="ml-2 text-blue-500">(Cargando datos...)</span>}
                         </p>
                     </div>
                     {esDocente && (
